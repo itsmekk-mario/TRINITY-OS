@@ -1,0 +1,23 @@
+export type Subject = '국어' | '수학' | '영어' | '탐구';
+export type CalendarEntry = { date: string; study: string; minutes: number; exam: string; event: string; condition: number; reflection: string };
+export type TimerSession = { id: string; date: string; subject: Subject; seconds: number; note?: string };
+export type JournalEntry = { date: string; studied: string; wins: string; blocked: string; cause: string; hypothesis: string; action: string; event: string };
+export type ScoreEntry = { id: string; name: string; date: string; subject: Subject; korean?: number; math?: number; english?: number; duration: number; errorType: string; cause: string; nextAction: string };
+export type Resource = { id: string; subject: Subject; group: string; name: string; total: number; done: number };
+export type Goal = { id: string; subject: Subject; text: string; done: boolean };
+export type RoutineItem = { id: string; time: string; title: string; detail: string; subject: Subject | '생활' };
+export type PlaireEntry = { date: string; record: string; criterion: string; wrongJudgment: string; lens: string; focus: string; simulation: string; workingMemory: string; automatic: string; conscious: string; transfer: string; bottleneck: string; nextAction: string; levels: { criterion: number; immersion: number; embodiment: number } };
+export type TrinityEntry = { id: string; date: string; subject: Subject; mode: '국어' | '수학'; fields: Record<string, string> };
+export type AppData = {
+  calendar: Record<string, CalendarEntry>;
+  sessions: TimerSession[];
+  journals: Record<string, JournalEntry>;
+  scores: ScoreEntry[];
+  resources: Resource[];
+  goals: Goal[];
+  routine: RoutineItem[];
+  quotes: string[];
+  examDate: string;
+  plaire: Record<string, PlaireEntry>;
+  trinity: TrinityEntry[];
+};
