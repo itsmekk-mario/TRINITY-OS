@@ -67,6 +67,20 @@ npm run dev
 
 토큰은 브라우저 메모리에만 두며, 앱은 Drive의 `appDataFolder`에만 접근합니다. Google 연결이 끊기면 기존 LocalStorage 기록은 그대로 유지됩니다. 여러 기기에서 동시에 수정한 경우 ID가 같은 항목은 마지막으로 병합된 값이 사용됩니다.
 
+## Cloudflare Workers + D1 동기화
+
+`worker/` 폴더에 개인용 Worker API와 D1 스키마가 포함되어 있습니다. Cloudflare Dashboard에서 D1을 만들고 `worker/wrangler.toml`의 `database_id`를 채운 뒤 다음을 실행합니다.
+
+```bash
+cd worker
+npm install
+npx wrangler d1 execute trinity-os-db --remote --file=./schema.sql
+npx wrangler secret put SYNC_TOKEN
+npm run deploy
+```
+
+배포된 Worker URL과 `SYNC_TOKEN` 값을 앱의 `데이터 및 설정 → Cloudflare 동기화`에 입력합니다. Worker는 `GET /api/sync`, `PUT /api/sync`, `GET /api/health`를 제공하며, 허용된 출처는 `wrangler.toml`의 `ALLOWED_ORIGIN`으로 제한됩니다.
+
 브라우저 데이터는 앱의 **데이터 및 설정 → 데이터 백업**으로 주기적으로 JSON 파일로 보관하세요. `resources.json`을 나중에 수정해도 이미 사용 중인 브라우저의 자료 데이터는 유지됩니다. 초기화하려면 해당 사이트의 브라우저 저장 데이터를 삭제한 뒤 다시 실행합니다.
 
 ## GitHub Pages 배포

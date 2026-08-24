@@ -1,0 +1,19 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "trinity-os",
+	"compatibility_date": "2026-08-20",
+	"observability": {
+		"enabled": true
+	},
+	"assets": {
+		"not_found_handling": "single-page-application"
+	},
+	"d1_databases": [
+		{
+			"binding": "trinity_os_db",
+			"database_name": "trinity-os-db",
+			"database_id": "e6b6cdaa-bbce-437d-8074-a7248bbc4b4f",
+			"remote": true
+		}
+	]
+}
