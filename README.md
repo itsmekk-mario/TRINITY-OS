@@ -1,0 +1,2 @@
+# TRINITY-OS
+학습OS
