@@ -53,6 +53,20 @@ npm run dev
 
 `src/data/`의 JSON 파일은 첫 실행 때 사용할 기본값입니다. 평소에는 코드를 열지 않아도 됩니다.
 
+## Google Drive 자동 동기화
+
+앱의 `데이터 및 설정 → Google Drive 동기화`에서 Google OAuth 웹 Client ID를 입력하면, Drive의 전용 앱 데이터 영역에 `trinity-os-sync.json`이 생성됩니다. 각 기기에서 같은 Client ID와 Google 계정으로 연결하면 로컬 기록과 Drive 기록을 ID 기준으로 병합합니다.
+
+설정 순서:
+
+1. Google Cloud Console에서 프로젝트를 만들고 Google Drive API를 활성화합니다.
+2. OAuth consent screen을 설정합니다.
+3. OAuth Client ID를 `Web application` 유형으로 생성합니다.
+4. Authorized JavaScript origins에 `https://trinityos.mcv.kr`을 추가합니다.
+5. Client ID(비밀키가 아님)를 앱 설정에 입력합니다.
+
+토큰은 브라우저 메모리에만 두며, 앱은 Drive의 `appDataFolder`에만 접근합니다. Google 연결이 끊기면 기존 LocalStorage 기록은 그대로 유지됩니다. 여러 기기에서 동시에 수정한 경우 ID가 같은 항목은 마지막으로 병합된 값이 사용됩니다.
+
 브라우저 데이터는 앱의 **데이터 및 설정 → 데이터 백업**으로 주기적으로 JSON 파일로 보관하세요. `resources.json`을 나중에 수정해도 이미 사용 중인 브라우저의 자료 데이터는 유지됩니다. 초기화하려면 해당 사이트의 브라우저 저장 데이터를 삭제한 뒤 다시 실행합니다.
 
 ## GitHub Pages 배포

@@ -17,6 +17,7 @@ export const initialData: AppData = {
   routine: routineSeed.map((item, index) => ({ ...item, id: `routine-${index}` })) as AppData['routine'],
   quotes: quotesSeed,
   examDate: EXAM_DATE,
+  googleClientId: '',
   plaire: {},
   trinity: [],
 };

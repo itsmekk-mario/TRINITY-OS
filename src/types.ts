@@ -18,6 +18,7 @@ export type AppData = {
   routine: RoutineItem[];
   quotes: string[];
   examDate: string;
+  googleClientId: string;
   plaire: Record<string, PlaireEntry>;
   trinity: TrinityEntry[];
 };
