@@ -1,6 +1,7 @@
 export type Subject = '국어' | '수학' | '영어' | '탐구';
 export type CalendarEntry = { date: string; study: string; minutes: number; exam: string; event: string; condition: number; reflection: string };
 export type TimerSession = { id: string; date: string; subject: Subject; seconds: number; note?: string };
+export type MockScheduleItem = { id: string; label: string; start: string; end: string; kind: 'exam' | 'break' | 'admin'; subject?: Subject; questions?: number };
 export type JournalEntry = { date: string; studied: string; wins: string; blocked: string; cause: string; hypothesis: string; action: string; event: string };
 export type ScoreEntry = { id: string; name: string; date: string; subject: Subject; korean?: number; math?: number; english?: number; duration: number; errorType: string; cause: string; nextAction: string };
 export type Resource = { id: string; subject: Subject; group: string; name: string; total: number; done: number };
@@ -11,6 +12,7 @@ export type TrinityEntry = { id: string; date: string; subject: Subject; mode: '
 export type AppData = {
   calendar: Record<string, CalendarEntry>;
   sessions: TimerSession[];
+  mockSchedule: MockScheduleItem[];
   journals: Record<string, JournalEntry>;
   scores: ScoreEntry[];
   resources: Resource[];

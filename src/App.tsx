@@ -14,18 +14,23 @@ import PlaireReview from './pages/PlaireReview';
 import TrinityAnalysis from './pages/TrinityAnalysis';
 import Statistics from './pages/Statistics';
 import CloudflareSync from './components/CloudflareSync';
+import LoginPage from './components/LoginPage';
+import { logoutLocal, validateSession } from './lib/auth';
+import { loadCloudflareConfig } from './lib/cloudflare';
 
 const nav = [
   ['dashboard','Dashboard',LayoutDashboard],['calendar','Calendar',CalendarDays],['routine','Daily Routine',BookOpenCheck],['timer','Study Timer',Clock3],['journal','Journal',ClipboardPenLine],['scores','Score Tracker',Gauge],['resources','Resource Database',Database],['plaire','Plaire Review',ShieldCheck],['analysis','Trinity Analysis',RefreshCw],['statistics','Statistics',BarChart3],
 ] as const;
 
 export default function App() {
-  const [page,setPage]=useState('dashboard'); const [data,setData]=useState<AppData>(loadData); const [menu,setMenu]=useState(false); const [settings,setSettings]=useState(false); const [toast,setToast]=useState(''); const fileRef=useRef<HTMLInputElement>(null);
+  const [page,setPage]=useState('dashboard'); const [data,setData]=useState<AppData>(loadData); const [menu,setMenu]=useState(false); const [settings,setSettings]=useState(false); const [toast,setToast]=useState(''); const fileRef=useRef<HTMLInputElement>(null); const [authenticated,setAuthenticated]=useState(Boolean(loadCloudflareConfig().token));
   useEffect(()=>saveData(data),[data]);
+  useEffect(()=>{if(authenticated)validateSession().then(ok=>{if(!ok){logoutLocal();setAuthenticated(false)}})},[authenticated]);
   const update=(fn:(value:AppData)=>AppData)=>setData((value)=>fn(value));
   const navigate=(next:string)=>{setPage(next);setMenu(false);window.scrollTo({top:0,behavior:'smooth'})};
   const importData=async(file?:File)=>{if(!file)return;try{setData(await parseBackup(file));setToast('백업 데이터를 복원했습니다.');setSettings(false)}catch(e){setToast(e instanceof Error?e.message:'가져오기에 실패했습니다.')}finally{setTimeout(()=>setToast(''),2200)}};
   const screen=page==='dashboard'?<Dashboard data={data} update={update} navigate={navigate}/>:page==='calendar'?<CalendarPage data={data} update={update}/>:page==='routine'?<Routine data={data} update={update}/>:page==='timer'?<TimerPage data={data} update={update}/>:page==='journal'?<Journal data={data} update={update}/>:page==='scores'?<ScoreTracker data={data} update={update}/>:page==='resources'?<Resources data={data} update={update}/>:page==='plaire'?<PlaireReview data={data} update={update}/>:page==='analysis'?<TrinityAnalysis data={data} update={update}/>:<Statistics data={data}/>;
+  if(!authenticated)return <LoginPage onAuthenticated={()=>setAuthenticated(true)}/>;
   return <div className="app-shell">
     <aside className={menu?'open':''}><div className="brand"><div className="brand-mark">T</div><div><strong>TRINITY OS</strong><span>Personal Learning OS</span></div><button className="mobile-close" onClick={()=>setMenu(false)}><X/></button></div><nav>{nav.map(([id,label,Icon],index)=><button key={id} className={page===id?'active':''} onClick={()=>navigate(id)}><Icon size={19}/><span>{label}</span>{index===7&&<i>CORE</i>}</button>)}</nav><div className="aside-footer"><blockquote>盡人事待天命</blockquote><p>Do the work. Accept the result.</p><button onClick={()=>setSettings(true)}><Settings size={17}/> 데이터 및 설정</button></div></aside>
     {menu&&<div className="nav-backdrop" onClick={()=>setMenu(false)}/>}<main><div className="mobile-bar"><button onClick={()=>setMenu(true)}><Menu/></button><strong>TRINITY OS</strong><button onClick={()=>setSettings(true)}><Settings/></button></div><div className="page-wrap">{screen}</div></main>

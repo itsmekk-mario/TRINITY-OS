@@ -2,12 +2,12 @@ import type { AppData } from '../types';
 
 const CONFIG_KEY = 'trinity-os:cloudflare-sync:v1';
 export const RECOVERY_KEY = 'trinity-os:cloudflare-recovery:v1';
-export type CloudflareConfig = { url: string; token: string };
+export type CloudflareConfig = { url: string; token: string; username?: string };
 type RemotePayload = { data?: AppData | null; updatedAt?: string | null };
 
 export const loadCloudflareConfig = (): CloudflareConfig => {
   try { return JSON.parse(localStorage.getItem(CONFIG_KEY) || '{"url":"","token":""}') as CloudflareConfig; }
-  catch { return { url: '', token: '' }; }
+  catch { return { url: '', token: '', username: '' }; }
 };
 export const saveCloudflareConfig = (config: CloudflareConfig) => localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
 
