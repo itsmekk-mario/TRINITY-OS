@@ -5,7 +5,7 @@ compatibility_date = "2026-08-24"
 [[d1_databases]]
 binding = "DB"
 database_name = "trinity-os-db"
-database_id = "e6b6cdaa-bbce-437d-8074-a7248bbc4b4f"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
 
 [vars]
 ALLOWED_ORIGIN = "https://trinityos.mcv.kr"
