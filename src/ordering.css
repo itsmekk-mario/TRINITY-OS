@@ -1,0 +1,12 @@
+.list-toolbar,.timeline-toolbar{display:flex;align-items:center;gap:10px;margin:14px 0}
+.list-toolbar>span,.timeline-toolbar>span{font-size:11px;color:var(--muted);font-weight:700}
+.list-toolbar select{border:1px solid #d8dee5;border-radius:8px;background:#fff;padding:8px 10px;font-size:11px;color:#39475a}
+.list-toolbar small{font-size:10px;color:var(--muted)}
+.timeline-toolbar{max-width:850px;justify-content:space-between}
+.timeline-toolbar .button{height:34px}
+.order-actions{display:inline-flex;align-items:center;gap:2px}
+.order-actions button{width:25px;height:25px;border:0;background:transparent;border-radius:5px;color:#8e99a7;display:grid;place-items:center}
+.order-actions button:hover:not(:disabled){background:#f0f3f6;color:#5b6878}
+.order-actions .resource-delete,.order-actions .routine-delete{color:#aab1bb}
+.routine-order-actions{float:right;margin:-2px -5px 0 8px}
+@media(max-width:760px){.list-toolbar{flex-wrap:wrap}.timeline-toolbar{align-items:flex-start}.timeline-toolbar>span{max-width:58%}}
