@@ -1,30 +1,31 @@
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, TrendingUp, X } from 'lucide-react';
-import type { AppData, ScoreEntry, Subject } from '../types';
-import { ERROR_TYPES, SUBJECTS } from '../data/config';
+import { ChevronDown, Plus, Trash2, TrendingUp, X } from 'lucide-react';
+import type { AppData, MockExamReview, MockExamSubject, ScoreEntry, Subject } from '../types';
+import { SUBJECTS } from '../data/config';
 import { Card, Empty, Field, PageHeader, SaveButton, TextArea } from '../components/Ui';
 import { toDateKey, uid } from '../lib/date';
 
-const SCORE_SUBJECTS: Array<Exclude<Subject, '탐구'>> = ['국어', '수학', '영어'];
+const SCORE_SUBJECTS: MockExamSubject[] = ['국어', '수학', '영어'];
 const scoreKey = { 국어: 'korean', 수학: 'math', 영어: 'english' } as const;
-const blank = (): ScoreEntry => ({ id: '', name: '', date: toDateKey(), subject: '국어', duration: 0, errorType: '조건 해석 실패', cause: '', nextAction: '' });
+const emptyReview = (): MockExamReview => ({ score: undefined, duration: undefined, wrongQuestions: '', observation: '', improvement: '' });
+const blank = (): ScoreEntry => ({ id: '', name: '', date: toDateKey(), subject: '국어', duration: 0, errorType: '', cause: '', nextAction: '', reviews: { 국어: emptyReview(), 수학: emptyReview(), 영어: emptyReview() }, overallReview: '' });
 type Point = { id: string; date: string; name: string; score: number };
 
-function getPoints(scores: ScoreEntry[], subject: Exclude<Subject, '탐구'>): Point[] {
-  const key = scoreKey[subject];
-  return scores.map((entry) => ({ id: entry.id, date: entry.date, name: entry.name, score: entry[key] }))
-    .filter((entry): entry is Point => typeof entry.score === 'number')
-    .sort((a, b) => a.date.localeCompare(b.date));
+function reviewOf(entry: ScoreEntry, subject: MockExamSubject): MockExamReview {
+  const modern = entry.reviews?.[subject];
+  if (modern) return modern;
+  const legacyScore = entry[scoreKey[subject]];
+  return { score: legacyScore, duration: entry.subject === subject ? entry.duration : undefined, wrongQuestions: '', observation: entry.subject === subject ? entry.cause : '', improvement: entry.subject === subject ? entry.nextAction : '' };
 }
-
+function getPoints(scores: ScoreEntry[], subject: MockExamSubject): Point[] {
+  return scores.map((entry) => ({ id: entry.id, date: entry.date, name: entry.name, score: reviewOf(entry, subject).score }))
+    .filter((entry): entry is Point => typeof entry.score === 'number').sort((a, b) => a.date.localeCompare(b.date));
+}
 function ScoreTrend({ points, subject }: { points: Point[]; subject: string }) {
   if (!points.length) return <div className="trend-empty">{subject} 점수를 기록하면 100점 만점 추이 그래프가 표시됩니다.</div>;
-  const width = 760; const height = 280; const left = 44; const right = 20; const top = 25; const bottom = 42;
-  const graphWidth = width - left - right; const graphHeight = height - top - bottom;
-  const x = (index: number) => points.length === 1 ? left + graphWidth / 2 : left + (graphWidth * index) / (points.length - 1);
-  const y = (value: number) => top + graphHeight * (1 - value / 100);
-  const line = points.map((point, index) => `${index ? 'L' : 'M'} ${x(index)} ${y(point.score)}`).join(' ');
-  const labels = points.length > 7 ? points.filter((_, index) => index === 0 || index === points.length - 1 || index % Math.ceil(points.length / 6) === 0) : points;
+  const width = 760; const height = 280; const left = 44; const right = 20; const top = 25; const bottom = 42; const graphWidth = width - left - right; const graphHeight = height - top - bottom;
+  const x = (index: number) => points.length === 1 ? left + graphWidth / 2 : left + (graphWidth * index) / (points.length - 1); const y = (value: number) => top + graphHeight * (1 - value / 100);
+  const line = points.map((point, index) => `${index ? 'L' : 'M'} ${x(index)} ${y(point.score)}`).join(' '); const labels = points.length > 7 ? points.filter((_, index) => index === 0 || index === points.length - 1 || index % Math.ceil(points.length / 6) === 0) : points;
   return <div className="trend-scroll"><svg className="score-trend" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${subject} 실모 점수 변화 그래프`}>
     {[0, 20, 40, 60, 80, 100].map((value) => <g key={value}><line x1={left} x2={width - right} y1={y(value)} y2={y(value)} className="trend-grid" /><text x={left - 10} y={y(value) + 4} textAnchor="end" className="trend-axis">{value}</text></g>)}
     <path d={line} className="trend-line" />
@@ -34,16 +35,22 @@ function ScoreTrend({ points, subject }: { points: Point[]; subject: string }) {
 }
 
 export default function ScoreTracker({ data, update }: { data: AppData; update: (fn: (value: AppData) => AppData) => void }) {
-  const [open, setOpen] = useState(false); const [draft, setDraft] = useState(blank()); const [subject, setSubject] = useState<Exclude<Subject, '탐구'>>('국어');
-  const points = useMemo(() => getPoints(data.scores, subject), [data.scores, subject]);
-  const latest = points.at(-1); const change = points.length > 1 && latest ? latest.score - points.at(-2)!.score : undefined;
-  const save = () => { const hasScore = SCORE_SUBJECTS.some((item) => typeof draft[scoreKey[item]] === 'number'); if (!draft.name.trim() || !hasScore) return; update((value) => ({ ...value, scores: [{ ...draft, id: uid(), name: draft.name.trim() }, ...value.scores] })); setDraft(blank()); setOpen(false); };
+  const [open, setOpen] = useState(false); const [draft, setDraft] = useState(blank()); const [subject, setSubject] = useState<MockExamSubject>('국어'); const [formError, setFormError] = useState('');
+  const points = useMemo(() => getPoints(data.scores, subject), [data.scores, subject]); const latest = points.at(-1); const change = points.length > 1 && latest ? latest.score - points.at(-2)!.score : undefined;
+  const setReview = (item: MockExamSubject, changeValue: Partial<MockExamReview>) => setDraft((value) => ({ ...value, reviews: { ...value.reviews, [item]: { ...emptyReview(), ...value.reviews?.[item], ...changeValue } } }));
+  const setNumber = (item: MockExamSubject, key: 'score' | 'duration', raw: string) => { const number = raw === '' ? undefined : Number(raw); const valid = number !== undefined && Number.isFinite(number); setReview(item, { [key]: key === 'score' && valid ? Math.max(0, Math.min(100, number)) : valid ? Math.max(0, number) : undefined }); };
+  const save = () => {
+    const reviews = draft.reviews ?? {}; const hasScore = SCORE_SUBJECTS.some((item) => typeof reviews[item]?.score === 'number');
+    if (!draft.name.trim() || !hasScore) { setFormError('실모명과 최소 한 과목의 점수를 입력하세요.'); return; }
+    update((value) => ({ ...value, scores: [{ ...draft, id: uid(), name: draft.name.trim(), subject: '국어', korean: reviews.국어?.score, math: reviews.수학?.score, english: reviews.영어?.score, duration: SCORE_SUBJECTS.reduce((sum, item) => sum + (reviews[item]?.duration ?? 0), 0) }, ...value.scores] })); setDraft(blank()); setFormError(''); setOpen(false);
+  };
   const remove = (id: string) => update((value) => ({ ...value, scores: value.scores.filter((x) => x.id !== id) }));
-  const setScore = (key: 'korean' | 'math' | 'english', raw: string) => { const parsed = raw === '' ? undefined : Math.max(0, Math.min(100, Number(raw))); setDraft({ ...draft, [key]: Number.isFinite(parsed) ? parsed : undefined }); };
-  return <div><PageHeader eyebrow="MOCK EXAM" title="실모 기록" description="실전 모의고사 점수를 남기고, 과목별 100점 만점 변화 추이를 확인합니다." action={<button className="button primary" onClick={() => setOpen(true)}><Plus size={17} /> 실모 기록</button>} />
+  return <div><PageHeader eyebrow="MOCK EXAM" title="실모 기록" description="시험의 원인과 개선 방향까지 남기고, 과목별 100점 만점 추이를 확인합니다." action={<button className="button primary" onClick={() => setOpen(true)}><Plus size={17} /> 실모 기록</button>} />
     <Card className="score-trend-card"><div className="score-trend-head"><div><span className="card-label">SCORE TREND · 100점 만점</span><h2>{subject} 실모 점수 변화</h2></div><div className="trend-summary">{latest ? <><b>{latest.score}점</b>{change !== undefined && <span className={change >= 0 ? 'up' : 'down'}><TrendingUp size={13} /> {change >= 0 ? '+' : ''}{change}점</span>}</> : <span>기록 없음</span>}</div></div><div className="subject-tabs score-subject-tabs">{SCORE_SUBJECTS.map((item) => <button key={item} className={subject === item ? 'active' : ''} onClick={() => setSubject(item)}>{item}</button>)}</div><ScoreTrend points={points} subject={subject} /></Card>
     <div className="section-title"><h2>실모 기록 목록</h2><span>{data.scores.length}개 기록</span></div>
-    {data.scores.length ? <div className="score-list">{[...data.scores].sort((a, b) => b.date.localeCompare(a.date)).map((score) => <Card key={score.id} className="score-row"><div className="score-date"><span>{score.date.slice(5).replace('-', '.')}</span><small>{score.subject}</small></div><div className="score-main"><h3>{score.name}</h3><div className="score-values">{score.korean !== undefined && <span>국어 <b>{score.korean}점</b></span>}{score.math !== undefined && <span>수학 <b>{score.math}점</b></span>}{score.english !== undefined && <span>영어 <b>{score.english}점</b></span>}<span>시간 <b>{score.duration}분</b></span></div><p><span className="error-chip">{score.errorType}</span>{score.nextAction || '다음 행동 미설정'}</p></div><button className="icon-button danger" onClick={() => remove(score.id)} aria-label="삭제"><Trash2 size={17} /></button></Card>)}</div> : <Empty>아직 실모 기록이 없습니다. 첫 실모 점수를 남겨보세요.</Empty>}
-    {open && <div className="modal-backdrop" onClick={() => setOpen(false)}><div className="modal" onClick={(e) => e.stopPropagation()}><div className="modal-head"><div><p className="eyebrow">NEW MOCK EXAM</p><h2>실모 기록</h2></div><button onClick={() => setOpen(false)}><X /></button></div><div className="form-grid two"><Field label="실모명"><input value={draft.name} placeholder="예: 2027 시대인재 서바이벌 3회" onChange={(e) => setDraft({...draft, name:e.target.value})} /></Field><Field label="응시 날짜"><input type="date" value={draft.date} onChange={(e) => setDraft({...draft, date:e.target.value})} /></Field><Field label="주 분석 과목"><select value={draft.subject} onChange={(e) => setDraft({...draft, subject:e.target.value as Subject})}>{SUBJECTS.map((s)=><option key={s}>{s}</option>)}</select></Field><Field label="시험 시간(분)"><input type="number" min="0" value={draft.duration || ''} onChange={(e)=>setDraft({...draft,duration:Number(e.target.value) || 0})}/></Field><Field label="국어 점수 · 0~100"><input type="number" min="0" max="100" value={draft.korean ?? ''} onChange={(e)=>setScore('korean', e.target.value)}/></Field><Field label="수학 점수 · 0~100"><input type="number" min="0" max="100" value={draft.math ?? ''} onChange={(e)=>setScore('math', e.target.value)}/></Field><Field label="영어 점수 · 0~100"><input type="number" min="0" max="100" value={draft.english ?? ''} onChange={(e)=>setScore('english', e.target.value)}/></Field><Field label="대표 오답 원인"><select value={draft.errorType} onChange={(e)=>setDraft({...draft,errorType:e.target.value})}>{ERROR_TYPES.map((x)=><option key={x}>{x}</option>)}</select></Field><Field label="오답 원인"><TextArea value={draft.cause} onChange={(v)=>setDraft({...draft,cause:v})}/></Field><Field label="다음 행동"><TextArea value={draft.nextAction} onChange={(v)=>setDraft({...draft,nextAction:v})} placeholder="다음 시험에서 관찰 가능한 행동"/></Field></div><div className="modal-actions"><SaveButton onClick={save} label="실모 기록 저장" /></div></div></div>}
+    {data.scores.length ? <div className="mock-record-list">{[...data.scores].sort((a, b) => b.date.localeCompare(a.date)).map((score) => <Card key={score.id} className="mock-record"><div className="mock-record-head"><div><span className="card-label">{score.date}</span><h3>{score.name}</h3></div><button className="icon-button danger" onClick={() => remove(score.id)} aria-label="삭제"><Trash2 size={17} /></button></div><div className="mock-score-summary">{SCORE_SUBJECTS.map((item) => { const review = reviewOf(score, item); return review.score === undefined ? null : <span key={item}><b>{item}</b> {review.score}점 <small>{review.duration ? `· ${review.duration}분` : ''}</small></span>; })}</div><details className="mock-detail"><summary>시험 분석 보기 <ChevronDown size={16} /></summary><div className="mock-detail-body">{SCORE_SUBJECTS.map((item) => { const review = reviewOf(score, item); return <section key={item} className="mock-review"><h4>{item} <span>{review.score ?? '-'}점 / 100점{review.duration ? ` · ${review.duration}분` : ''}</span></h4><div><b>오답문항</b><p>{review.wrongQuestions || '기록 없음'}</p></div><div><b>객관화</b><p>{review.observation || '기록 없음'}</p></div><div><b>개선방향</b><p>{review.improvement || '기록 없음'}</p></div></section>; })}{score.overallReview && <section className="mock-overall"><b>총평</b><p>{score.overallReview}</p></section>}</div></details></Card>)}</div> : <Empty>아직 실모 기록이 없습니다. 첫 실모 분석을 남겨보세요.</Empty>}
+    {open && <div className="modal-backdrop" onClick={() => setOpen(false)}><div className="modal mock-modal" onClick={(e) => e.stopPropagation()}><div className="modal-head"><div><p className="eyebrow">NEW MOCK EXAM</p><h2>실모 기록</h2></div><button onClick={() => setOpen(false)}><X /></button></div><div className="form-grid two"><Field label="시험 종류 / 실모명"><input value={draft.name} placeholder="예: 서바이벌 프로 8월" onChange={(e) => setDraft({...draft, name:e.target.value})} /></Field><Field label="응시 날짜"><input type="date" value={draft.date} onChange={(e) => setDraft({...draft, date:e.target.value})} /></Field></div>
+      {SCORE_SUBJECTS.map((item) => { const review = draft.reviews?.[item] ?? emptyReview(); return <section className="mock-form-section" key={item}><h3>{item}</h3><div className="form-grid two"><Field label="점수 · 0~100"><input type="number" min="0" max="100" value={review.score ?? ''} onChange={(e) => setNumber(item, 'score', e.target.value)} /></Field><Field label="시험 시간(분)"><input type="number" min="0" value={review.duration ?? ''} onChange={(e) => setNumber(item, 'duration', e.target.value)} /></Field></div><Field label="오답문항"><TextArea value={review.wrongQuestions} onChange={(value) => setReview(item, { wrongQuestions: value })} placeholder="예: 비문학 어휘 1, 내용일치 1 / 화작 3" /></Field><Field label="객관화"><TextArea value={review.observation} onChange={(value) => setReview(item, { observation: value })} placeholder="시험에서 드러난 원인과 상태를 사실 중심으로 기록" /></Field><Field label="개선방향"><TextArea value={review.improvement} onChange={(value) => setReview(item, { improvement: value })} placeholder="다음 시험 전 실행할 구체적인 행동" /></Field></section>; })}
+      <section className="mock-form-section overall"><Field label="총평"><TextArea value={draft.overallReview ?? ''} onChange={(value) => setDraft({ ...draft, overallReview: value })} placeholder="과목별 병목과 다음 시험 전 최우선 과제를 정리" /></Field></section>{formError && <p className="form-error">{formError}</p>}<div className="modal-actions"><SaveButton onClick={save} label="실모 분석 저장" /></div></div></div>}
   </div>;
 }
