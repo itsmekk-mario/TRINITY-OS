@@ -8,6 +8,8 @@ export type MockExamReview = { score?: number; duration?: number; wrongQuestions
 export type ScoreEntry = { id: string; name: string; date: string; subject: Subject; korean?: number; math?: number; english?: number; duration: number; errorType: string; cause: string; nextAction: string; reviews?: Partial<Record<MockExamSubject, MockExamReview>>; overallReview?: string };
 export type Resource = { id: string; subject: Subject; group: string; name: string; total: number; done: number };
 export type Goal = { id: string; subject: Subject; text: string; done: boolean };
+export type WeeklyCapabilityGoal = { id: string; weekStart: string; subject: Subject; ability: string; successCriterion: string; drillDesign: string; evidence: string; done: boolean };
+export type WrongAnswerDrill = { id: string; date: string; subject: Subject; source: string; question: string; wrongJudgment: string; missedCue: string; correction: string; transfer: string };
 export type RoutineItem = { id: string; time: string; title: string; detail: string; subject: Subject | '생활' };
 export type PlaireEntry = { date: string; record: string; criterion: string; wrongJudgment: string; lens: string; focus: string; simulation: string; workingMemory: string; automatic: string; conscious: string; transfer: string; bottleneck: string; nextAction: string; levels: { criterion: number; immersion: number; embodiment: number } };
 export type TrinityEntry = { id: string; date: string; subject: Subject; mode: '국어' | '수학'; fields: Record<string, string> };
@@ -19,6 +21,8 @@ export type AppData = {
   scores: ScoreEntry[];
   resources: Resource[];
   goals: Goal[];
+  weeklyCapabilityGoals: WeeklyCapabilityGoal[];
+  wrongAnswerDrills: WrongAnswerDrill[];
   routine: RoutineItem[];
   quotes: string[];
   examDate: string;
