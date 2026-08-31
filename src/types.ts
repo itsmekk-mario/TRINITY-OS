@@ -1,5 +1,6 @@
 export type Subject = '국어' | '수학' | '영어' | '탐구';
-export type CalendarEntry = { date: string; study: string; minutes: number; exam: string; event: string; condition: number; reflection: string };
+export type CalendarPlan = { id: string; subject: Subject | '생활'; title: string; detail: string; quantity: string; done: boolean };
+export type CalendarEntry = { date: string; study: string; minutes: number; exam: string; event: string; condition: number; reflection: string; plans?: CalendarPlan[] };
 export type TimerSession = { id: string; date: string; subject: Subject; seconds: number; note?: string };
 export type MockScheduleItem = { id: string; label: string; start: string; end: string; kind: 'exam' | 'break' | 'admin'; subject?: Subject; questions?: number };
 export type JournalEntry = { date: string; studied: string; wins: string; blocked: string; cause: string; hypothesis: string; action: string; event: string };
