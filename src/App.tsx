@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BarChart3, BookOpenCheck, CalendarDays, ClipboardPenLine, Clock3, Crosshair, Database, Download, Gauge, LayoutDashboard, Menu, RefreshCw, Settings, ShieldCheck, Upload, X } from 'lucide-react';
+import { BarChart3, BookOpenCheck, CalendarDays, CalendarRange, ClipboardPenLine, Clock3, Crosshair, Database, Download, Gauge, LayoutDashboard, Menu, RefreshCw, Settings, ShieldCheck, Upload, X } from 'lucide-react';
 import type { AppData } from './types';
 import { downloadBackup, loadData, parseBackup, saveData } from './lib/storage';
 import { APP_VERSION } from './data/config';
@@ -14,13 +14,14 @@ import PlaireReview from './pages/PlaireReview';
 import TrinityAnalysis from './pages/TrinityAnalysis';
 import Statistics from './pages/Statistics';
 import WeeklyDrill from './pages/WeeklyDrill';
+import PlanningPage from './pages/PlanningPage';
 import CloudflareSync from './components/CloudflareSync';
 import LoginPage from './components/LoginPage';
 import { logoutLocal, validateSession } from './lib/auth';
 import { loadCloudflareConfig } from './lib/cloudflare';
 
 const nav = [
-  ['dashboard','Dashboard',LayoutDashboard],['calendar','Calendar',CalendarDays],['routine','Daily Routine',BookOpenCheck],['timer','Study Timer',Clock3],['journal','Journal',ClipboardPenLine],['scores','Score Tracker',Gauge],['resources','Resource Database',Database],['drill','Weekly Drill',Crosshair],['plaire','Plaire Review',ShieldCheck],['analysis','Trinity Analysis',RefreshCw],['statistics','Statistics',BarChart3],
+  ['dashboard','Dashboard',LayoutDashboard],['plans','Weekly · Monthly Plan',CalendarRange],['calendar','Calendar',CalendarDays],['routine','Daily Routine',BookOpenCheck],['timer','Study Timer',Clock3],['journal','Journal',ClipboardPenLine],['scores','Score Tracker',Gauge],['resources','Resource Database',Database],['drill','Weekly Drill',Crosshair],['plaire','Plaire Review',ShieldCheck],['analysis','Trinity Analysis',RefreshCw],['statistics','Statistics',BarChart3],
 ] as const;
 
 export default function App() {
@@ -30,7 +31,7 @@ export default function App() {
   const update=(fn:(value:AppData)=>AppData)=>setData((value)=>fn(value));
   const navigate=(next:string)=>{setPage(next);setMenu(false);window.scrollTo({top:0,behavior:'smooth'})};
   const importData=async(file?:File)=>{if(!file)return;try{setData(await parseBackup(file));setToast('백업 데이터를 복원했습니다.');setSettings(false)}catch(e){setToast(e instanceof Error?e.message:'가져오기에 실패했습니다.')}finally{setTimeout(()=>setToast(''),2200)}};
-  const screen=page==='dashboard'?<Dashboard data={data} update={update} navigate={navigate}/>:page==='calendar'?<CalendarPage data={data} update={update}/>:page==='routine'?<Routine data={data} update={update}/>:page==='timer'?<TimerPage data={data} update={update}/>:page==='journal'?<Journal data={data} update={update}/>:page==='scores'?<ScoreTracker data={data} update={update}/>:page==='resources'?<Resources data={data} update={update}/>:page==='drill'?<WeeklyDrill data={data} update={update}/>:page==='plaire'?<PlaireReview data={data} update={update}/>:page==='analysis'?<TrinityAnalysis data={data} update={update}/>:<Statistics data={data}/>;
+  const screen=page==='dashboard'?<Dashboard data={data} update={update} navigate={navigate}/>:page==='plans'?<PlanningPage data={data} update={update}/>:page==='calendar'?<CalendarPage data={data} update={update}/>:page==='routine'?<Routine data={data} update={update}/>:page==='timer'?<TimerPage data={data} update={update}/>:page==='journal'?<Journal data={data} update={update}/>:page==='scores'?<ScoreTracker data={data} update={update}/>:page==='resources'?<Resources data={data} update={update}/>:page==='drill'?<WeeklyDrill data={data} update={update}/>:page==='plaire'?<PlaireReview data={data} update={update}/>:page==='analysis'?<TrinityAnalysis data={data} update={update}/>:<Statistics data={data}/>;
   if(!authenticated)return <LoginPage onAuthenticated={()=>setAuthenticated(true)}/>;
   return <div className="app-shell">
     <aside className={menu?'open':''}><div className="brand"><div className="brand-mark">T</div><div><strong>TRINITY OS</strong><span>Personal Learning OS</span></div><button className="mobile-close" onClick={()=>setMenu(false)}><X/></button></div><nav>{nav.map(([id,label,Icon],index)=><button key={id} className={page===id?'active':''} onClick={()=>navigate(id)}><Icon size={19}/><span>{label}</span>{index===7&&<i>CORE</i>}</button>)}</nav><div className="aside-footer"><blockquote>盡人事待天命</blockquote><p>Do the work. Accept the result.</p><button onClick={()=>setSettings(true)}><Settings size={17}/> 데이터 및 설정</button></div></aside>
