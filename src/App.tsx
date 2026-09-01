@@ -20,7 +20,7 @@ import { logoutLocal, validateSession } from './lib/auth';
 import { loadCloudflareConfig } from './lib/cloudflare';
 
 const nav = [
-  ['dashboard','Dashboard',LayoutDashboard],['plans','Weekly · Monthly Plan',CalendarRange],['calendar','Calendar',CalendarDays],['routine','Daily Routine',BookOpenCheck],['timer','Study Timer',Clock3],['notion','Notion',FileText],['scores','Score Tracker',Gauge],['resources','Resource Database',Database],['drill','Weekly Drill',Crosshair],['plaire','Review Hub',ShieldCheck],['statistics','Statistics',BarChart3],
+  ['dashboard','Dashboard',LayoutDashboard],['plans','Weekly · Monthly Plan',CalendarRange],['calendar','Calendar',CalendarDays],['routine','Daily Routine',BookOpenCheck],['timer','Study Timer',Clock3],['notion','Notion',FileText],['scores','Score Tracker',Gauge],['resources','Resource Database',Database],['drill','Daily · Weekly Drill',Crosshair],['plaire','Review Hub',ShieldCheck],['statistics','Statistics',BarChart3],
 ] as const;
 
 export default function App() {

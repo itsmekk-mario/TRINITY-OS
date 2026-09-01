@@ -18,6 +18,7 @@ export const initialData: AppData = {
   goals: goalsSeed.flatMap((group, groupIndex) => group.items.map((text, itemIndex) => ({ id: `g-${groupIndex}-${itemIndex}`, subject: group.subject, text, done: false }))) as AppData['goals'],
   weeklyCapabilityGoals: [],
   wrongAnswerDrills: [],
+  dailyDrills: [],
   monthlyPlans: [],
   notionPages: [],
   routine: routineSeed.map((item, index) => ({ ...item, id: `routine-${index}` })) as AppData['routine'],
@@ -33,7 +34,7 @@ export function loadData(): AppData {
     const value = localStorage.getItem(STORAGE_KEY);
     if (!value) return initialData;
     const parsed = JSON.parse(value) as Partial<AppData>;
-    return { ...initialData, ...parsed, mockSchedule: Array.isArray(parsed.mockSchedule) ? parsed.mockSchedule : initialData.mockSchedule, resources: parsed.resources?.length ? parsed.resources : initialData.resources, goals: parsed.goals?.length ? parsed.goals : initialData.goals, routine: parsed.routine?.length ? parsed.routine : initialData.routine, weeklyCapabilityGoals: Array.isArray(parsed.weeklyCapabilityGoals) ? parsed.weeklyCapabilityGoals : [], wrongAnswerDrills: Array.isArray(parsed.wrongAnswerDrills) ? parsed.wrongAnswerDrills : [], monthlyPlans: Array.isArray(parsed.monthlyPlans) ? parsed.monthlyPlans : [], notionPages: Array.isArray(parsed.notionPages) ? parsed.notionPages : [] };
+    return { ...initialData, ...parsed, mockSchedule: Array.isArray(parsed.mockSchedule) ? parsed.mockSchedule : initialData.mockSchedule, resources: parsed.resources?.length ? parsed.resources : initialData.resources, goals: parsed.goals?.length ? parsed.goals : initialData.goals, routine: parsed.routine?.length ? parsed.routine : initialData.routine, weeklyCapabilityGoals: Array.isArray(parsed.weeklyCapabilityGoals) ? parsed.weeklyCapabilityGoals : [], wrongAnswerDrills: Array.isArray(parsed.wrongAnswerDrills) ? parsed.wrongAnswerDrills : [], dailyDrills: Array.isArray(parsed.dailyDrills) ? parsed.dailyDrills : [], monthlyPlans: Array.isArray(parsed.monthlyPlans) ? parsed.monthlyPlans : [], notionPages: Array.isArray(parsed.notionPages) ? parsed.notionPages : [] };
   } catch {
     return initialData;
   }

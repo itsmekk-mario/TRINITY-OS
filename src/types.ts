@@ -13,6 +13,7 @@ export type WeeklyCapabilityGoal = { id: string; weekStart: string; subject: Sub
 export type DrillBottleneck = '발문·해석' | '개념 공백' | '계산 실수' | '시간 관리' | '전략·판단' | '기타';
 export type DrillRetry = { id: '3d' | '7d' | '14d'; label: string; dueDate: string; completedDate?: string };
 export type WrongAnswerDrill = { id: string; date: string; subject: Subject; source: string; question: string; wrongJudgment: string; missedCue: string; correction: string; transfer: string; scoreId?: string; capabilityGoalId?: string; bottleneck?: DrillBottleneck; retries?: DrillRetry[] };
+export type DailyDrill = { id: string; date: string; subject: Subject; title: string; action: string; successCriterion: string; minutes: number; capabilityGoalId?: string; done: boolean; reflection: string };
 export type MonthlyPlan = { id: string; month: string; subject: Subject; title: string; objective: string; successCriterion: string; strategy: string; done: boolean };
 export type NotionBlock = { id: string; type: 'heading' | 'text' | 'todo'; content: string; checked?: boolean };
 export type NotionPage = { id: string; title: string; icon: string; createdAt: string; updatedAt: string; blocks: NotionBlock[] };
@@ -29,6 +30,7 @@ export type AppData = {
   goals: Goal[];
   weeklyCapabilityGoals: WeeklyCapabilityGoal[];
   wrongAnswerDrills: WrongAnswerDrill[];
+  dailyDrills: DailyDrill[];
   monthlyPlans: MonthlyPlan[];
   notionPages: NotionPage[];
   routine: RoutineItem[];

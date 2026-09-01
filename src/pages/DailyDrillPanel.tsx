@@ -1,0 +1,26 @@
+import { useMemo, useState } from 'react';
+import { Check, Crosshair, Plus, Trash2 } from 'lucide-react';
+import type { AppData, DailyDrill, Subject } from '../types';
+import { SUBJECTS } from '../data/config';
+import { Card, Empty, Field, SaveButton, TextArea } from '../components/Ui';
+import { toDateKey, uid } from '../lib/date';
+
+const blank = (): DailyDrill => ({ id: '', date: toDateKey(), subject: '국어', title: '', action: '', successCriterion: '', minutes: 30, capabilityGoalId: undefined, done: false, reflection: '' });
+const endOfWeek = (weekStart: string) => { const value = new Date(`${weekStart}T00:00:00`); value.setDate(value.getDate() + 6); return toDateKey(value); };
+
+export default function DailyDrillPanel({ data, update }: { data: AppData; update: (fn: (value: AppData) => AppData) => void }) {
+  const [date, setDate] = useState(toDateKey());
+  const [draft, setDraft] = useState(blank());
+  const [open, setOpen] = useState(false);
+  const drills = useMemo(() => data.dailyDrills.filter((item) => item.date === date), [data.dailyDrills, date]);
+  const availableGoals = useMemo(() => data.weeklyCapabilityGoals.filter((item) => item.subject === draft.subject && item.weekStart <= date && endOfWeek(item.weekStart) >= date), [data.weeklyCapabilityGoals, draft.subject, date]);
+  const save = () => { if (!draft.title.trim() || !draft.action.trim() || !draft.successCriterion.trim()) return; update((value) => ({ ...value, dailyDrills: [{ ...draft, id: uid(), date, title: draft.title.trim() }, ...value.dailyDrills] })); setDraft({ ...blank(), date }); setOpen(false); };
+  const toggle = (id: string) => update((value) => ({ ...value, dailyDrills: value.dailyDrills.map((item) => item.id === id ? { ...item, done: !item.done } : item) }));
+  const remove = (id: string) => update((value) => ({ ...value, dailyDrills: value.dailyDrills.filter((item) => item.id !== id) }));
+  const reflection = (id: string, value: string) => update((dataValue) => ({ ...dataValue, dailyDrills: dataValue.dailyDrills.map((item) => item.id === id ? { ...item, reflection: value } : item) }));
+  return <section className="daily-drill-panel"><Card className="daily-drill-head"><div><span className="card-label">DAILY DRILL</span><h2>오늘의 능력 훈련</h2><p>완료량이 아니라 오늘 재현할 한 가지 행동을 정하고, 짧게 검증합니다.</p></div><div><input className="date-input" type="date" value={date} onChange={(event) => { setDate(event.target.value); setDraft({ ...blank(), date: event.target.value }); }} /><button className="button primary" onClick={() => setOpen(!open)}><Plus size={16} /> Daily Drill</button></div></Card>
+    {open && <Card className="daily-drill-form"><div className="form-grid two"><Field label="과목"><select value={draft.subject} onChange={(event) => setDraft({ ...draft, subject: event.target.value as Subject, capabilityGoalId: undefined })}>{SUBJECTS.map((item) => <option key={item}>{item}</option>)}</select></Field><Field label="예상 시간(분)"><input type="number" min="1" value={draft.minutes} onChange={(event) => setDraft({ ...draft, minutes: Number(event.target.value) || 0 })} /></Field><Field label="오늘의 Drill 이름"><input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="예: 내용일치 선지 매핑 3지문" /></Field><Field label="연결할 주간 능력 목표 · 선택"><select value={draft.capabilityGoalId ?? ''} onChange={(event) => setDraft({ ...draft, capabilityGoalId: event.target.value || undefined })}><option value="">연결 안 함</option>{availableGoals.map((item) => <option key={item.id} value={item.id}>{item.ability}</option>)}</select></Field></div><Field label="오늘 재현할 행동"><TextArea value={draft.action} onChange={(value) => setDraft({ ...draft, action: value })} placeholder="예: 선지를 읽기 전, 지문에서 근거 문장을 먼저 표시한 뒤 1:1로 매핑한다." /></Field><Field label="성공 기준"><TextArea value={draft.successCriterion} onChange={(value) => setDraft({ ...draft, successCriterion: value })} placeholder="예: 3지문에서 근거 없는 선택을 하지 않고, 매 문제 근거를 말로 설명한다." /></Field><div className="modal-actions"><SaveButton onClick={save} label="오늘의 Drill 저장" /></div></Card>}
+    <div className="daily-drill-summary"><span>{drills.filter((item) => item.done).length} / {drills.length} 실행 완료</span><small>훈련 후 ‘실행 회고’를 한 줄로 남기면 주간 회고의 증거가 됩니다.</small></div>
+    {drills.length ? <div className="daily-drill-list">{drills.map((item) => { const goal = data.weeklyCapabilityGoals.find((value) => value.id === item.capabilityGoalId); return <Card key={item.id} className={`daily-drill-card ${item.done ? 'done' : ''}`}><div className="daily-drill-card-head"><div><span className={`subject-badge ${item.subject}`}>{item.subject}</span><h3>{item.title}</h3>{goal && <small>연결 목표 · {goal.ability}</small>}</div><div><button className="goal-check" onClick={() => toggle(item.id)}>{item.done ? <Check size={14} /> : '○'}</button><button className="goal-delete" onClick={() => remove(item.id)}><Trash2 size={14} /></button></div></div><div className="daily-drill-details"><section><b>재현 행동</b><p>{item.action}</p></section><section><b>성공 기준</b><p>{item.successCriterion}</p></section><span><Crosshair size={14} /> {item.minutes}분</span></div><Field label="실행 회고"><TextArea value={item.reflection} onChange={(value) => reflection(item.id, value)} placeholder="실제로 적용했는지, 무엇이 막혔는지 한 줄로 기록" /></Field></Card>; })}</div> : <Empty>오늘 재현할 능력 하나를 Daily Drill로 만들어 보세요.</Empty>}
+  </section>;
+}
