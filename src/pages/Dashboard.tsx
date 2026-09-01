@@ -1,34 +1,19 @@
-import { useState } from 'react';
-import { ArrowRight, Clock3, Plus, Target, Trash2 } from 'lucide-react';
-import { SUBJECTS } from '../data/config';
-import type { AppData, Subject } from '../types';
-import { Card, PageHeader, Progress, SectionTitle } from '../components/Ui';
-import { formatKoreanDate, formatMinutes, toDateKey, uid, weekStartKey } from '../lib/date';
+import { ArrowRight, Check, Clock3, Crosshair, FileText, Gauge, ListTodo, Timer, TriangleAlert } from 'lucide-react';
+import type { AppData } from '../types';
+import { Card, Empty, PageHeader, Progress, SectionTitle } from '../components/Ui';
+import { formatKoreanDate, formatMinutes, toDateKey, weekStartKey } from '../lib/date';
 
 export default function Dashboard({ data, update, navigate }: { data: AppData; update: (fn: (value: AppData) => AppData) => void; navigate: (page: string) => void }) {
-  const [goalText,setGoalText]=useState(''); const [goalSubject,setGoalSubject]=useState<Subject>('국어');
-  const now = new Date();
-  const dday = Math.max(0, Math.ceil((new Date(`${data.examDate}T00:00:00`).getTime() - new Date(toDateKey(now)).getTime()) / 86_400_000));
-  const quote = data.quotes[Math.floor(now.getTime() / 86_400_000) % data.quotes.length] ?? '盡人事待天命';
-  const today = toDateKey(now);
-  const todaySeconds = data.sessions.filter((s) => s.date === today).reduce((sum, s) => sum + s.seconds, 0);
-  const weekSeconds = data.sessions.filter((s) => s.date >= weekStartKey(now)).reduce((sum, s) => sum + s.seconds, 0);
-  const journalComplete = Boolean(data.journals[today]?.action);
-  const addGoal=()=>{if(!goalText.trim())return;update(v=>({...v,goals:[...v.goals,{id:uid(),subject:goalSubject,text:goalText.trim(),done:false}]}));setGoalText('')};
-  return <div>
-    <PageHeader eyebrow="PERSONAL LEARNING OPERATING SYSTEM" title="오늘의 운영판" description={formatKoreanDate(now)} />
-    <div className="hero-grid">
-      <Card className="dday-card"><span className="card-label">대학수학능력시험</span><strong>D-{dday}</strong><p>{data.examDate.replaceAll('-', '.')}</p></Card>
-      <Card className="quote-card"><span className="gold-mark">盡</span><blockquote>“{quote}”</blockquote><p>통제 가능한 행동과 기준을 완성한다.</p></Card>
-    </div>
-    <div className="metric-grid">
-      <Card><span className="metric-icon"><Clock3 size={19} /></span><span className="card-label">오늘 순공</span><strong className="metric-value">{formatMinutes(todaySeconds / 60)}</strong><Progress value={todaySeconds / 60} max={600} /></Card>
-      <Card><span className="metric-icon"><Target size={19} /></span><span className="card-label">이번 주 누적</span><strong className="metric-value">{formatMinutes(weekSeconds / 60)}</strong><Progress value={weekSeconds / 60} max={3000} /></Card>
-      <Card className="action-card"><span className="card-label">운영 체크</span><strong>{journalComplete ? '오늘의 수정 행동 설정 완료' : '오늘의 수정 행동이 비어 있습니다'}</strong><button className="text-button" onClick={() => navigate('journal')}>저널 열기 <ArrowRight size={15} /></button></Card>
-    </div>
-    <SectionTitle title="이번 주 목표" meta="앱에서 직접 편집" />
-    <div className="goal-grid">{SUBJECTS.map(subject=><Card key={subject} className="goal-card"><div className={`subject-dot ${subject}`}/><h3>{subject}</h3><ul>{data.goals.filter(g=>g.subject===subject).map(goal=><li key={goal.id} className={goal.done?'done':''}><button className="goal-check" onClick={()=>update(v=>({...v,goals:v.goals.map(g=>g.id===goal.id?{...g,done:!g.done}:g)}))}>{goal.done?'✓':'○'}</button><span>{goal.text}</span><button className="goal-delete" onClick={()=>update(v=>({...v,goals:v.goals.filter(g=>g.id!==goal.id)}))}><Trash2 size={13}/></button></li>)}</ul></Card>)}</div>
-    <Card className="quick-add"><select value={goalSubject} onChange={(e)=>setGoalSubject(e.target.value as Subject)}>{SUBJECTS.map(s=><option key={s}>{s}</option>)}</select><input value={goalText} onChange={(e)=>setGoalText(e.target.value)} placeholder="이번 주 목표를 추가하세요" onKeyDown={(e)=>e.key==='Enter'&&addGoal()}/><button className="button primary" onClick={addGoal}><Plus size={16}/> 추가</button></Card>
-    <Card className="cycle-card"><span>PLAN</span><i /><span>EXECUTE</span><i /><span>RECORD</span><i /><span>ANALYZE</span><i /><span>ADJUST</span><i /><b>EMBODY</b></Card>
+  const now = new Date(); const today = toDateKey(now); const weekStart = weekStartKey(now); const todayPlans = data.calendar[today]?.plans ?? [];
+  const completedPlans = todayPlans.filter((item) => item.done).length; const capability = data.weeklyCapabilityGoals.find((item) => item.weekStart === weekStart && !item.done) ?? data.weeklyCapabilityGoals.find((item) => item.weekStart === weekStart); const latestDrill = [...data.wrongAnswerDrills].sort((a, b) => b.date.localeCompare(a.date))[0];
+  const todaySeconds = data.sessions.filter((item) => item.date === today).reduce((sum, item) => sum + item.seconds, 0); const weekSeconds = data.sessions.filter((item) => item.date >= weekStart).reduce((sum, item) => sum + item.seconds, 0); const journalComplete = Boolean(data.journals[today]?.action); const reviewComplete = Boolean(data.plaire[today]?.nextAction);
+  const togglePlan = (id: string) => update((value) => { const entry = value.calendar[today]; if (!entry) return value; return { ...value, calendar: { ...value.calendar, [today]: { ...entry, plans: (entry.plans ?? []).map((item) => item.id === id ? { ...item, done: !item.done } : item) } } }; });
+  const dday = Math.max(0, Math.ceil((new Date(`${data.examDate}T00:00:00`).getTime() - new Date(`${today}T00:00:00`).getTime()) / 86_400_000));
+  return <div><PageHeader eyebrow="TODAY'S EXECUTION" title="오늘의 실행" description={formatKoreanDate(now)} />
+    <div className="execution-hero"><Card className="execution-dday"><span className="card-label">대학수학능력시험</span><strong>D-{dday}</strong><p>{data.examDate.replaceAll('-', '.')}</p></Card><Card className="execution-focus"><span className="card-label">TODAY'S FOCUS</span><h2>{capability?.ability ?? '이번 주 능력 목표를 설정하세요'}</h2><p>{capability?.successCriterion ?? 'Weekly Drill에서 이번 주에 기를 능력과 성공 기준을 설정할 수 있습니다.'}</p><button className="text-button" onClick={() => navigate('drill')}>능력 목표 열기 <ArrowRight size={15} /></button></Card></div>
+    <div className="execution-metrics"><Card><span className="metric-icon"><Clock3 size={19} /></span><span className="card-label">오늘 순공</span><strong className="metric-value">{formatMinutes(todaySeconds / 60)}</strong><Progress value={todaySeconds / 60} max={600} /></Card><Card><span className="metric-icon"><Timer size={19} /></span><span className="card-label">이번 주 누적</span><strong className="metric-value">{formatMinutes(weekSeconds / 60)}</strong><Progress value={weekSeconds / 60} max={3000} /></Card><Card><span className="metric-icon"><ListTodo size={19} /></span><span className="card-label">오늘 계획</span><strong className="metric-value">{completedPlans} / {todayPlans.length}</strong><Progress value={completedPlans} max={Math.max(todayPlans.length, 1)} /></Card></div>
+    <div className="execution-grid"><Card className="today-plan-card"><div className="execution-card-head"><div><span className="card-label">WEEKLY PLAN</span><h2>오늘의 계획</h2></div><button className="text-button" onClick={() => navigate('plans')}>전체 계획 <ArrowRight size={15} /></button></div>{todayPlans.length ? <div className="today-plan-list">{todayPlans.map((item) => <div key={item.id} className={item.done ? 'done' : ''}><button className="plan-check" onClick={() => togglePlan(item.id)}>{item.done ? <Check size={14} /> : '○'}</button><span className={`subject-badge ${item.subject}`}>{item.subject}</span><div><b>{item.title}</b>{item.detail && <small>{item.detail}</small>}</div><em>{item.quantity}</em></div>)}</div> : <Empty>오늘 계획이 없습니다. Weekly Plan에서 추가하세요.</Empty>}</Card>
+      <div className="execution-side"><Card className="action-card review-action"><span className="card-label">REVIEW HUB</span><strong>{journalComplete && reviewComplete ? '오늘의 리뷰가 완료되었습니다.' : '오늘의 관찰·리뷰를 남기세요.'}</strong><p>일일 저널, Plaire, Trinity 분석을 한 곳에서 작성합니다.</p><button className="text-button" onClick={() => navigate('plaire')}>Review Hub 열기 <ArrowRight size={15} /></button></Card><Card className="drill-action"><div className="execution-card-head"><div><span className="card-label">LATEST DRILL</span><h2>최근 오답 교정</h2></div><Crosshair size={19} /></div>{latestDrill ? <><span className={`subject-badge ${latestDrill.subject}`}>{latestDrill.subject}</span><h3>{latestDrill.question || latestDrill.source}</h3><p><b>교정 행동</b> {latestDrill.correction || '아직 교정 행동을 적지 않았습니다.'}</p><button className="text-button" onClick={() => navigate('drill')}>오답 Drill 열기 <ArrowRight size={15} /></button></> : <div className="mini-empty"><TriangleAlert size={17} /> 아직 오답 Drill이 없습니다.</div>}</Card></div></div>
+    <SectionTitle title="오늘의 기록 공간" meta="기록은 모두 기존 데이터에 저장됩니다" /><div className="execution-links"><button onClick={() => navigate('notion')}><FileText size={18} /><span><b>Notion</b><small>생각·메모·체크리스트</small></span><ArrowRight size={16} /></button><button onClick={() => navigate('scores')}><Gauge size={18} /><span><b>실모 기록</b><small>점수 변화와 시험 분석</small></span><ArrowRight size={16} /></button></div>
   </div>;
 }
