@@ -1,4 +1,4 @@
-# TRINITY OS 공유·무료 PDF 자료실·타이머 패치
+# TRINITY OS 공유·무료 PDF 자료실·타이머·UI 정리 패치
 
 이 ZIP은 첨부해 주신 TRINITY-OS-current-source.zip 기준의 변경 파일만 포함합니다.
 NotionWorkspace, PlanningPage, ordering.css, 기존 DB ID, SYNC_TOKEN은 덮어쓰지 않습니다.
@@ -30,7 +30,7 @@ pull이 실패하면 적용을 멈추세요. force push/reset을 하지 마세�
 Codespaces에 직접 올린 경우에는 업로드 경로가 프로젝트 최상단인지 확인하세요.
 
 ```bash
-unzip -o TRINITY-OS-support-study-free-pdf.zip
+unzip -o TRINITY-OS-ui-polish-free-pdf.zip
 npm run build
 ```
 
@@ -76,8 +76,8 @@ Worker의 ALLOWED_ORIGIN은 기존 프런트 주소를 유지하세요.
 빌드와 Worker 배포가 성공하면:
 
 ```bash
-git add src/App.tsx src/types.ts src/team.css src/components/LoginPage.tsx src/lib/useStudyClock.ts src/lib/studyTotals.ts src/pages/DailyDrillPanel.tsx src/pages/WeeklyDrill.tsx src/pages/Dashboard.tsx src/pages/TimerPage.tsx src/pages/Statistics.tsx src/pages/StudyRhythm.tsx src/pages/SupportPortal.tsx public/sw.js public/exams/README.md worker/src/index.ts worker/src/support.ts worker/migrations/0001_support_portal.sql tests/support.test.mjs SUPPORT-STUDY-INSTALL.md
-git commit -m "Use GitHub Pages for exam PDFs"
+git add src/App.tsx src/types.ts src/styles.css src/team.css src/ui-polish.css src/components/LoginPage.tsx src/lib/useStudyClock.ts src/lib/studyTotals.ts src/pages/DailyDrillPanel.tsx src/pages/WeeklyDrill.tsx src/pages/Dashboard.tsx src/pages/TimerPage.tsx src/pages/Statistics.tsx src/pages/StudyRhythm.tsx src/pages/SupportPortal.tsx public/sw.js public/exams/README.md worker/src/index.ts worker/src/support.ts worker/migrations/0001_support_portal.sql tests/support.test.mjs SUPPORT-STUDY-INSTALL.md
+git commit -m "Polish TRINITY OS UI and use free PDF storage"
 git push origin main
 ```
 
