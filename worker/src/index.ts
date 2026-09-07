@@ -1,3 +1,4 @@
+import { support } from './support';
 export interface Env { DB: D1Database; SYNC_TOKEN: string; ALLOWED_ORIGIN?: string }
 const encoder = new TextEncoder();
 const json = (body: unknown, status = 200, origin = '*') => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, PUT, POST, OPTIONS', 'Cache-Control': 'no-store' } });
@@ -35,6 +36,8 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     return json(await createSession(env, user.username), 200, origin);
   }
   const user = await sessionUser(request, env);
+  const extra = await support(request, env, !!user, origin, { json, sha256, passwordHash, randomHex });
+  if (extra) return extra;
   if (url.pathname === '/api/auth/me' && request.method === 'GET') return user ? json({ ok: true, username: user.username }, 200, origin) : json({ error: 'Unauthorized' }, 401, origin);
   if (url.pathname !== '/api/sync' || !['GET', 'PUT'].includes(request.method)) return json({ error: 'Not found' }, 404, origin);
   if (!user) return json({ error: 'Unauthorized' }, 401, origin);

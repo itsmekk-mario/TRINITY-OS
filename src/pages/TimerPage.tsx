@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlarmClock, Minus, Pause, Play, Plus, RotateCcw, Square, Trash2 } from 'lucide-react';
 import type { AppData, MockScheduleItem, Subject } from '../types';
 import { SUBJECTS } from '../data/config';
 import { Card, PageHeader, Progress, SectionTitle } from '../components/Ui';
 import { formatMinutes, toDateKey, uid, weekStartKey } from '../lib/date';
+
+import { studyTotals } from '../lib/studyTotals';
+import { useStudyClock } from '../lib/useStudyClock';
 
 const fmt = (seconds: number) => [Math.floor(seconds / 3600), Math.floor(seconds % 3600 / 60), seconds % 60].map(v => String(Math.max(v, 0)).padStart(2, '0')).join(':');
 const clockMinutes = (time: string) => { const [h, m] = time.split(':').map(Number); return h * 60 + m; };
@@ -11,13 +14,9 @@ const duration = (item: MockScheduleItem) => Math.max(0, clockMinutes(item.end) 
 
 export default function TimerPage({ data, update }: { data: AppData; update: (fn: (value: AppData) => AppData) => void }) {
   const [mode, setMode] = useState<'study' | 'mock'>('study');
-  const [subject, setSubject] = useState<Subject>('국어'); const [seconds, setSeconds] = useState(0); const [running, setRunning] = useState(false); const startRef = useRef(0); const baseRef = useRef(0);
+  const { subject, setSubject, seconds, running, start: startClock, pause, stop, reset, markDrop, startedAt } = useStudyClock(session => update(value => ({ ...value, sessions: [...value.sessions, session] })));
   const [now, setNow] = useState(new Date()); const [manualDate, setManualDate] = useState(toDateKey()); const [manualSubject, setManualSubject] = useState<Subject>('국어'); const [hours, setHours] = useState(0); const [minutes, setMinutes] = useState(0); const [note, setNote] = useState('수동 보정');
-  useEffect(() => { if (!running) return; startRef.current = Date.now(); const id = window.setInterval(() => setSeconds(baseRef.current + Math.floor((Date.now() - startRef.current) / 1000)), 250); return () => clearInterval(id); }, [running]);
   useEffect(() => { const id = window.setInterval(() => setNow(new Date()), 1000); return () => clearInterval(id); }, []);
-  const pause = () => { baseRef.current = seconds; setRunning(false); };
-  const reset = () => { setRunning(false); setSeconds(0); baseRef.current = 0; };
-  const stop = () => { if (seconds > 0) update(value => ({ ...value, sessions: [...value.sessions, { id: uid(), date: toDateKey(), subject, seconds }] })); reset(); };
   const addManual = () => { const total = Math.max(0, hours * 3600 + minutes * 60); if (!total) return; update(value => ({ ...value, sessions: [...value.sessions, { id: uid(), date: manualDate, subject: manualSubject, seconds: total, note: note.trim() || '수동 보정' }] })); setHours(0); setMinutes(0); };
   const deleteSession = (id: string) => { if (window.confirm('이 시간 기록을 삭제할까요? 통계에서도 제외됩니다.')) update(value => ({ ...value, sessions: value.sessions.filter(item => item.id !== id) })); };
   const updateSchedule = (id: string, patch: Partial<MockScheduleItem>) => update(value => ({ ...value, mockSchedule: value.mockSchedule.map(item => item.id === id ? { ...item, ...patch } : item) }));
@@ -25,8 +24,8 @@ export default function TimerPage({ data, update }: { data: AppData; update: (fn
   const deleteSchedule = (id: string) => update(value => ({ ...value, mockSchedule: value.mockSchedule.filter(item => item.id !== id) }));
 
   const today = toDateKey(), start = weekStartKey();
-  const todayBySubject = useMemo(() => Object.fromEntries(SUBJECTS.map(s => [s, data.sessions.filter(x => x.date === today && x.subject === s).reduce((a, x) => a + x.seconds, 0)])) as Record<Subject, number>, [data.sessions, today]);
-  const weekly = data.sessions.filter(s => s.date >= start).reduce((a, s) => a + s.seconds, 0);
+  const todayBySubject = useMemo(() => Object.fromEntries(SUBJECTS.map(s => [s, (studyTotals(data.sessions.filter(x => x.subject === s))[today] ?? 0)])) as Record<Subject, number>, [data.sessions, today]);
+  const weekly = Object.entries(studyTotals(data.sessions)).filter(([date]) => date >= start && date <= today).reduce((sum, [,seconds]) => sum + seconds, 0);
   const recent = [...data.sessions].sort((a, b) => `${b.date}-${b.id}`.localeCompare(`${a.date}-${a.id}`)).slice(0, 12);
   const sortedSchedule = [...data.mockSchedule].sort((a, b) => a.start.localeCompare(b.start));
   const minuteNow = now.getHours() * 60 + now.getMinutes();
@@ -37,7 +36,7 @@ export default function TimerPage({ data, update }: { data: AppData; update: (fn
   return <div><PageHeader eyebrow="STUDY TIMER" title="학습·실모 타이머" description="일반 순공과 2028학년도 수능 시간표 기반 실모 운영을 한곳에서 관리합니다." />
     <div className="timer-mode-tabs"><button className={mode==='study'?'active':''} onClick={()=>setMode('study')}>일반 순공</button><button className={mode==='mock'?'active':''} onClick={()=>setMode('mock')}>실모 운영</button></div>
     {mode === 'study' ? <>
-      <div className="timer-layout"><Card className="timer-card"><div className={`timer-ring ${running ? 'running' : ''}`}><div><span>{subject}</span><strong>{fmt(seconds)}</strong><small>{running ? '집중 세션 진행 중' : seconds ? '일시정지' : 'READY'}</small></div></div><div className="subject-tabs">{SUBJECTS.map(s => <button className={subject === s ? 'active' : ''} disabled={running || seconds > 0} onClick={() => setSubject(s)} key={s}>{s}</button>)}</div><div className="timer-actions">{!running ? <button className="timer-main" onClick={() => setRunning(true)}><Play fill="currentColor" />{seconds ? '계속' : '시작'}</button> : <button className="timer-main" onClick={pause}><Pause fill="currentColor" />일시정지</button>}<button onClick={stop} disabled={!seconds}><Square size={20} />정지·저장</button><button onClick={reset} disabled={!seconds}><RotateCcw size={20} />초기화</button></div></Card>
+      <p>시작·일시정지·재개·종료 시각을 기록합니다. 일시정지는 휴식이며 집중 저하로 자동 판정하지 않습니다.</p>{startedAt && <p>시작 {new Date(startedAt).toLocaleString("ko-KR")} · 화면을 닫아도 계속 측정됩니다.</p>}<button className="button" disabled={!running} onClick={markDrop}>집중 저하 지금 표시</button><div className="timer-layout"><Card className="timer-card"><div className={`timer-ring ${running ? 'running' : ''}`}><div><span>{subject}</span><strong>{fmt(seconds)}</strong><small>{running ? '집중 세션 진행 중' : seconds ? '일시정지' : 'READY'}</small></div></div><div className="subject-tabs">{SUBJECTS.map(s => <button className={subject === s ? 'active' : ''} disabled={running || seconds > 0} onClick={() => setSubject(s)} key={s}>{s}</button>)}</div><div className="timer-actions">{!running ? <button className="timer-main" onClick={startClock}><Play fill="currentColor" />{seconds ? '계속' : '시작'}</button> : <button className="timer-main" onClick={pause}><Pause fill="currentColor" />일시정지</button>}<button onClick={stop} disabled={!seconds}><Square size={20} />정지·저장</button><button onClick={reset} disabled={!seconds}><RotateCcw size={20} />초기화</button></div></Card>
         <div><SectionTitle title="오늘 순공" meta={formatMinutes(Object.values(todayBySubject).reduce((a,b)=>a+b,0) / 60)} />{SUBJECTS.map(s => <Card className="subject-time" key={s}><div><span className={`subject-dot ${s}`} /><b>{s}</b></div><strong>{formatMinutes(todayBySubject[s] / 60)}</strong><Progress value={todayBySubject[s]} max={Math.max(...Object.values(todayBySubject), 1)} /></Card>)}<Card className="weekly-total"><span>이번 주 누적</span><strong>{formatMinutes(weekly / 60)}</strong></Card></div>
       </div>
       <SectionTitle title="시간 수동 보정" meta="누락된 시간 추가 · 과다 기록 삭제" />

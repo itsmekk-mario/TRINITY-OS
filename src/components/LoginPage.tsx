@@ -26,7 +26,7 @@ export default function LoginPage({ onAuthenticated }: { onAuthenticated: () => 
 
   return <main className="login-page"><section className="login-card">
     <div className="login-mark">T</div><p className="eyebrow">PERSONAL LEARNING OPERATING SYSTEM</p>
-    <h1>TRINITY OS</h1><p className="login-philosophy">盡人事待天命</p>
+    <h1>TRINITY OS</h1><div className="team-tools"><a href="?portal=tutor">선생님 로그인</a><a href="?portal=parent">학부모 로그인</a></div><p className="login-philosophy">盡人事待天命</p>
     <div className="login-tabs"><button className={mode==='login'?'active':''} onClick={()=>setMode('login')}>로그인</button><button className={mode==='register'?'active':''} onClick={()=>setMode('register')}>최초 계정 등록</button></div>
     <form onSubmit={submit} className="login-form">
       <label><span>Worker URL</span><input type="url" required value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://...workers.dev"/></label>
