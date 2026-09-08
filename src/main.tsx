@@ -5,6 +5,7 @@ import './styles.css';
 import './ordering.css';
 import './auth.css';
 import './timer-enhanced.css';
+import './ui-polish.css';
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
 
