@@ -26,6 +26,18 @@ const nav = [
   ['dashboard','Dashboard',LayoutDashboard],['plans','Weekly · Monthly Plan',CalendarRange],['calendar','Calendar',CalendarDays],['routine','Daily Routine',BookOpenCheck],['timer','Study Timer',Clock3],['notion','Notion',FileText],['scores','Score Tracker',Gauge],['resources','Resource Database',Database],['drill','Daily · Weekly Drill',Crosshair],['statistics','Statistics',BarChart3],
 ] as const;
 
+function AcademicBackdrop() {
+  const schools = [
+    ['서울대학교', 'SEOUL NATIONAL UNIVERSITY', 'SNU'],
+    ['연세대학교', 'YONSEI UNIVERSITY', 'YU'],
+    ['고려대학교', 'KOREA UNIVERSITY', 'KU'],
+  ] as const;
+  return <div className="academic-backdrop" aria-hidden="true">
+    <div className="backdrop-orb orb-one" /><div className="backdrop-orb orb-two" />
+    {schools.map(([name, english, initial], index) => <div className={`academic-mark mark-${index + 1}`} key={initial}><div className="academic-seal">{initial}</div><div><b>{name}</b><span>{english}</span></div></div>)}
+  </div>;
+}
+
 function StudentApp() {
   const [page,setPage]=useState('dashboard'); const [data,setData]=useState<AppData>(loadData); const [menu,setMenu]=useState(false); const [settings,setSettings]=useState(false); const [toast,setToast]=useState(''); const fileRef=useRef<HTMLInputElement>(null); const [authenticated,setAuthenticated]=useState(Boolean(loadCloudflareConfig().token));
   useEffect(()=>saveData(data),[data]);
@@ -47,5 +59,5 @@ export default function App() {
  const portal = new URLSearchParams(window.location.search).get('portal');
  if (portal === 'tutor' || portal === 'parent') return <SupportPortal role={portal} />;
  if (portal === 'owner') return <SupportOwner />;
- return <><LongPressReorder/><StudentApp/></>;
+ return <><AcademicBackdrop/><LongPressReorder/><StudentApp/></>;
 }
