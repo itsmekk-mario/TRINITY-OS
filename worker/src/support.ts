@@ -10,7 +10,10 @@ type Account = { id: string; username: string; role: 'tutor' | 'parent' };
 type Helpers = { json: (body: unknown, status?: number, origin?: string) => Response; sha256: (s:string)=>Promise<string>; passwordHash:(p:string,s:string)=>Promise<string>; randomHex:(size?:number)=>string };
 const strings = (v: unknown, max=200) => typeof v === 'string' ? v.trim().slice(0,max) : '';
 const storageReady = (env: Env) => Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
-const storageUrl = (env: Env, key: string) => `${env.SUPABASE_URL!.replace(/\/+$/, '')}/storage/v1/object/${encodeURIComponent(env.SUPABASE_BUCKET || 'exam-pdfs')}/${key.split('/').map(encodeURIComponent).join('/')}`;
+// Accept the Project URL and also normalize a mistakenly copied REST/Storage
+// endpoint, while always sending object requests to the Storage API root.
+const supabaseBase = (env: Env) => env.SUPABASE_URL!.replace(/\/+$/, '').replace(/\/(?:rest|storage)\/v1$/, '');
+const storageUrl = (env: Env, key: string) => `${supabaseBase(env)}/storage/v1/object/${encodeURIComponent(env.SUPABASE_BUCKET || 'exam-pdfs')}/${key.split('/').map(encodeURIComponent).join('/')}`;
 const storageHeaders = (env: Env) => ({ Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY!}`, apikey: env.SUPABASE_SERVICE_ROLE_KEY! });
 const selectFields = (v: any, keys: string[]) => Object.fromEntries(keys.filter(k=>v[k]!==undefined).map(k=>[k,v[k]]));
 export function projection(data: AppData, role: Account['role']) {
