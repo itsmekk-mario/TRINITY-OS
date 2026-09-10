@@ -46,9 +46,9 @@ npx wrangler d1 execute trinity-os-db --remote --file=./schema.sql
 
 ```bash
 cd worker
-npx wrangler secret put SUPABASE_URL
-npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-npx wrangler secret put SUPABASE_BUCKET
+npx wrangler secret put SUPABASE_URL --config wrangler.toml
+npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --config wrangler.toml
+npx wrangler secret put SUPABASE_BUCKET --config wrangler.toml
 npm run deploy
 ```
 
