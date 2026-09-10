@@ -1,6 +1,6 @@
 import './team.css';
 import { useEffect, useRef, useState } from 'react';
-import { BarChart3, BookOpenCheck, CalendarDays, CalendarRange, Clock3, Crosshair, Database, Download, FileText, FolderOpen, Gauge, LayoutDashboard, Menu, Settings, ShieldCheck, Upload, X } from 'lucide-react';
+import { BarChart3, BookOpenCheck, CalendarDays, CalendarRange, Clock3, Crosshair, Database, Download, FileText, Gauge, LayoutDashboard, Menu, Settings, ShieldCheck, Upload, X } from 'lucide-react';
 import type { AppData } from './types';
 import { downloadBackup, loadData, parseBackup, saveData } from './lib/storage';
 import { APP_VERSION } from './data/config';
@@ -23,7 +23,7 @@ import LongPressReorder from './components/LongPressReorder';
 import SupportPortal, { ExamArchive, SupportOwner } from './pages/SupportPortal';
 
 const nav = [
-  ['dashboard','Dashboard',LayoutDashboard],['plans','Weekly · Monthly Plan',CalendarRange],['calendar','Calendar',CalendarDays],['routine','Daily Routine',BookOpenCheck],['timer','Study Timer',Clock3],['notion','Notion',FileText],['scores','Score Tracker',Gauge],['resources','Resource Database',Database],['pdf','PDF 자료실',FolderOpen],['drill','Daily · Weekly Drill',Crosshair],['statistics','Statistics',BarChart3],
+  ['dashboard','Dashboard',LayoutDashboard],['plans','Weekly · Monthly Plan',CalendarRange],['calendar','Calendar',CalendarDays],['routine','Daily Routine',BookOpenCheck],['timer','Study Timer',Clock3],['notion','Notion',FileText],['scores','Score Tracker',Gauge],['resources','Resource Database',Database],['drill','Daily · Weekly Drill',Crosshair],['statistics','Statistics',BarChart3],
 ] as const;
 
 function StudentApp() {
