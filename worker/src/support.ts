@@ -95,6 +95,14 @@ export async function support(request:Request, env:Env, owner:boolean, origin:st
    const id=h.randomHex(16);
    await env.DB.prepare('INSERT INTO exam_documents(id,title,agency,year,subject,object_key,created_at) VALUES(?,?,?,?,?,?,?)').bind(id,title,agency,year,subject,key,new Date().toISOString()).run();return out({ok:true,id,storage:storageReady(env)?'supabase':'public'},201);
   }
+  if(path.startsWith('/api/exams/')&&!path.endsWith('/file')&&method==='DELETE'){
+   if(!owner)return out({error:'Only the owner can remove PDFs.'},403);
+   const id=path.slice('/api/exams/'.length),doc=await env.DB.prepare('SELECT object_key FROM exam_documents WHERE id=?').bind(id).first<{object_key:string}>();
+   if(!doc)return out({error:'Document not found.'},404);
+   if(storageReady(env))await fetch(storageUrl(env,doc.object_key),{method:'DELETE',headers:storageHeaders(env)});
+   await env.DB.prepare('DELETE FROM exam_documents WHERE id=?').bind(id).run();
+   return out({ok:true});
+  }
   if(path.startsWith('/api/exams/')&&path.endsWith('/file')&&method==='PUT'){
    if(!owner)return out({error:'Only the owner can upload PDFs.'},403);
    if(!storageReady(env))return out({error:'Supabase Storage is not configured on this Worker.'},503);

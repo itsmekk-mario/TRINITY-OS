@@ -34,11 +34,11 @@ export function ExamArchive({ auth = loadCloudflareConfig(), owner = true }: { a
     else if (typeof doc.path === 'string' && doc.path.startsWith('exams/')) setPdf(new URL((import.meta.env.BASE_URL || '/') + doc.path, window.location.origin).href);
     else throw new Error('PDF 경로가 올바르지 않습니다.');
   } catch (e) { setError(errorText(e)); } finally { setBusy(false); } };
-  const submit = async (event: React.FormEvent) => { event.preventDefault(); setBusy(true); setError(''); try {
+  const submit = async (event: React.FormEvent) => { event.preventDefault(); setBusy(true); setError(''); let createdId = ''; try {
     if (!file) throw new Error('업로드할 PDF를 선택하세요.');
-    const created = await api(auth, '/api/exams', 'POST', draft) as { id: string };
+    const created = await api(auth, '/api/exams', 'POST', draft) as { id: string }; createdId = created.id;
     await upload(auth, created.id, file); setDraft({ ...draft, title: '', object_key: '' }); setFile(null); if (inputRef.current) inputRef.current.value = ''; await refresh();
-  } catch (e) { setError(errorText(e)); } finally { setBusy(false); } };
+  } catch (e) { if (createdId) await api(auth, `/api/exams/${createdId}`, 'DELETE').catch(() => undefined); setError(errorText(e)); } finally { setBusy(false); } };
   const shown = docs.filter(doc => [doc.title, doc.agency, doc.year, doc.subject].join(' ').toLowerCase().includes(filter.toLowerCase()));
   return <section className="team-panel exam-archive"><h2>기출 PDF 자료실</h2><p>PDF는 비공개 Supabase Storage에 저장됩니다. 관리자와 수학 선생님만 열 수 있습니다.</p><div className="team-tools"><input aria-label="자료 검색" placeholder="기관 · 연도 · 과목 · 시험명 검색" value={filter} onChange={e => setFilter(e.target.value)} /><button className="button" onClick={refresh}>새로고침</button></div>
     {owner && <details open><summary>PDF 업로드</summary><form className="team-panel" onSubmit={submit}><label>시험명<input required value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} /></label><label>기관<select value={draft.agency} onChange={e => setDraft({ ...draft, agency: e.target.value })}>{['평가원', '교육청', '사관학교'].map(v => <option key={v}>{v}</option>)}</select></label><label>연도<input type="number" min="1980" max="2100" value={draft.year} onChange={e => setDraft({ ...draft, year: Number(e.target.value) })} /></label><label>과목<select value={draft.subject} onChange={e => setDraft({ ...draft, subject: e.target.value })}>{['국어', '수학', '영어', '탐구'].map(v => <option key={v}>{v}</option>)}</select></label><label>저장 경로<input required placeholder="2026/kice/math-september.pdf" value={draft.object_key} onChange={e => setDraft({ ...draft, object_key: e.target.value })} /></label><label>PDF 파일<input ref={inputRef} required type="file" accept="application/pdf" onChange={e => setFile(e.target.files?.[0] ?? null)} /></label><button className="button primary" disabled={busy}>{busy ? '업로드 중…' : 'PDF 등록'}</button></form></details>}

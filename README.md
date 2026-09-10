@@ -1,5 +1,7 @@
 # TRINITY OS
 
+PDF 업로드는 [PDF-UPLOAD-GUIDE.md](PDF-UPLOAD-GUIDE.md)를 참고하세요.
+
 > Personal Learning Operating System · 盡人事待天命
 
 정시 수험 준비의 `계획 → 실행 → 기록 → 오류 분석 → 행동 수정 → 체화` 사이클을 한 기기에서 운영하는 React 기반 정적 PWA입니다. 모든 기록은 LocalStorage에만 저장되며 API 키나 서버가 필요하지 않습니다.
