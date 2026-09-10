@@ -1,5 +1,5 @@
 import type { AppData } from '../../src/types';
-type Env = { DB: D1Database };
+type Env = { DB: D1Database; SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; SUPABASE_BUCKET?: string };
 export function publicExamPath(key: string): string | null {
  if (!key || key.length > 500 || /[\\:%?#\u0000-\u001f\u007f]/.test(key) || !key.toLowerCase().endsWith('.pdf')) return null;
  const parts = key.split('/');
@@ -9,6 +9,9 @@ export function publicExamPath(key: string): string | null {
 type Account = { id: string; username: string; role: 'tutor' | 'parent' };
 type Helpers = { json: (body: unknown, status?: number, origin?: string) => Response; sha256: (s:string)=>Promise<string>; passwordHash:(p:string,s:string)=>Promise<string>; randomHex:(size?:number)=>string };
 const strings = (v: unknown, max=200) => typeof v === 'string' ? v.trim().slice(0,max) : '';
+const storageReady = (env: Env) => Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
+const storageUrl = (env: Env, key: string) => `${env.SUPABASE_URL!.replace(/\/+$/, '')}/storage/v1/object/${encodeURIComponent(env.SUPABASE_BUCKET || 'exam-pdfs')}/${key.split('/').map(encodeURIComponent).join('/')}`;
+const storageHeaders = (env: Env) => ({ Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY!}`, apikey: env.SUPABASE_SERVICE_ROLE_KEY! });
 const selectFields = (v: any, keys: string[]) => Object.fromEntries(keys.filter(k=>v[k]!==undefined).map(k=>[k,v[k]]));
 export function projection(data: AppData, role: Account['role']) {
  const math = (v: {subject?:string}) => role==='parent'||v.subject==='수학';
@@ -89,7 +92,28 @@ export async function support(request:Request, env:Env, owner:boolean, origin:st
    if(!title||!['평가원','교육청','사관학교'].includes(agency)||!['국어','수학','영어','탐구'].includes(subject)||!Number.isInteger(year)||year<1980||year>2100||!key.toLowerCase().endsWith('.pdf'))return out({error:'자료 양식을 확인하세요.'},400);
    if(!publicExamPath(key))return out({error:'public/exams/ 아래의 상대 PDF 경로를 입력하세요. URL이나 상위 폴더 경로는 사용할 수 없습니다.'},400);
    if(await env.DB.prepare('SELECT id FROM exam_documents WHERE object_key=?').bind(key).first())return out({error:'이미 등록된 파일입니다.'},409);
-   await env.DB.prepare('INSERT INTO exam_documents(id,title,agency,year,subject,object_key,created_at) VALUES(?,?,?,?,?,?,?)').bind(h.randomHex(16),title,agency,year,subject,key,new Date().toISOString()).run();return out({ok:true},201);
+   const id=h.randomHex(16);
+   await env.DB.prepare('INSERT INTO exam_documents(id,title,agency,year,subject,object_key,created_at) VALUES(?,?,?,?,?,?,?)').bind(id,title,agency,year,subject,key,new Date().toISOString()).run();return out({ok:true,id,storage:storageReady(env)?'supabase':'public'},201);
+  }
+  if(path.startsWith('/api/exams/')&&path.endsWith('/file')&&method==='PUT'){
+   if(!owner)return out({error:'Only the owner can upload PDFs.'},403);
+   if(!storageReady(env))return out({error:'Supabase Storage is not configured on this Worker.'},503);
+   const id=path.slice('/api/exams/'.length,-'/file'.length),doc=await env.DB.prepare('SELECT object_key FROM exam_documents WHERE id=?').bind(id).first<{object_key:string}>();
+   if(!doc)return out({error:'Document not found.'},404);
+   const length=Number(request.headers.get('Content-Length')||0),type=(request.headers.get('Content-Type')||'').toLowerCase();
+   if(!request.body||length>20*1024*1024||!type.startsWith('application/pdf'))return out({error:'Upload a PDF no larger than 20 MB.'},400);
+   const uploaded=await fetch(storageUrl(env,doc.object_key),{method:'POST',headers:{...storageHeaders(env),'Content-Type':'application/pdf','x-upsert':'false'},body:request.body});
+   if(!uploaded.ok)return out({error:'Supabase rejected the PDF upload.'},502);
+   return out({ok:true},201);
+  }
+  if(path.startsWith('/api/exams/')&&path.endsWith('/file')&&method==='GET'){
+   if(account?.role==='parent')return out({error:'PDF access is not available for this role.'},403);
+   if(!storageReady(env))return out({error:'Supabase Storage is not configured on this Worker.'},503);
+   const id=path.slice('/api/exams/'.length,-'/file'.length),doc=await env.DB.prepare('SELECT object_key,subject FROM exam_documents WHERE id=?').bind(id).first<{object_key:string;subject:string}>();
+   if(!doc||account&&doc.subject!=='?섑븰')return out({error:'Document not found.'},404);
+   const file=await fetch(storageUrl(env,doc.object_key),{headers:storageHeaders(env)});
+   if(!file.ok||!file.body)return out({error:'The PDF has not been uploaded yet.'},404);
+   return new Response(file.body,{headers:{'Content-Type':'application/pdf','Content-Disposition':'inline','Cache-Control':'private, max-age=300','Access-Control-Allow-Origin':origin}});
   }
   if(path.startsWith('/api/exams/')&&method==='GET'){
    if(account?.role==='parent')return out({error:'자료실 접근 권한이 없습니다.'},403);
@@ -97,7 +121,7 @@ export async function support(request:Request, env:Env, owner:boolean, origin:st
    if(!doc||account&&doc.subject!=='수학')return out({error:'자료를 찾을 수 없습니다.'},404);
    const pdfPath=publicExamPath(doc.object_key);
    if(!pdfPath)return out({error:'기존 파일 경로를 확인하세요.'},400);
-   return out({path:pdfPath,public:true});
+   return out(storageReady(env)?{storage:'supabase',path:pdfPath,public:true}:{path:pdfPath,public:true});
   }
   return out({error:'Not found'},404);
  }catch{ return out({error:'요청을 처리하지 못했습니다. D1 마이그레이션과 연결을 확인하세요.'},503); }

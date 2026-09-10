@@ -37,3 +37,26 @@ npx wrangler d1 execute trinity-os-db --remote --file=./schema.sql
    (`2026/kice/math-09.pdf`)를 등록합니다.
 
 파일과 D1 문서 레코드는 분리되어 있으므로, PDF를 먼저 배포한 뒤 목록에 등록해야 합니다.
+
+## Supabase 비공개 업로드로 전환
+
+`exam-pdfs`라는 **비공개** Storage 버킷을 만든 경우, 아래 세 Secret을 Worker에 등록하면
+관리자 화면(`?portal=owner`)에서 PDF를 직접 올릴 수 있습니다. `service_role` 키를
+소스 코드나 브라우저, 채팅에 넣지 마세요.
+
+```bash
+cd worker
+npx wrangler secret put SUPABASE_URL
+npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+npx wrangler secret put SUPABASE_BUCKET
+npm run deploy
+```
+
+- `SUPABASE_URL`: Project Settings → API의 Project URL
+- `SUPABASE_SERVICE_ROLE_KEY`: Project Settings → API의 `service_role` 키
+- `SUPABASE_BUCKET`: `exam-pdfs`
+
+설정 후에는 관리자 자료실에서 시험 정보, `2026/kice/math.pdf` 같은 저장 경로, PDF를
+함께 선택해 등록합니다. PDF는 20 MB 이하만 허용하며, Worker가 소유자·튜터 권한을
+확인한 뒤에만 Supabase Storage에 접근합니다. 기존 `public/exams/` PDF도 호환을 위해
+그대로 열 수 있지만, 새 등록은 Supabase의 비공개 저장소를 사용합니다.
