@@ -1,5 +1,5 @@
 import { support } from './support';
-export interface Env { DB: D1Database; SYNC_TOKEN: string; ALLOWED_ORIGIN?: string; SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; SUPABASE_BUCKET?: string }
+export interface Env { DB: D1Database; SYNC_TOKEN: string; NVIDIA_API_KEY?: string; ALLOWED_ORIGIN?: string; SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; SUPABASE_BUCKET?: string }
 const encoder = new TextEncoder();
 const json = (body: unknown, status = 200, origin = '*') => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS', 'Cache-Control': 'no-store' } });
 const hex = (bytes: ArrayBuffer) => [...new Uint8Array(bytes)].map(v => v.toString(16).padStart(2, '0')).join('');
@@ -13,6 +13,21 @@ async function ensureTables(db: D1Database) { await db.batch([
 ]); }
 async function sessionUser(request: Request, env: Env) { const bearer = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, ''); if (!bearer) return null; const hash = await sha256(bearer); return env.DB.prepare("SELECT u.username FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND datetime(s.expires_at)>datetime('now')").bind(hash).first<{ username: string }>(); }
 async function createSession(env: Env, username: string) { const token = randomHex(); const hash = await sha256(token); const expires = new Date(Date.now() + 30 * 86400000).toISOString(); await env.DB.prepare("DELETE FROM sessions WHERE datetime(expires_at)<=datetime('now')").run(); await env.DB.prepare('INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES(?,1,?,?)').bind(hash, expires, new Date().toISOString()).run(); return { token, username, expiresAt: expires }; }
+const coachSystem = `너는 TRINITY OS의 수능 학습 코치다. 감정적인 격려를 길게 하지 말고, 제공된 학습 데이터에 근거해 가장 중요한 다음 행동 하나를 제시한다. 데이터에 없는 사실을 만들지 말고 계획량을 무조건 늘리지 않는다. 학습량보다 실제 병목과 실행을 우선하며, 미완료 일정이 많아도 비난하지 않는다. 한국어로 1~2문장, 80자 안팎으로 답한다.`;
+const dailySystem = `${coachSystem}\n반드시 JSON만 반환한다: {"summary":"...","bottleneck":"...","nextAction":"...","coachMessage":"..."}. 각 값은 짧은 한국어 문장이다.`;
+const asObject = (value: unknown): Record<string, unknown> | null => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+const text = (value: unknown, fallback = '') => typeof value === 'string' ? value.slice(0, 900) : fallback;
+const jsonFromText = (value: string) => { try { return JSON.parse(value) as unknown; } catch { const match = value.match(/\{[\s\S]*\}/); try { return match ? JSON.parse(match[0]) as unknown : null; } catch { return null; } } };
+async function kimi(env: Env, system: string, user: string, maxTokens: number) {
+  if (!env.NVIDIA_API_KEY) throw new Error('AI 코치가 아직 설정되지 않았습니다.');
+  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', { method: 'POST', signal: controller.signal, headers: { Authorization: `Bearer ${env.NVIDIA_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'moonshotai/kimi-k3', temperature: 0.25, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) });
+    const payload = await response.json() as { choices?: { message?: { content?: unknown } }[]; error?: { message?: string } };
+    if (!response.ok) throw new Error(payload.error?.message || `AI 요청 실패 (${response.status})`);
+    const content = payload.choices?.[0]?.message?.content; if (typeof content !== 'string' || !content.trim()) throw new Error('AI 응답이 비어 있습니다.'); return content.trim();
+  } finally { clearTimeout(timeout); }
+}
 
 export default { async fetch(request: Request, env: Env): Promise<Response> {
   const origin = env.ALLOWED_ORIGIN || '*';
@@ -39,6 +54,26 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
   const extra = await support(request, env, !!user, origin, { json, sha256, passwordHash, randomHex });
   if (extra) return extra;
   if (url.pathname === '/api/auth/me' && request.method === 'GET') return user ? json({ ok: true, username: user.username }, 200, origin) : json({ error: 'Unauthorized' }, 401, origin);
+  if (url.pathname === '/api/ai/daily-coach' && request.method === 'POST') {
+    if (!user) return json({ error: 'Unauthorized' }, 401, origin);
+    const body = asObject(await request.json<unknown>()); const context = body?.context;
+    if (!asObject(context)) return json({ error: '학습 컨텍스트가 필요합니다.' }, 400, origin);
+    try {
+      const content = await kimi(env, dailySystem, `오늘의 선별된 학습 데이터:\n${JSON.stringify(context)}`, 180);
+      const parsed = asObject(jsonFromText(content));
+      const fallback = '오늘 남은 일정부터 차례대로 완료하세요.';
+      return json({ summary: text(parsed?.summary, fallback), bottleneck: text(parsed?.bottleneck, ''), nextAction: text(parsed?.nextAction, fallback), coachMessage: text(parsed?.coachMessage, content.slice(0, 160) || fallback) }, 200, origin);
+    } catch (error) { return json({ error: error instanceof Error ? error.message : 'AI 코치 연결에 실패했습니다.' }, 502, origin); }
+  }
+  if (url.pathname === '/api/ai/chat' && request.method === 'POST') {
+    if (!user) return json({ error: 'Unauthorized' }, 401, origin);
+    const body = asObject(await request.json<unknown>()); const context = body?.context; const rawMessages = Array.isArray(body?.messages) ? body?.messages.slice(-6) : [];
+    if (!asObject(context) || !rawMessages.length) return json({ error: '학습 컨텍스트와 질문이 필요합니다.' }, 400, origin);
+    const messages = rawMessages.map(asObject).filter((item): item is Record<string, unknown> => Boolean(item)).filter((item) => (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string').map((item) => `${item.role === 'user' ? '사용자' : '코치'}: ${text(item.content, '').slice(0, 500)}`).join('\n');
+    if (!messages) return json({ error: '유효한 질문이 필요합니다.' }, 400, origin);
+    try { return json({ message: await kimi(env, coachSystem, `선별된 학습 데이터:\n${JSON.stringify(context)}\n\n최근 대화:\n${messages}\n\n위 질문에만 짧게 답하세요.`, 320) }, 200, origin); }
+    catch (error) { return json({ error: error instanceof Error ? error.message : 'AI 상담 연결에 실패했습니다.' }, 502, origin); }
+  }
   if (url.pathname !== '/api/sync' || !['GET', 'PUT'].includes(request.method)) return json({ error: 'Not found' }, 404, origin);
   if (!user) return json({ error: 'Unauthorized' }, 401, origin);
   if (request.method === 'GET') { const row = await env.DB.prepare('SELECT payload,updated_at FROM learning_state WHERE id=1').first<{ payload: string; updated_at: string }>(); return row ? json({ data: JSON.parse(row.payload), updatedAt: row.updated_at }, 200, origin) : json({ data: null, updatedAt: null }, 200, origin); }
