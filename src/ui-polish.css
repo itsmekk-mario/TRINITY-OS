@@ -1,5 +1,18 @@
 /* Shared visual polish: preserves existing components and data flows. */
 :root{--ink:#18243a;--canvas:#f6f7f9;--surface:#fff;--soft:#f1f4f7;--line:#e2e7ed;--muted:#6f7c8e;--accent:#b78a38;--accent-soft:#fbf5e8;--success:#337a62;--radius:14px;--shadow-soft:0 8px 24px rgba(19,34,57,.055)}
+/* A quieter, Apple-like surface system: depth comes from light and spacing,
+   not heavy borders or saturated controls. */
+:root{--radius:18px;--shadow-soft:0 12px 32px rgba(28,39,57,.07)}
+body{letter-spacing:-.012em;-webkit-font-smoothing:antialiased}
+.app-shell>aside{background:linear-gradient(180deg,#13243c 0%,#0d1a2d 100%)}
+.app-shell>main{background:linear-gradient(135deg,#f8f9fb 0%,#f2f5f8 100%)}
+.card{background:rgba(255,255,255,.88);backdrop-filter:blur(18px);border-color:rgba(218,225,233,.84)}
+.button,.weekly-task-actions button,.order-actions button{transition:transform .18s ease,box-shadow .18s ease,background .18s ease}
+.button:active:not(:disabled),.weekly-task-actions button:active:not(:disabled),.order-actions button:active:not(:disabled){transform:scale(.96)}
+.button.primary{background:linear-gradient(180deg,#253c5b,#172b47);box-shadow:0 8px 18px rgba(19,42,71,.19)}
+.button.primary:hover:not(:disabled){background:linear-gradient(180deg,#2d486d,#1b3151)}
+.order-actions button,.weekly-task-actions button{touch-action:manipulation;user-select:none}
+.order-actions button:active,.weekly-task-actions button:active{box-shadow:0 0 0 3px rgba(183,138,56,.18)}
 body{background:var(--canvas);color:var(--ink)}
 .page-wrap{max-width:1500px;padding:38px 46px 80px}
 .page-header{margin-bottom:24px}.page-header h1{font-size:clamp(1.7rem,2.6vw,2.15rem);line-height:1.15;letter-spacing:-.055em}.page-description{max-width:680px;font-size:.875rem;line-height:1.7}.eyebrow{color:#997333;letter-spacing:.16em}

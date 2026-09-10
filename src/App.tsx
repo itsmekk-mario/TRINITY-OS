@@ -19,6 +19,8 @@ import CloudflareSync from './components/CloudflareSync';
 import LoginPage from './components/LoginPage';
 import { logoutLocal, validateSession } from './lib/auth';
 import { loadCloudflareConfig } from './lib/cloudflare';
+import LongPressReorder from './components/LongPressReorder';
+import SupportPortal, { SupportOwner } from './pages/SupportPortal';
 
 const nav = [
   ['dashboard','Dashboard',LayoutDashboard],['plans','Weekly · Monthly Plan',CalendarRange],['calendar','Calendar',CalendarDays],['routine','Daily Routine',BookOpenCheck],['timer','Study Timer',Clock3],['notion','Notion',FileText],['scores','Score Tracker',Gauge],['resources','Resource Database',Database],['drill','Daily · Weekly Drill',Crosshair],['statistics','Statistics',BarChart3],
@@ -42,5 +44,8 @@ function StudentApp() {
 }
 
 export default function App() {
- return <StudentApp/>;
+ const portal = new URLSearchParams(window.location.search).get('portal');
+ if (portal === 'tutor' || portal === 'parent') return <SupportPortal role={portal} />;
+ if (portal === 'owner') return <SupportOwner />;
+ return <><LongPressReorder/><StudentApp/></>;
 }
