@@ -111,7 +111,10 @@ export async function support(request:Request, env:Env, owner:boolean, origin:st
    const length=Number(request.headers.get('Content-Length')||0),type=(request.headers.get('Content-Type')||'').toLowerCase();
    if(!request.body||length>20*1024*1024||!type.startsWith('application/pdf'))return out({error:'Upload a PDF no larger than 20 MB.'},400);
    const uploaded=await fetch(storageUrl(env,doc.object_key),{method:'POST',headers:{...storageHeaders(env),'Content-Type':'application/pdf','x-upsert':'false'},body:request.body});
-   if(!uploaded.ok)return out({error:'Supabase rejected the PDF upload.'},502);
+   if(!uploaded.ok){
+    const detail=(await uploaded.text()).replace(/\s+/g,' ').slice(0,300);
+    return out({error:`Supabase upload failed (${uploaded.status})${detail?`: ${detail}`:''}`},502);
+   }
    return out({ok:true},201);
   }
   if(path.startsWith('/api/exams/')&&path.endsWith('/file')&&method==='GET'){
