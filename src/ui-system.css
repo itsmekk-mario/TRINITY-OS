@@ -43,3 +43,19 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 @media(prefers-color-scheme:dark){:root{--background:#0e0f11;--surface:#1c1d20;--surface-secondary:#292a2e;--text-primary:#f2f2f4;--text-secondary:#aaaab2;--text-tertiary:#7e7e87;--separator:rgba(255,255,255,.11);--navy:#111b2a;--gold:#c3a15e}.mobile-tab-bar{background:rgba(28,29,32,.94)}.segmented-control{background:#292a2e}.learning-shell .card,.learning-signal,.interactive-card{background:var(--surface)}.today-next,.coach-context-hero{background:var(--navy)!important}.detail-sheet{background:var(--surface)}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}::view-transition-old(root),::view-transition-new(root){animation:none!important}}
 @media(max-width:760px){.learning-shell .mobile-bar,.learning-shell .mobile-bar strong,.learning-shell .mobile-bar button{color:var(--text-primary)}.learning-shell .page-header h1{font-size:clamp(29px,9vw,32px);overflow-wrap:anywhere}}
+
+/* Arena is intentionally light-scoped. OS dark-mode tokens must never produce
+   white copy on its white profile, ranking, group, or metric surfaces. */
+.learning-shell .arena-page{color-scheme:light;--surface:#fff;--surface-secondary:#f1f2f5;--text-primary:#1d1d1f;--text-secondary:#56565c;--text-tertiary:#73737b;--arena-ink:#1d1d1f;--arena-sub:#56565c;--arena-line:rgba(29,29,31,.12);--arena-soft:#f1f2f5;color:#1d1d1f}
+.learning-shell .arena-page :where(.card:not(.arena-hero):not(.arena-season),.arena-onboarding,.arena-empty,.arena-tabs,.arena-table,.arena-alert){color:#1d1d1f}
+.learning-shell .arena-page :where(.card:not(.arena-hero):not(.arena-season),.arena-onboarding,.arena-empty,.arena-tabs,.arena-table) :where(h1,h2,h3,h4,b,strong,label){color:#1d1d1f}
+.learning-shell .arena-page :where(.card:not(.arena-hero):not(.arena-season),.arena-onboarding,.arena-empty,.arena-tabs,.arena-table) :where(p,small){color:#56565c}
+.learning-shell .arena-page :where(input,textarea,select){border-color:rgba(29,29,31,.12);background:#f1f2f5;color:#1d1d1f;-webkit-text-fill-color:#1d1d1f}
+.learning-shell .arena-page :where(input,textarea)::placeholder{color:#85858d;opacity:1;-webkit-text-fill-color:#85858d}
+.learning-shell .arena-page option{background:#fff;color:#1d1d1f}
+.learning-shell .arena-page .button:not(.primary),.learning-shell .arena-page .arena-table button{background:#f1f2f5;color:#1d1d1f}
+.learning-shell .arena-page .button.primary{background:#101c2d;color:#fff;-webkit-text-fill-color:#fff}
+.learning-shell .arena-page .arena-tabs button{color:#56565c}.learning-shell .arena-page .arena-tabs button.active{background:#fff;color:#1d1d1f}
+.learning-shell .arena-page :where(.arena-hero,.arena-season){background:#1d1d1f;color:#fff}
+.learning-shell .arena-page :where(.arena-hero,.arena-season) :where(h1,h2,h3,b,strong){color:#fff}
+.learning-shell .arena-page :where(.arena-hero,.arena-season) :where(p,small,span:not(.positive):not(.negative)){color:rgba(255,255,255,.68)}
