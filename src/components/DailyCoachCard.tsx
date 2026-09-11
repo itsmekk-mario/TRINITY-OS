@@ -1,15 +1,54 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MessageCircle, RefreshCw } from 'lucide-react';
 import type { AppData } from '../types';
 import { formatMinutes } from '../lib/date';
-import { buildDailyCoachContext, fallbackCoachMessage, loadCoachCache, requestDailyCoach, saveCoachCache, type CoachReply } from '../lib/aiCoach';
+import { buildDailyCoachContext, dailyCoachCacheKey, fallbackCoachMessage, loadCoachCache, requestDailyCoach, saveCoachCache, type CoachReply } from '../lib/aiCoach';
 import CoachChat from './CoachChat';
 
 export default function DailyCoachCard({ data }: { data: AppData }) {
-  const context = useMemo(() => buildDailyCoachContext(data), [data]); const fallback = fallbackCoachMessage(context);
-  const [reply, setReply] = useState<CoachReply | null>(() => loadCoachCache(context)); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [chatOpen, setChatOpen] = useState(false);
-  const refresh = async (force = false) => { if (busy) return; const cached = !force && loadCoachCache(context); if (cached) { setReply(cached); return; } setBusy(true); setError(''); try { const value = await requestDailyCoach(context); setReply(value); saveCoachCache(context, value); } catch (cause) { setError(cause instanceof Error ? cause.message : 'AI 조언을 불러오지 못했습니다.'); } finally { setBusy(false); } };
-  useEffect(() => { const cached = loadCoachCache(context); if (cached) { setReply(cached); return; } let active = true; setBusy(true); requestDailyCoach(context).then((value) => { if (!active) return; setReply(value); saveCoachCache(context, value); }).catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : 'AI 조언을 불러오지 못했습니다.'); }).finally(() => { if (active) setBusy(false); }); return () => { active = false; }; }, [context]);
-  const next = context.todaySchedule.find((item) => !item.completed); const pending = context.todaySchedule.filter((item) => !item.completed);
-  return <section className="daily-coach" aria-labelledby="daily-coach-title"><div className="daily-coach-head"><div><span className="card-label">AI DAILY COACH</span><h2 id="daily-coach-title">{context.greeting}</h2><p>{context.date.replaceAll('-', '.')} · {context.currentTime}</p></div><button className="icon-button" onClick={() => refresh(true)} aria-label="AI 조언 새로고침" disabled={busy}><RefreshCw size={16} className={busy ? 'spin' : ''} /></button></div><div className="coach-progress"><div><span>오늘 진행률</span><strong>{context.progress.progressPercent}%</strong></div><div className="coach-progress-track"><i style={{ width: `${context.progress.progressPercent}%` }} /></div><small>{formatMinutes(context.progress.completedMinutes)} / {context.progress.plannedMinutes ? formatMinutes(context.progress.plannedMinutes) : '계획 시간 미설정'}</small></div><div className="coach-next"><span>NEXT</span>{next ? <><b>{next.subject} · {next.title}</b><small>{next.plannedMinutes ? `${next.plannedMinutes}분` : '목표 시간 미설정'}{pending.length > 1 ? ` · 남은 학습 ${pending.length}개` : ''}</small></> : <><b>오늘 예정된 학습은 모두 종료되었습니다.</b><small>기록을 정리하고 다음 학습 기준을 남겨보세요.</small></>}</div><div className="coach-advice"><span>AI COACH</span><p>{busy ? '오늘 학습 기록을 읽고 있습니다…' : reply?.coachMessage || fallback}</p>{error && <small>{error}</small>}</div><button className="button coach-chat-button" onClick={() => setChatOpen(true)}><MessageCircle size={16} /> AI에게 상담하기</button>{chatOpen && <CoachChat context={context} onClose={() => setChatOpen(false)} />}</section>;
+  const context = useMemo(() => buildDailyCoachContext(data), [data]);
+  const contextKey = useMemo(() => dailyCoachCacheKey(context), [context]);
+  const fallback = fallbackCoachMessage(context);
+  const [reply, setReply] = useState<CoachReply | null>(() => loadCoachCache(context));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [chatOpen, setChatOpen] = useState(false);
+  const busyRef = useRef(false);
+
+  useEffect(() => {
+    const cached = loadCoachCache(context);
+    if (cached) { setReply(cached); setError(''); return; }
+    let active = true;
+    busyRef.current = true; setBusy(true); setError(''); setReply(null);
+    requestDailyCoach(context)
+      .then((value) => { if (active) { setReply(value); saveCoachCache(context, value); } })
+      .catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : 'AI 조언을 불러오지 못했습니다.'); })
+      .finally(() => { busyRef.current = false; if (active) setBusy(false); });
+    return () => { active = false; };
+    // contextKey is a semantic fingerprint. It intentionally ignores clock-only re-renders.
+  }, [contextKey]);
+
+  const refresh = async () => {
+    if (busyRef.current) return;
+    busyRef.current = true; setBusy(true); setError('');
+    try {
+      const value = await requestDailyCoach(context, true);
+      setReply(value); saveCoachCache(context, value);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'AI 조언을 불러오지 못했습니다.');
+    } finally {
+      busyRef.current = false; setBusy(false);
+    }
+  };
+
+  const next = context.todaySchedule.find((item) => !item.completed);
+  const pending = context.todaySchedule.filter((item) => !item.completed);
+  return <section className="daily-coach" aria-labelledby="daily-coach-title">
+    <div className="daily-coach-head"><div><span className="card-label">AI DAILY COACH</span><h2 id="daily-coach-title">{context.greeting}</h2><p>{context.date.replaceAll('-', '.')} · {context.currentTime}</p></div><button className="icon-button" onClick={refresh} aria-label="AI 조언 새로고침" disabled={busy}><RefreshCw size={16} className={busy ? 'spin' : ''} /></button></div>
+    <div className="coach-progress"><div><span>오늘 진행률</span><strong>{context.progress.progressPercent}%</strong></div><div className="coach-progress-track"><i style={{ width: context.progress.progressPercent + '%' }} /></div><small>{formatMinutes(context.progress.completedMinutes)} / {context.progress.plannedMinutes ? formatMinutes(context.progress.plannedMinutes) : '계획 시간 미설정'}</small></div>
+    <div className="coach-next"><span>NEXT</span>{next ? <><b>{next.subject} · {next.title}</b><small>{next.plannedMinutes ? next.plannedMinutes + '분' : '목표 시간 미설정'}{pending.length > 1 ? ' · 남은 학습 ' + pending.length + '개' : ''}</small></> : <><b>오늘 예정된 학습은 모두 종료되었습니다.</b><small>기록을 정리하고 다음 학습 기준을 남겨보세요.</small></>}</div>
+    <div className="coach-advice"><span>AI COACH</span><p>{busy ? '오늘 학습 기록을 읽고 있습니다…' : reply?.coachMessage || fallback}</p>{error && <small>{error}</small>}</div>
+    <button className="button coach-chat-button" onClick={() => setChatOpen(true)}><MessageCircle size={16} /> AI에게 상담하기</button>
+    {chatOpen && <CoachChat context={context} onClose={() => setChatOpen(false)} />}
+  </section>;
 }

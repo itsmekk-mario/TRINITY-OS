@@ -1,33 +1,61 @@
-# TRINITY OS Cloudflare Worker
+# TRINITY OS Worker
 
-## 1. D1 연결
+The browser never calls NVIDIA NIM and never contains an NVIDIA API key. Its AI
+entry points are authenticated Worker routes:
 
-Cloudflare Dashboard에서 D1 데이터베이스를 만든 뒤 `wrangler.toml`의 `database_id`를 입력합니다.
+- POST /api/ai/daily-coach
+- POST /api/ai/chat
+- POST /api/ai/teacher-feedback-summary
 
-```bash
-npm install
-npx wrangler d1 execute trinity-os-db --remote --file=./schema.sql
-npx wrangler secret put SYNC_TOKEN
-npm run deploy
-```
+Architecture:
 
-`SYNC_TOKEN` 입력값은 프론트엔드 설정 화면에서 사용할 개인용 동기화 토큰입니다. 토큰을 Git에 커밋하지 마세요.
+React component → src/lib/aiCoach.ts → Worker route → AI service → AI provider → NVIDIA NIM
 
-배포 후 Worker 주소 예시:
+src/lib/ai/providers/nvidia-kimi.ts owns the NVIDIA HTTP contract, timeout,
+bounded retry, error parsing, and response validation. Routes only validate
+input and build prompts. A future provider is added behind the AIProvider
+interface without changing routes or React components.
 
-```text
-https://trinity-os-sync.<your-subdomain>.workers.dev
-```
+## Required secret
 
-이 주소와 토큰을 TRINITY OS의 `데이터 및 설정 → Cloudflare 동기화`에 입력합니다.
-# AI 학습 코치 설정
+Set NVIDIA_API_KEY only as a Worker secret; do not put it in wrangler.toml,
+Vite variables, localStorage, or client source code.
 
-AI 학습 코치는 Worker에서만 NVIDIA NIM을 호출합니다. API 키를 `wrangler.toml` 또는 프론트엔드 환경변수에 넣지 마세요.
+    cd worker
+    npx wrangler secret put NVIDIA_API_KEY --config wrangler.toml
 
-```powershell
-cd worker
-npx wrangler secret put NVIDIA_API_KEY --config wrangler.toml
-npx wrangler deploy --config wrangler.toml
-```
+## Non-secret configuration
 
-사용자 브라우저에는 기존 Cloudflare Worker URL과 로그인 세션만 있어야 합니다. `/api/ai/daily-coach`, `/api/ai/chat`은 둘 다 로그인 세션이 있어야 호출할 수 있습니다.
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| AI_PROVIDER | nvidia-kimi | Provider selected by the service layer |
+| NVIDIA_MODEL | moonshotai/kimi-k3 | Optional NIM model override |
+| NVIDIA_BASE_URL | NVIDIA chat completions URL | Optional NIM-compatible endpoint override |
+| AI_TIMEOUT_MS | 25000 | Bounded to 1–60 seconds |
+| AI_MAX_RETRIES | 1 | Bounded to 0–2; retries only network/5xx failures |
+| AI_DEBUG | unset | Set true only in development to log provider status and response body |
+
+429, 401, 403, 5xx, invalid responses, and timeouts have distinct user-safe
+messages. In development, AI_DEBUG=true writes the actual NVIDIA status and
+truncated error body to Worker logs. Provider response bodies and API keys are
+never returned to the browser.
+
+## Request protection
+
+- Browser: 30-minute daily-coach cache, semantic cache keys, request
+  coalescing, and a 35-second client timeout.
+- Worker: 30-minute daily cache, 10-minute feedback-summary cache, in-flight
+  coalescing, and per-user cooldowns (15 seconds for summaries, 2.5 seconds for
+  chat).
+- NVIDIA: no retry on 401, 403, or 429; at most one jittered retry for
+  transient network/5xx failures.
+
+The Worker cache and cooldown are isolate-local by design. For a multi-instance,
+high-traffic deployment, move those controls to a Durable Object or KV while
+keeping the same AIService interface.
+
+## Deploy
+
+    npm install
+    npx wrangler d1 execute trinity-os-db --remote --file=./schema.sql --config wrangler.toml
+    npx wrangler deploy --config wrangler.toml
