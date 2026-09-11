@@ -18,7 +18,7 @@ import NotionWorkspace from './pages/NotionWorkspace';
 import CloudflareSync from './components/CloudflareSync';
 import LoginPage from './components/LoginPage';
 import { logoutLocal, validateSession } from './lib/auth';
-import { loadCloudflareConfig } from './lib/cloudflare';
+import { autoSyncCloudflareData, loadCloudflareConfig } from './lib/cloudflare';
 import LongPressReorder from './components/LongPressReorder';
 import SupportPortal, { ExamArchive, SupportOwner } from './pages/SupportPortal';
 
@@ -27,8 +27,25 @@ const nav = [
 ] as const;
 
 function StudentApp() {
-  const [page,setPage]=useState('dashboard'); const [data,setData]=useState<AppData>(loadData); const [menu,setMenu]=useState(false); const [settings,setSettings]=useState(false); const [toast,setToast]=useState(''); const fileRef=useRef<HTMLInputElement>(null); const [authenticated,setAuthenticated]=useState(Boolean(loadCloudflareConfig().token));
+  const [page,setPage]=useState('dashboard'); const [data,setData]=useState<AppData>(loadData); const [menu,setMenu]=useState(false); const [settings,setSettings]=useState(false); const [toast,setToast]=useState(''); const fileRef=useRef<HTMLInputElement>(null); const [authenticated,setAuthenticated]=useState(Boolean(loadCloudflareConfig().token)); const syncing=useRef(false);
   useEffect(()=>saveData(data),[data]);
+  useEffect(()=>{ const retry = () => setData(value => ({ ...value })); window.addEventListener('online',retry); return()=>window.removeEventListener('online',retry); },[]);
+  useEffect(()=>{
+    if (!authenticated) return;
+    const timer = window.setTimeout(async () => {
+      if (syncing.current) return;
+      syncing.current = true;
+      try {
+        const result = await autoSyncCloudflareData(data);
+        if (result.action === 'downloaded' && result.data) {
+          saveData(result.data);
+          setData(result.data);
+        }
+      } catch { /* Keep the local copy; the next data change retries sync. */ }
+      finally { syncing.current = false; }
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  },[data,authenticated]);
   useEffect(()=>{if(authenticated)validateSession().then(ok=>{if(!ok){logoutLocal();setAuthenticated(false)}})},[authenticated]);
   useEffect(()=>{const onKeyDown=(event:KeyboardEvent)=>{if(event.key==='Escape'){setMenu(false);setSettings(false)}};window.addEventListener('keydown',onKeyDown);return()=>window.removeEventListener('keydown',onKeyDown)},[]);
   const update=(fn:(value:AppData)=>AppData)=>setData((value)=>fn(value));
