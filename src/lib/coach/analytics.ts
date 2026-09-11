@@ -3,15 +3,9 @@ import { toDateKey, weekStartKey } from '../date.ts';
 import { dateKeyDaysAgo, normalizeLearningText } from './context.ts';
 import { diagnoseLearning } from './rules.ts';
 import type { BottleneckTrend, LearningAnalysis, LearningAnalysisCore, Trend } from './types.ts';
+import { parsePlannedMinutes } from '../plannedTime.ts';
 
 const SUBJECTS: Subject[] = ['국어', '수학', '영어', '탐구'];
-
-function planMinutes(value: string) {
-  const hours = Number(value.match(/(\d+(?:\.\d+)?)\s*시간/)?.[1] ?? 0);
-  const minutes = Number(value.match(/(\d+)\s*분/)?.[1] ?? 0);
-  if (hours || minutes) return Math.round(hours * 60 + minutes);
-  return Number(value.match(/\d+/)?.[0] ?? 0);
-}
 
 function scoreFor(entry: ScoreEntry, subject: Subject): number | undefined {
   if (subject === '탐구') return undefined;
@@ -111,7 +105,7 @@ export function analyzeLearningData(data: AppData, now = new Date()): LearningAn
       previousSevenDayStudyMinutes: sumMinutes(previous7Start, previous7End),
       fourteenDayStudyMinutes: sumMinutes(start14),
       thirtyDayStudyMinutes: sumMinutes(start30),
-      plannedMinutesToday: todayPlans.reduce((sum, item) => sum + planMinutes(item.quantity), 0) + todayDrills.reduce((sum, item) => sum + Math.max(0, item.minutes), 0),
+      plannedMinutesToday: todayPlans.reduce((sum, item) => sum + parsePlannedMinutes(item.quantity), 0) + todayDrills.reduce((sum, item) => sum + Math.max(0, item.minutes), 0),
       completionRateToday: planItems.length ? Math.round(completedPlanItems / planItems.length * 100) : null,
       dailyDrillCompletionRate7d: drills7.length ? Math.round(drills7.filter((item) => item.done).length / drills7.length * 100) : null,
     },
