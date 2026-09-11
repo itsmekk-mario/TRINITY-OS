@@ -29,9 +29,9 @@ async function kimi(env: Env, system: string, user: string, maxTokens: number) {
   for (let attempt = 0; attempt < 2; attempt++) {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 60_000);
     try {
-      // GLM-5.2 is the primary NVIDIA-hosted model. NVIDIA_MODEL remains an
-      // optional escape hatch for a future account-specific NIM deployment.
-      const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', { method: 'POST', signal: controller.signal, headers: { Authorization: `Bearer ${env.NVIDIA_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: env.NVIDIA_MODEL || 'z-ai/glm-5.2', temperature: 0.25, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) });
+      // Kimi K3 is the currently available large hosted model on NVIDIA's
+      // free endpoint. NVIDIA_MODEL remains an optional account-specific override.
+      const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', { method: 'POST', signal: controller.signal, headers: { Authorization: `Bearer ${env.NVIDIA_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: env.NVIDIA_MODEL || 'moonshotai/kimi-k3', temperature: 0.25, max_tokens: maxTokens, stream: false, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) });
       const retryAfter = response.headers.get('Retry-After');
       if (response.status === 429 && attempt === 0 && retryAfter) { await sleep(retryAfterMilliseconds(retryAfter)); continue; }
       const payload = await response.json() as { choices?: { message?: { content?: unknown } }[]; error?: { message?: string } };
