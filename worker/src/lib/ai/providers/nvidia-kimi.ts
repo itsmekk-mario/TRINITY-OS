@@ -17,7 +17,7 @@ type NvidiaPayload = {
 };
 
 const DEFAULT_BASE_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
-const DEFAULT_MODEL = 'moonshotai/kimi-k3';
+const DEFAULT_MODEL = 'openai/gpt-oss-20b';
 
 function boundedInt(value: string | undefined, fallback: number, minimum: number, maximum: number) {
   const parsed = Number(value);

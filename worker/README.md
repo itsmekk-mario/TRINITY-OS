@@ -94,6 +94,7 @@ are never written to D1.
 
 AI budget variables are intentionally independent of NVIDIA's current product limits:
 
+- `NVIDIA_MODEL` (deployed default: `openai/gpt-oss-20b`)
 - `AI_USER_DAILY_LIMIT` (default config: `12`)
 - `AI_GLOBAL_DAILY_LIMIT` (default config: `100`)
 - `AI_CHAT_COOLDOWN_SECONDS` (default config: `8`)

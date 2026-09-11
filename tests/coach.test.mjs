@@ -109,6 +109,14 @@ test('동일 context는 D1 캐시를 재사용해 provider를 한 번만 호출�
   assert.equal(db.usage.length, 1);
 });
 
+test('provider 또는 model이 바뀌면 이전 정밀 분석 캐시를 재사용하지 않는다', async () => {
+  const db = new FakeDB(); let calls = 0;
+  const service = new AIService(() => ({ name: 'fake', async chat() { calls += 1; return { content: '모델별 분석', provider: 'fake', model: 'test' }; } }));
+  await completion(db, service, 'same-model-context', 'study-analysis', { model: 'model-a' });
+  await completion(db, service, 'same-model-context', 'study-analysis', { model: 'model-b' });
+  assert.equal(calls, 2);
+});
+
 test('provider 429는 재시도하지 않고 Local Coach 분석과 독립적으로 실패한다', async () => {
   const db = new FakeDB(); let calls = 0;
   const service = new AIService(() => ({ name: 'fake', async chat() { calls += 1; throw new AIProviderError('rate', 429, 'AI_RATE_LIMITED'); } }));

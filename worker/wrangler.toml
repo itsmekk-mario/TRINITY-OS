@@ -21,6 +21,7 @@ database_id = "e6b6cdaa-bbce-437d-8074-a7248bbc4b4f"
 [vars]
 ALLOWED_ORIGIN = "https://trinityos.mcv.kr"
 AI_PROVIDER = "nvidia-kimi"
+NVIDIA_MODEL = "openai/gpt-oss-20b"
 AI_TIMEOUT_MS = "25000"
 AI_MAX_RETRIES = "0"
 AI_USER_DAILY_LIMIT = "12"

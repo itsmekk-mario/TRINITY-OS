@@ -73,15 +73,16 @@ export class AIService {
   }): Promise<{ content: string; cached: boolean }> {
     const now = new Date();
     const nowIso = now.toISOString();
-    const persistentKey = `${input.userId}:${input.operation}:${input.cacheKey}`;
+    const providerName = input.config.provider || 'nvidia-kimi';
+    const modelName = input.config.model || 'openai/gpt-oss-20b';
+    const persistentKey = `${input.userId}:${providerName}:${modelName}:${input.operation}:${input.cacheKey}`;
     const cached = await this.cached(input.db, persistentKey, nowIso);
     if (cached !== null) return { content: cached, cached: true };
 
     await this.guard(input.db, input.userId, input.operation, input.config, now);
     const usageId = crypto.randomUUID();
-    const providerName = input.config.provider || 'nvidia-kimi';
     await input.db.prepare('INSERT INTO ai_usage(id,user_id,operation,provider,model,created_at,success,status_code) VALUES(?,?,?,?,?,?,0,NULL)')
-      .bind(usageId, input.userId, input.operation, providerName, input.config.model ?? null, nowIso).run();
+      .bind(usageId, input.userId, input.operation, providerName, modelName, nowIso).run();
 
     try {
       // Exactly one provider.chat call. The provider itself never retries.
