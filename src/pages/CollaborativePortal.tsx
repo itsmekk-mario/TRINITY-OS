@@ -1,21 +1,96 @@
-import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, ClipboardPenLine, LogOut, RefreshCw, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ClipboardPenLine, LogOut, RefreshCw, Users } from 'lucide-react';
 import { loadCloudflareConfig } from '../lib/cloudflare';
-import { Card, Empty, Field, PageHeader, Progress, TextArea } from '../components/Ui';
+import TrinityLearningView, { type FeedbackTarget } from '../components/TrinityLearningView';
+import { Card, Empty, Field, PageHeader, TextArea } from '../components/Ui';
+import type { AppData } from '../types';
 
-type Role='subject_teacher'|'academic_manager'; type Auth={url:string;token:string;role:Role}; type Assignment={id:string;student_id:string;subject?:string;role:Role;permissions?:Record<string,boolean>}; type Feedback={id:string;title?:string;subject?:string;status:string;bottleneck?:string;observation?:string;action?:string;success_criterion?:string;acknowledgedByStudent?:boolean;created_at:string};
-const base=(url:string)=>url.replace(/\/+$/,'');
-async function api<T>(auth:Auth,path:string,method='GET',body?:unknown):Promise<T>{const response=await fetch(base(auth.url)+path,{method,headers:{Authorization:`Bearer ${auth.token}`,'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});const value=await response.json() as T&{error?:string};if(!response.ok)throw new Error(value.error||`요청 실패 (${response.status})`);return value;}
-const minutes=(seconds:number)=>`${Math.floor(seconds/3600)}h ${Math.round(seconds%3600/60)}m`;
-const categories=['조건 해석','시간 관리','풀이 완결성','개념','실전 안정성'];
+type Role = 'subject_teacher' | 'academic_manager';
+type Auth = { url: string; token: string; role: Role };
+type Assignment = { id: string; student_id: string; subject?: string; role: Role; permissions?: Record<string, boolean> };
+type Feedback = { id: string; title?: string; status: string; context_type?: string; context_target_id?: string; acknowledgedByStudent?: boolean; created_at: string };
+type FeedbackForm = { title: string; categories: string[]; status: string; observation: string; bottleneck: string; action: string; successCriterion: string; comment: string; contextType: FeedbackTarget['type']; contextTargetId: string };
 
-export default function CollaborativePortal({role}:{role:Role}){
- const key=`trinity-collab:${role}`, saved=loadCloudflareConfig(); const [auth,setAuth]=useState<Auth|null>(()=>{try{return JSON.parse(sessionStorage.getItem(key)||'null') as Auth|null;}catch{return null;}}); const [url,setUrl]=useState(auth?.url||saved.url),[username,setUsername]=useState(''),[password,setPassword]=useState(''),[dashboard,setDashboard]=useState<{assignments:Assignment[];summary:any}|null>(null),[data,setData]=useState<any>(null),[feedback,setFeedback]=useState<Feedback[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false),[selected,setSelected]=useState<string>(''),[form,setForm]=useState({title:'',categories:[] as string[],status:'normal',observation:'',bottleneck:'',action:'',successCriterion:'',comment:''});
- const login=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);setError('');try{const response=await api<Auth>({url,token:'',role},'/api/support/login','POST',{username,password,role});const next={url:base(url),token:response.token,role};sessionStorage.setItem(key,JSON.stringify(next));setAuth(next);setPassword('');}catch(e){setError(e instanceof Error?e.message:'로그인 실패');}finally{setBusy(false);}};
- const refresh=async()=>{if(!auth)return;setError('');try{const overview=await api<{assignments:Assignment[];summary:any}>(auth,'/api/collab/dashboard');setDashboard(overview);const id=selected||overview.assignments[0]?.student_id||'';setSelected(id);if(id){const [details,notes]=await Promise.all([api<any>(auth,`/api/collab/students/${id}/data`),api<{feedback:Feedback[]}>(auth,`/api/collab/students/${id}/feedback`)]);setData(details.data);setFeedback(notes.feedback);}}catch(e){setError(e instanceof Error?e.message:'데이터를 불러오지 못했습니다.');}};
- useEffect(()=>{void refresh();},[auth?.token]);
- const assignment=dashboard?.assignments.find(item=>item.student_id===selected)||dashboard?.assignments[0]; const summary=dashboard?.summary; const total=Math.max(summary?.totalSeconds||0,1); const submit=async(e:React.FormEvent)=>{e.preventDefault();if(!auth||!selected)return;setBusy(true);setError('');try{await api(auth,`/api/collab/students/${selected}/feedback`,'POST',form);setForm({title:'',categories:[],status:'normal',observation:'',bottleneck:'',action:'',successCriterion:'',comment:''});await refresh();}catch(e){setError(e instanceof Error?e.message:'피드백 전송 실패');}finally{setBusy(false);}};
- if(!auth)return <main className="team-page"><PageHeader eyebrow="TEACHER ACCESS" title={role==='academic_manager'?'학업 관리 선생님':'교과 선생님'} description="담당 학생의 학습 데이터와 피드백을 관리합니다."/><form className="team-panel" onSubmit={login}><label>Worker 주소<input required type="url" value={url} onChange={e=>setUrl(e.target.value)} /></label><label>아이디<input required value={username} onChange={e=>setUsername(e.target.value)} /></label><label>비밀번호<input required type="password" value={password} onChange={e=>setPassword(e.target.value)} /></label><button className="button primary" disabled={busy}>로그인</button></form>{error&&<p className="team-error">{error}</p>}</main>;
- const subject=assignment?.subject||'전체 과목'; const sessions=data?.sessions||[], scores=data?.scores||[], wrong=data?.wrongAnswerDrills||[], goals=data?.weeklyCapabilityGoals||[], drills=data?.dailyDrills||[];
- return <main className="team-page collab-page"><div className="team-tools"><PageHeader eyebrow={role==='academic_manager'?'ACADEMIC MANAGEMENT':'SUBJECT TEACHER'} title={role==='academic_manager'?'학업 관리 대시보드':'교과 선생님 대시보드'} description={assignment?`담당 학생 · ${subject}`:'현재 연결된 담당 학생이 없습니다.'}/><button className="button" onClick={()=>void refresh()}><RefreshCw size={15}/>새로고침</button><button className="button" onClick={()=>{sessionStorage.removeItem(key);setAuth(null);}}><LogOut size={15}/>로그아웃</button></div>{error&&<p className="team-error">{error}</p>}{!assignment?<Empty><Users size={18}/> 현재 연결된 담당 학생이 없습니다. 관리자에게 assignment 생성을 요청하세요.</Empty>:<><div className="collab-summary"><Card><span className="card-label">최근 학습 시간</span><strong>{minutes(sessions.reduce((sum:any,item:any)=>sum+item.seconds,0))}</strong><small>{subject}</small></Card><Card><span className="card-label">최근 오답</span><strong>{wrong.length}개</strong><small>병목 기록</small></Card><Card><span className="card-label">Daily Drill</span><strong>{drills.filter((item:any)=>item.done).length} / {drills.length}</strong><Progress value={drills.filter((item:any)=>item.done).length} max={Math.max(drills.length,1)}/></Card>{role==='academic_manager'&&<Card><span className="card-label">계획 실행률</span><strong>{summary?.executionRate??0}%</strong><Progress value={summary?.executionRate??0}/></Card>}</div>{role==='academic_manager'&&<Card className="collab-overview"><h2>WEEKLY OVERVIEW</h2><p>총 학습시간 {minutes(summary?.totalSeconds||0)} · 미완료 일정 {summary?.unfinishedPlans||0}개</p><div className="subject-minutes">{Object.entries(summary?.bySubject||{}).map(([name,value])=><span key={name}><b>{name}</b>{minutes(value as number)}</span>)}</div>{summary?.recentBottlenecks?.length>0&&<p><b>최근 병목</b> · {summary.recentBottlenecks.join(' · ')}</p>}</Card>}<div className="collab-grid"><Card><h2>최근 성적</h2>{scores.length?scores.slice(-5).map((item:any)=><p className="collab-row" key={item.id}><span>{item.date} · {item.name}</span><b>{item.score??'-'}점</b></p>):<p>최근 성적 기록이 없습니다.</p>}<h2>Weekly Goal</h2>{goals.length?goals.slice(-4).map((item:any)=><p className="collab-row" key={item.id}><span>{item.ability}</span><b>{item.done?'완료':'진행'}</b></p>):<p>등록된 목표가 없습니다.</p>}</Card><Card><h2>최근 병목 · 오답</h2>{wrong.length?wrong.slice(-5).map((item:any)=><article className="collab-note" key={item.id}><b>{item.question||item.source}</b><small>{item.bottleneck||'미분류'}</small><p>{item.correction||'교정 행동 미기록'}</p></article>):<p>오답 기록이 없습니다.</p>}<h2>이전 피드백</h2>{feedback.length?feedback.slice(0,4).map(item=><p className="collab-row" key={item.id}><span>{item.title||item.bottleneck}</span><b>{item.acknowledgedByStudent?'확인':'미확인'}</b></p>):<p>아직 작성한 피드백이 없습니다.</p>}</Card></div><Card className="feedback-compose"><div><p className="eyebrow">FEEDBACK</p><h2>{role==='academic_manager'?'학업 관리 피드백':'교과 피드백 작성'}</h2></div><form onSubmit={submit}><div className="form-grid two"><Field label="제목"><input required value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder={role==='academic_manager'?'이번 주 우선순위':'예: 조건 검증'} /></Field><Field label="현재 상태"><select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option value="needs_improvement">개선 필요</option><option value="normal">보통</option><option value="stable">안정적</option></select></Field></div>{role==='subject_teacher'&&<div className="feedback-category">{categories.map(item=><label key={item}><input type="checkbox" checked={form.categories.includes(item)} onChange={()=>setForm({...form,categories:form.categories.includes(item)?form.categories.filter(value=>value!==item):[...form.categories,item]})}/>{item}</label>)}</div>}<Field label="관찰 내용"><TextArea value={form.observation} onChange={value=>setForm({...form,observation:value})} placeholder="학습 데이터에서 확인한 사실을 기록합니다."/></Field><Field label="핵심 병목"><TextArea value={form.bottleneck} onChange={value=>setForm({...form,bottleneck:value})} placeholder="반복되는 판단·실행 병목"/></Field><Field label="이번 주 행동"><TextArea value={form.action} onChange={value=>setForm({...form,action:value})} placeholder="학생이 바로 실행할 행동"/></Field><Field label="성공 기준"><TextArea value={form.successCriterion} onChange={value=>setForm({...form,successCriterion:value})} placeholder="검증 가능한 기준"/></Field><Field label="추가 코멘트"><TextArea value={form.comment} onChange={value=>setForm({...form,comment:value})}/></Field><button className="button primary" disabled={busy}><ClipboardPenLine size={16}/>피드백 전송</button></form></Card></>}</main>;
+const base = (url: string) => url.replace(/\/+$/, '');
+const emptyForm = (): FeedbackForm => ({ title: '', categories: [], status: 'normal', observation: '', bottleneck: '', action: '', successCriterion: '', comment: '', contextType: 'general', contextTargetId: '' });
+
+async function api<T>(auth: Auth, path: string, method = 'GET', body?: unknown): Promise<T> {
+  const response = await fetch(base(auth.url) + path, { method, headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+  const value = await response.json() as T & { error?: string };
+  if (!response.ok) throw new Error(value.error || `Request failed (${response.status})`);
+  return value;
+}
+
+export default function CollaborativePortal({ role }: { role: Role }) {
+  const key = `trinity-collab:${role}`;
+  const saved = loadCloudflareConfig();
+  const [auth, setAuth] = useState<Auth | null>(() => { try { return JSON.parse(sessionStorage.getItem(key) || 'null') as Auth | null; } catch { return null; } });
+  const [url, setUrl] = useState(auth?.url || saved.url);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [dashboard, setDashboard] = useState<{ assignments: Assignment[] } | null>(null);
+  const [data, setData] = useState<Pick<AppData, 'sessions' | 'scores' | 'wrongAnswerDrills' | 'weeklyCapabilityGoals' | 'dailyDrills' | 'resources'> | null>(null);
+  const [feedback, setFeedback] = useState<Feedback[]>([]);
+  const [selected, setSelected] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState<FeedbackForm>(emptyForm);
+
+  const refresh = async () => {
+    if (!auth) return;
+    setError('');
+    try {
+      const overview = await api<{ assignments: Assignment[] }>(auth, '/api/collab/dashboard');
+      setDashboard(overview);
+      const id = selected || overview.assignments[0]?.student_id || '';
+      setSelected(id);
+      if (!id) { setData(null); setFeedback([]); return; }
+      const [studentData, notes] = await Promise.all([
+        api<{ data: Pick<AppData, 'sessions' | 'scores' | 'wrongAnswerDrills' | 'weeklyCapabilityGoals' | 'dailyDrills' | 'resources'> }>(auth, `/api/collab/students/${id}/data`),
+        api<{ feedback: Feedback[] }>(auth, `/api/collab/students/${id}/feedback`),
+      ]);
+      setData(studentData.data);
+      setFeedback(notes.feedback);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to load learning data.'); }
+  };
+
+  useEffect(() => { void refresh(); }, [auth?.token]);
+
+  const login = async (event: React.FormEvent) => {
+    event.preventDefault(); setBusy(true); setError('');
+    try {
+      const response = await api<Auth>({ url, token: '', role }, '/api/support/login', 'POST', { username, password, role });
+      const next = { url: base(url), token: response.token, role };
+      sessionStorage.setItem(key, JSON.stringify(next)); setAuth(next); setPassword('');
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Login failed.'); } finally { setBusy(false); }
+  };
+
+  const chooseFeedback = (target: FeedbackTarget) => {
+    setForm((current) => ({ ...current, title: target.title, contextType: target.type, contextTargetId: target.targetId ?? '' }));
+    document.getElementById('teacher-feedback-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!auth || !selected) return;
+    setBusy(true); setError('');
+    try {
+      await api(auth, `/api/collab/students/${selected}/feedback`, 'POST', form);
+      setForm(emptyForm()); await refresh();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to send feedback.'); } finally { setBusy(false); }
+  };
+
+  const assignment = dashboard?.assignments.find((item) => item.student_id === selected) ?? dashboard?.assignments[0];
+  if (!auth) return <main className="team-page"><PageHeader eyebrow="TEACHER ACCESS" title={role === 'academic_manager' ? 'Academic manager' : 'Subject teacher'} description="Read academic progress and leave structured feedback." /><form className="team-panel" onSubmit={login}><label>Worker URL<input required type="url" value={url} onChange={(event) => setUrl(event.target.value)} /></label><label>Account ID<input required value={username} onChange={(event) => setUsername(event.target.value)} /></label><label>Password<input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label><button className="button primary" disabled={busy}>Sign in</button></form>{error && <p className="team-error">{error}</p>}</main>;
+
+  return <main className="team-page collab-page">
+    <div className="teacher-view-toolbar"><div><span className="eyebrow">{role === 'academic_manager' ? 'ACADEMIC MANAGEMENT' : 'SUBJECT TEACHER'}</span><h1>{assignment ? `${assignment.subject ?? 'All subjects'} · Student learning status` : 'Teacher View'}</h1><p>Viewing as teacher · Academic data only</p></div><div><button className="button" onClick={() => void refresh()}><RefreshCw size={15} /> Refresh</button><button className="button" onClick={() => { sessionStorage.removeItem(key); setAuth(null); }}><LogOut size={15} /> Sign out</button></div></div>
+    {error && <p className="team-error">{error}</p>}
+    {!assignment ? <Empty><Users size={18} /> No students are currently assigned. Ask an administrator to create an assignment.</Empty> : <>
+      {dashboard && dashboard.assignments.length > 1 && <div className="teacher-student-picker"><label>Student<select value={selected} onChange={(event) => setSelected(event.target.value)}>{dashboard.assignments.map((item) => <option key={item.id} value={item.student_id}>{item.student_id} · {item.subject ?? 'All subjects'}</option>)}</select></label></div>}
+      {data && <TrinityLearningView data={data} viewer={role} focusSubject={role === 'subject_teacher' ? assignment.subject : undefined} name="Student" onFeedback={chooseFeedback} />}
+      <section id="teacher-feedback-form"><Card className="feedback-compose"><div><p className="eyebrow">TEACHER FEEDBACK</p><h2>{form.contextType === 'general' ? 'Leave a learning observation' : `Feedback: ${form.title}`}</h2><p className="teacher-feedback-context">Feedback is a recommendation, not an edit to the student's learning record.</p></div><form onSubmit={submit}><Field label="Title"><input required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="What should the student notice?" /></Field><Field label="Observation"><TextArea value={form.observation} onChange={(value) => setForm({ ...form, observation: value })} /></Field><Field label="Core bottleneck"><TextArea value={form.bottleneck} onChange={(value) => setForm({ ...form, bottleneck: value })} /></Field><Field label="Recommendation"><TextArea value={form.action} onChange={(value) => setForm({ ...form, action: value })} /></Field><Field label="Next check"><TextArea value={form.successCriterion} onChange={(value) => setForm({ ...form, successCriterion: value })} /></Field><Field label="Comment"><TextArea value={form.comment} onChange={(value) => setForm({ ...form, comment: value })} /></Field><button className="button primary" disabled={busy}><ClipboardPenLine size={16} /> Send feedback</button></form></Card></section>
+      {feedback.length > 0 && <Card className="feedback-history"><span className="card-label">FEEDBACK HISTORY</span>{feedback.slice(0, 5).map((item) => <div className="collab-row" key={item.id}><span><b>{item.title ?? 'Feedback'}</b><small>{item.context_type ?? 'general'} · {item.created_at.slice(0, 10)}</small></span><b>{item.acknowledgedByStudent ? 'Seen' : 'New'}</b></div>)}</Card>}
+    </>}
+  </main>;
 }

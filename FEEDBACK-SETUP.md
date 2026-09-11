@@ -8,6 +8,7 @@ Run this once before deploying the Worker:
 
 ```powershell
 npx wrangler d1 execute trinity-os-db --remote --config worker/wrangler.toml --file worker/migrations/0002_feedback_collaboration.sql
+npx wrangler d1 execute trinity-os-db --remote --config worker/wrangler.toml --file worker/migrations/0003_feedback_context.sql
 npx wrangler deploy --config worker/wrangler.toml
 ```
 
@@ -27,3 +28,5 @@ npx wrangler deploy --config worker/wrangler.toml
 - `teacher_feedback_audit` retains a snapshot whenever an author edits their own feedback.
 
 Feedback can be applied to the existing `dailyDrills` and `weeklyCapabilityGoals` data structures. The student browser then writes the updated learning state through the existing automatic D1 sync.
+
+`0003_feedback_context.sql` adds an optional context reference (`general`, `mock_exam`, `wrong_answer`, `weekly_goal`, or `subject_progress`). It links a teacher's observation to the viewed record without granting any ability to change that record.
