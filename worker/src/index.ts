@@ -16,7 +16,7 @@ const randomHex = (size = 32) => { const bytes = new Uint8Array(size); crypto.ge
 const sha256 = async (value: string) => hex(await crypto.subtle.digest('SHA-256', encoder.encode(value)));
 async function passwordHash(password: string, salt: string) { const key = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']); return hex(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: encoder.encode(salt), iterations: 100000 }, key, 256)); }
 async function ensureTables(db: D1Database) { await db.batch([
-  db.prepare('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT, salt TEXT, is_admin INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)'),
+  db.prepare('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT, salt TEXT, is_admin INTEGER NOT NULL DEFAULT 0, must_change_password INTEGER NOT NULL DEFAULT 0, password_changed_at TEXT, created_at TEXT NOT NULL)'),
   db.prepare('CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL)'),
   db.prepare('CREATE TABLE IF NOT EXISTS api_tokens (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, label TEXT NOT NULL, created_at TEXT NOT NULL, revoked_at TEXT)'),
   db.prepare('CREATE TABLE IF NOT EXISTS learning_state_history (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, payload TEXT NOT NULL, saved_at TEXT NOT NULL)'),
@@ -29,9 +29,9 @@ async function ensureTables(db: D1Database) { await db.batch([
   db.prepare('CREATE INDEX IF NOT EXISTS ai_cache_expiry ON ai_cache(expires_at)'),
   db.prepare('CREATE INDEX IF NOT EXISTS ai_usage_user_created ON ai_usage(user_id, created_at DESC)'),
   db.prepare('CREATE INDEX IF NOT EXISTS ai_usage_created ON ai_usage(created_at DESC)'),
-]); const columns = await db.prepare('PRAGMA table_info(users)').all<{ name: string }>(); if (!columns.results.some((column) => column.name === 'is_admin')) await db.prepare('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0').run(); }
-type User = { id: number; username: string; is_admin: number };
-async function sessionUser(request: Request, env: Env) { const bearer = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, ''); if (!bearer) return null; const hash = await sha256(bearer); return env.DB.prepare("SELECT u.id,u.username,u.is_admin FROM api_tokens t JOIN users u ON u.id=t.user_id WHERE t.token_hash=? AND t.revoked_at IS NULL UNION ALL SELECT u.id,u.username,u.is_admin FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND datetime(s.expires_at)>datetime('now') LIMIT 1").bind(hash, hash).first<User>(); }
+]); const columns = await db.prepare('PRAGMA table_info(users)').all<{ name: string }>(); if (!columns.results.some((column) => column.name === 'is_admin')) await db.prepare('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0').run(); if (!columns.results.some((column) => column.name === 'must_change_password')) await db.prepare('ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0').run(); if (!columns.results.some((column) => column.name === 'password_changed_at')) await db.prepare('ALTER TABLE users ADD COLUMN password_changed_at TEXT').run(); }
+type User = { id: number; username: string; is_admin: number; must_change_password: number };
+async function sessionUser(request: Request, env: Env) { const bearer = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, ''); if (!bearer) return null; const hash = await sha256(bearer); return env.DB.prepare("SELECT u.id,u.username,u.is_admin,u.must_change_password FROM api_tokens t JOIN users u ON u.id=t.user_id WHERE t.token_hash=? AND t.revoked_at IS NULL UNION ALL SELECT u.id,u.username,u.is_admin,u.must_change_password FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND datetime(s.expires_at)>datetime('now') LIMIT 1").bind(hash, hash).first<User>(); }
 async function createSession(env: Env, username: string, userId = 1) { const token = randomHex(); const hash = await sha256(token); const expires = new Date(Date.now() + 30 * 86400000).toISOString(); await env.DB.prepare("DELETE FROM sessions WHERE datetime(expires_at)<=datetime('now')").run(); await env.DB.prepare('INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)').bind(hash, userId, expires, new Date().toISOString()).run(); return { token, username, expiresAt: expires }; }
 async function secretMatches(provided: string, expected: string | undefined) {
   if (!expected) return false;
@@ -106,8 +106,8 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     const existing = await env.DB.prepare('SELECT id FROM users WHERE username=?').bind(username).first<{ id: number }>();
     if (existing) return json({ error: '이미 사용 중인 아이디입니다.' }, 409, origin);
     const salt = randomHex(16), now = new Date().toISOString(), admin = body.admin === true ? 1 : 0;
-    await env.DB.prepare('INSERT INTO users(username,password_hash,salt,is_admin,created_at) VALUES(?,?,?,?,?)').bind(username, await passwordHash(password, salt), salt, admin, now).run();
-    return json({ username, isAdmin: admin === 1, createdAt: now }, 201, origin);
+    await env.DB.prepare('INSERT INTO users(username,password_hash,salt,is_admin,must_change_password,created_at) VALUES(?,?,?,?,1,?)').bind(username, await passwordHash(password, salt), salt, admin, now).run();
+    return json({ username, isAdmin: admin === 1, mustChangePassword: true, createdAt: now }, 201, origin);
   }
   if (url.pathname === '/api/admin/access-tokens' && request.method === 'POST') {
     const issuerToken = request.headers.get('X-Setup-Token') || '';
@@ -134,17 +134,33 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     return json({ ok: true }, 200, origin);
   }
   if (url.pathname === '/api/auth/login' && request.method === 'POST') {
-    const body = await request.json<{ username?: string; password?: string }>(); const account = await env.DB.prepare('SELECT id,username,password_hash,salt FROM users WHERE username=?').bind(body.username?.trim() || '').first<{ id: number; username: string; password_hash: string | null; salt: string | null }>();
+    const body = await request.json<{ username?: string; password?: string }>(); const account = await env.DB.prepare('SELECT id,username,password_hash,salt,must_change_password FROM users WHERE username=?').bind(body.username?.trim() || '').first<{ id: number; username: string; password_hash: string | null; salt: string | null; must_change_password: number }>();
     if (!account?.password_hash || !account.salt) return json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' }, 401, origin);
     if (!account || await passwordHash(body.password || '', account.salt) !== account.password_hash) return json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' }, 401, origin);
-    return json(await createSession(env, account.username, account.id), 200, origin);
+    return json({ ...await createSession(env, account.username, account.id), mustChangePassword: account.must_change_password === 1 }, 200, origin);
   }
   const user = await sessionUser(request, env);
   const extra = await support(request, env, user?.is_admin === 1, origin, { json, sha256, passwordHash, randomHex });
   if (extra) return extra;
   const arenaResponse = await arena(request, env, user, origin, { json, randomHex });
   if (arenaResponse) return arenaResponse;
-  if (url.pathname === '/api/auth/me' && request.method === 'GET') return user ? json({ ok: true, username: user.username }, 200, origin) : json({ error: 'Unauthorized' }, 401, origin);
+  if (url.pathname === '/api/auth/me' && request.method === 'GET') return user ? json({ ok: true, username: user.username, mustChangePassword: user.must_change_password === 1 }, 200, origin) : json({ error: 'Unauthorized' }, 401, origin);
+  if (url.pathname === '/api/auth/change-password' && request.method === 'POST') {
+    if (!user) return json({ error: 'Unauthorized' }, 401, origin);
+    const body = await request.json<{ currentPassword?: unknown; newPassword?: unknown }>();
+    const currentPassword = typeof body.currentPassword === 'string' ? body.currentPassword : '';
+    const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
+    if (newPassword.length < 8 || newPassword.length > 128) return json({ error: '새 비밀번호는 8~128자로 입력해 주세요.' }, 400, origin);
+    const account = await env.DB.prepare('SELECT password_hash,salt FROM users WHERE id=?').bind(user.id).first<{ password_hash: string | null; salt: string | null }>();
+    if (!account?.password_hash || !account.salt || await passwordHash(currentPassword, account.salt) !== account.password_hash) return json({ error: '현재 비밀번호가 올바르지 않습니다.' }, 401, origin);
+    if (await passwordHash(newPassword, account.salt) === account.password_hash) return json({ error: '현재 비밀번호와 다른 비밀번호를 입력해 주세요.' }, 400, origin);
+    const salt = randomHex(16), now = new Date().toISOString();
+    await env.DB.batch([
+      env.DB.prepare('UPDATE users SET password_hash=?,salt=?,must_change_password=0,password_changed_at=? WHERE id=?').bind(await passwordHash(newPassword, salt), salt, now, user.id),
+      env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(user.id),
+    ]);
+    return json({ ...await createSession(env, user.username, user.id), mustChangePassword: false }, 200, origin);
+  }
   if (url.pathname === '/api/ai/daily-coach' && request.method === 'POST') return json({ error: '자동 AI 분석 API는 종료되었습니다. Dashboard의 로컬 TRINITY 분석을 사용해 주세요.', code: 'LOCAL_COACH_ONLY' }, 410, origin);
   if (url.pathname === '/api/ai/study-analysis' && request.method === 'POST') {
     if (!user) return json({ error: 'Unauthorized' }, 401, origin);

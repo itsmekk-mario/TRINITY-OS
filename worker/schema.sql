@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT,
   salt TEXT,
   is_admin INTEGER NOT NULL DEFAULT 0,
+  must_change_password INTEGER NOT NULL DEFAULT 0,
+  password_changed_at TEXT,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS sessions (

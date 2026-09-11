@@ -125,8 +125,11 @@ is sent to the student:
 
 `POST /api/admin/students` accepts usernames containing ASCII letters, numbers,
 periods, underscores, and hyphens (3-40 characters), and passwords of 8-128
-characters. Duplicate usernames return HTTP `409`. Public self-registration is
-intentionally disabled.
+characters. Duplicate usernames return HTTP `409`. The initial password is marked
+for mandatory rotation: the student must change it after the first login and can
+change it again from the app settings. A successful password change revokes existing
+login sessions and returns a fresh session. Public self-registration is intentionally
+disabled.
 
 Issue a personal token from PowerShell (the returned `token` is shown only in
 this response, so deliver it over a secure channel):

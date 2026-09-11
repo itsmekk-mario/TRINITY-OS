@@ -4,7 +4,7 @@ import { initialData } from './storage';
 const CONFIG_KEY = 'trinity-os:cloudflare-sync:v1';
 const AUTO_SYNC_KEY = 'trinity-os:cloudflare-auto-sync:v1';
 export const RECOVERY_KEY = 'trinity-os:cloudflare-recovery:v1';
-export type CloudflareConfig = { url: string; token: string; username?: string };
+export type CloudflareConfig = { url: string; token: string; username?: string; mustChangePassword?: boolean };
 type RemotePayload = { data?: AppData | null; updatedAt?: string | null };
 type AutoSyncMetadata = { localSignature: string; remoteUpdatedAt: string | null };
 export type AutoSyncResult = { action: 'disabled' | 'uploaded' | 'downloaded' | 'unchanged'; data?: AppData; updatedAt?: string | null };
