@@ -1,5 +1,5 @@
 import { support } from './support.ts';
-export interface Env { DB: D1Database; SYNC_TOKEN: string; DEEPSEEK_API_KEY?: string; DEEPSEEK_MODEL?: string; NVIDIA_API_KEY?: string; ALLOWED_ORIGIN?: string; SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; SUPABASE_BUCKET?: string }
+export interface Env { DB: D1Database; SYNC_TOKEN: string; NVIDIA_API_KEY?: string; NVIDIA_MODEL?: string; ALLOWED_ORIGIN?: string; SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; SUPABASE_BUCKET?: string }
 const encoder = new TextEncoder();
 const json = (body: unknown, status = 200, origin = '*') => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS', 'Cache-Control': 'no-store' } });
 const hex = (bytes: ArrayBuffer) => [...new Uint8Array(bytes)].map(v => v.toString(16).padStart(2, '0')).join('');
@@ -25,13 +25,11 @@ const retryAfterMilliseconds = (value: string | null) => {
   return Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds * 1000, 10_000) : 2_000;
 };
 async function kimi(env: Env, system: string, user: string, maxTokens: number) {
-  // Keep the legacy helper name while sourcing the key exclusively from DeepSeek.
-  env.NVIDIA_API_KEY = env.DEEPSEEK_API_KEY;
   if (!env.NVIDIA_API_KEY) throw new KimiError('AI 코치가 아직 설정되지 않았습니다.', 503);
   for (let attempt = 0; attempt < 2; attempt++) {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 60_000);
     try {
-      const response = await fetch('https://api.deepseek.com/chat/completions', { method: 'POST', signal: controller.signal, headers: { Authorization: `Bearer ${env.DEEPSEEK_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: env.DEEPSEEK_MODEL || 'deepseek-v4-flash', thinking: { type: 'disabled' }, temperature: 0.25, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) });
+      const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', { method: 'POST', signal: controller.signal, headers: { Authorization: `Bearer ${env.NVIDIA_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: env.NVIDIA_MODEL || 'moonshotai/kimi-k3', temperature: 0.25, reasoning_effort: 'low', max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) });
       const retryAfter = response.headers.get('Retry-After');
       if (response.status === 429 && attempt === 0 && retryAfter) { await sleep(retryAfterMilliseconds(retryAfter)); continue; }
       const payload = await response.json() as { choices?: { message?: { content?: unknown } }[]; error?: { message?: string } };
