@@ -1,6 +1,6 @@
 import './team.css';
 import { useEffect, useRef, useState } from 'react';
-import { BarChart3, BookOpenCheck, CalendarDays, CalendarRange, Clock3, Crosshair, Database, Download, FileText, Gauge, LayoutDashboard, Menu, Settings, ShieldCheck, Upload, X } from 'lucide-react';
+import { BarChart3, BookOpenCheck, CalendarDays, CalendarRange, Clock3, Crosshair, Database, Download, FileText, Gauge, LayoutDashboard, Menu, MessageSquareText, Settings, ShieldCheck, Upload, X } from 'lucide-react';
 import type { AppData } from './types';
 import { downloadBackup, loadData, parseBackup, saveData } from './lib/storage';
 import { APP_VERSION } from './data/config';
@@ -21,9 +21,12 @@ import { logoutLocal, validateSession } from './lib/auth';
 import { autoSyncCloudflareData, loadCloudflareConfig } from './lib/cloudflare';
 import LongPressReorder from './components/LongPressReorder';
 import SupportPortal, { ExamArchive, SupportOwner } from './pages/SupportPortal';
+import FeedbackInbox from './pages/FeedbackInbox';
+import CollaborativePortal from './pages/CollaborativePortal';
+import FeedbackAdmin from './pages/FeedbackAdmin';
 
 const nav = [
-  ['dashboard','Dashboard',LayoutDashboard],['plans','Weekly · Monthly Plan',CalendarRange],['calendar','Calendar',CalendarDays],['routine','Daily Routine',BookOpenCheck],['timer','Study Timer',Clock3],['notion','Notion',FileText],['scores','Score Tracker',Gauge],['resources','Resource Database',Database],['drill','Daily · Weekly Drill',Crosshair],['statistics','Statistics',BarChart3],
+  ['dashboard','Dashboard',LayoutDashboard],['feedback','Teacher Feedback',MessageSquareText],['plans','Weekly · Monthly Plan',CalendarRange],['calendar','Calendar',CalendarDays],['routine','Daily Routine',BookOpenCheck],['timer','Study Timer',Clock3],['notion','Notion',FileText],['scores','Score Tracker',Gauge],['resources','Resource Database',Database],['drill','Daily · Weekly Drill',Crosshair],['statistics','Statistics',BarChart3],
 ] as const;
 
 function StudentApp() {
@@ -51,7 +54,7 @@ function StudentApp() {
   const update=(fn:(value:AppData)=>AppData)=>setData((value)=>fn(value));
   const navigate=(next:string)=>{setPage(next);setMenu(false);window.scrollTo({top:0,behavior:'smooth'})};
   const importData=async(file?:File)=>{if(!file)return;try{setData(await parseBackup(file));setToast('백업 데이터를 복원했습니다.');setSettings(false)}catch(e){setToast(e instanceof Error?e.message:'가져오기에 실패했습니다.')}finally{setTimeout(()=>setToast(''),2200)}};
-  const screen=page==='dashboard'?<Dashboard data={data} update={update} navigate={navigate}/>:page==='plans'?<PlanningPage data={data} update={update}/>:page==='calendar'?<CalendarPage data={data} update={update}/>:page==='routine'?<Routine data={data} update={update}/>:page==='timer'?<TimerPage data={data} update={update}/>:page==='notion'?<NotionWorkspace data={data} update={update}/>:page==='scores'?<ScoreTracker data={data} update={update}/>:page==='resources'?<Resources data={data} update={update}/>:page==='pdf'?<ExamArchive/>:page==='drill'?<WeeklyDrill data={data} update={update}/>:<Statistics data={data}/>;
+  const screen=page==='dashboard'?<Dashboard data={data} update={update} navigate={navigate}/>:page==='feedback'?<FeedbackInbox data={data} update={update}/>:page==='plans'?<PlanningPage data={data} update={update}/>:page==='calendar'?<CalendarPage data={data} update={update}/>:page==='routine'?<Routine data={data} update={update}/>:page==='timer'?<TimerPage data={data} update={update}/>:page==='notion'?<NotionWorkspace data={data} update={update}/>:page==='scores'?<ScoreTracker data={data} update={update}/>:page==='resources'?<Resources data={data} update={update}/>:page==='pdf'?<ExamArchive/>:page==='drill'?<WeeklyDrill data={data} update={update}/>:<Statistics data={data}/>;
   if(!authenticated)return <LoginPage onAuthenticated={()=>setAuthenticated(true)}/>;
   return <div className="app-shell">
     <aside className={menu?'open':''}><div className="brand"><div className="brand-mark">T</div><div><strong>TRINITY OS</strong><span>Personal Learning OS</span></div><button className="mobile-close" aria-label="메뉴 닫기" onClick={()=>setMenu(false)}><X/></button></div><nav aria-label="주요 메뉴">{nav.map(([id,label,Icon])=><button key={id} aria-current={page===id?'page':undefined} className={page===id?'active':''} onClick={()=>navigate(id)}><Icon size={19}/><span>{label}</span></button>)}</nav><div className="aside-footer"><blockquote>盡人事待天命</blockquote><p>Do the work. Accept the result.</p><button onClick={()=>setSettings(true)}><Settings size={17}/> 데이터 및 설정</button></div></aside>
@@ -63,7 +66,10 @@ function StudentApp() {
 
 export default function App() {
  const portal = new URLSearchParams(window.location.search).get('portal');
- if (portal === 'tutor' || portal === 'parent') return <SupportPortal role={portal} />;
+ if (portal === 'teacher' || portal === 'tutor') return <CollaborativePortal role="subject_teacher" />;
+ if (portal === 'manager') return <CollaborativePortal role="academic_manager" />;
+ if (portal === 'admin') return <FeedbackAdmin />;
+ if (portal === 'parent') return <SupportPortal role="parent" />;
  if (portal === 'owner') return <SupportOwner />;
  return <><LongPressReorder/><StudentApp/></>;
 }

@@ -1,4 +1,4 @@
-import { support } from './support';
+import { support } from './support.ts';
 export interface Env { DB: D1Database; SYNC_TOKEN: string; NVIDIA_API_KEY?: string; ALLOWED_ORIGIN?: string; SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; SUPABASE_BUCKET?: string }
 const encoder = new TextEncoder();
 const json = (body: unknown, status = 200, origin = '*') => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS', 'Cache-Control': 'no-store' } });
@@ -18,7 +18,7 @@ const dailySystem = `${coachSystem}\n반드시 JSON만 반환한다: {"summary":
 const asObject = (value: unknown): Record<string, unknown> | null => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
 const text = (value: unknown, fallback = '') => typeof value === 'string' ? value.slice(0, 900) : fallback;
 const jsonFromText = (value: string) => { try { return JSON.parse(value) as unknown; } catch { const match = value.match(/\{[\s\S]*\}/); try { return match ? JSON.parse(match[0]) as unknown : null; } catch { return null; } } };
-class KimiError extends Error { constructor(message: string, readonly status = 502) { super(message); } }
+class KimiError extends Error { readonly status: number; constructor(message: string, status = 502) { super(message); this.status = status; } }
 const sleep = (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 const retryAfterMilliseconds = (value: string | null) => {
   const seconds = Number(value);

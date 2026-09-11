@@ -9,6 +9,7 @@ const db=new DatabaseSync(':memory:');
 db.exec("CREATE TABLE learning_state(id INTEGER PRIMARY KEY,payload TEXT,updated_at TEXT); CREATE TABLE users(id INTEGER PRIMARY KEY,username TEXT);INSERT INTO users VALUES(1,'keep-me')");
 const sql=readFileSync(new URL('../worker/migrations/0001_support_portal.sql',import.meta.url),'utf8');
 db.exec(sql);db.exec(sql);
+db.exec(readFileSync(new URL('../worker/migrations/0002_feedback_collaboration.sql',import.meta.url),'utf8'));
 assert.equal(db.prepare('SELECT username FROM users').get().username,'keep-me');
 const wrap=(stmt,args=[])=>({bind:(...values)=>wrap(stmt,values),first:async()=>stmt.get(...args)??null,run:async()=>stmt.run(...args),all:async()=>({results:stmt.all(...args)})});
 const env={DB:{prepare:sql=>wrap(db.prepare(sql)),batch:async list=>{db.exec('BEGIN');try{const out=[];for(const statement of list)out.push(await statement.run());db.exec('COMMIT');return out;}catch(e){db.exec('ROLLBACK');throw e;}}}};
