@@ -10,6 +10,10 @@ type ViewTab = 'overview' | 'scores' | 'wrongAnswers' | 'goals' | 'resources';
 
 const formatTime = (seconds: number) => `${Math.floor(seconds / 3600)}시간 ${Math.round((seconds % 3600) / 60)}분`;
 const scoreFor = (item: AppData['scores'][number], subject?: string) => {
+  // Teacher View receives a privacy-filtered score projection from the Worker.
+  // The student app retains subject fields, while the projection has one `score` value.
+  const projected = (item as AppData['scores'][number] & { score?: number }).score;
+  if (typeof projected === 'number') return projected;
   if (subject === '수학') return item.math;
   if (subject === '국어') return item.korean;
   if (subject === '영어') return item.english;

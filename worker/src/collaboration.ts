@@ -14,7 +14,7 @@ const allowed = (assignment: Assignment, permission: Permission) => assignment.r
 const outData = (data: AppData, subject?: string | null, manager = false) => {
   const isSubject = <T extends { subject?: string }>(item: T) => manager || !subject || item.subject === subject;
   const sessions = (data.sessions ?? []).filter(isSubject).slice(-80).map(({id,subject,date,seconds})=>({id,subject,date,seconds}));
-  const scores = (data.scores ?? []).map(score => ({ id:score.id,date:score.date,name:score.name,subject:score.subject,score:subject === '수학' ? score.math : subject === '국어' ? score.korean : subject === '영어' ? score.english : score.reviews?.[subject as keyof typeof score.reviews]?.score })).filter(score => manager || score.subject === subject || score.score !== undefined).slice(-20);
+  const scores = (data.scores ?? []).map(score => ({ id:score.id,date:score.date,name:score.name,subject:score.subject,score:subject === '수학' ? score.math : subject === '국어' ? score.korean : subject === '영어' ? score.english : score.reviews?.[subject as keyof typeof score.reviews]?.score ?? (score.subject === '수학' ? score.math : score.subject === '국어' ? score.korean : score.subject === '영어' ? score.english : undefined) })).filter(score => manager || score.subject === subject || score.score !== undefined).slice(-20);
   const plans = Object.values(data.calendar ?? {}).flatMap(day => (day.plans ?? []).filter(isSubject).map(plan => ({date:day.date,subject:plan.subject,title:plan.title,done:plan.done}))).slice(-100);
   return {
     sessions, scores, plans,
