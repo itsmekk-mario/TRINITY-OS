@@ -30,7 +30,8 @@ async function kimi(env: Env, system: string, user: string, maxTokens: number) {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 60_000);
     try {
       const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', { method: 'POST', signal: controller.signal, headers: { Authorization: `Bearer ${env.NVIDIA_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'moonshotai/kimi-k3', temperature: 0.25, reasoning_effort: 'low', max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) });
-      if (response.status === 429 && attempt === 0) { await sleep(retryAfterMilliseconds(response.headers.get('Retry-After'))); continue; }
+      const retryAfter = response.headers.get('Retry-After');
+      if (response.status === 429 && attempt === 0 && retryAfter) { await sleep(retryAfterMilliseconds(retryAfter)); continue; }
       const payload = await response.json() as { choices?: { message?: { content?: unknown } }[]; error?: { message?: string } };
       if (!response.ok) {
         if (response.status === 429) throw new KimiError('NVIDIA AI 요청 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.', 429);
@@ -45,6 +46,13 @@ async function kimi(env: Env, system: string, user: string, maxTokens: number) {
   }
   throw new KimiError('NVIDIA AI 요청 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.', 429);
 }
+const quotaFallback = 'AI 요청 한도에 도달해, 현재는 기록과 선생님 피드백을 직접 우선해 주세요. 한도가 복구되면 AI 요약을 다시 사용할 수 있습니다.';
+const localCoachReply = (context: Record<string, unknown>) => {
+  const schedule = Array.isArray(context.todaySchedule) ? context.todaySchedule : [];
+  const pending = schedule.find((item) => asObject(item)?.completed !== true);
+  const title = text(asObject(pending)?.title, '다음 학습 항목');
+  return { summary: 'AI 요약은 잠시 제한되었지만, 오늘의 학습 기록은 정상적으로 저장됩니다.', bottleneck: '', nextAction: `${title}부터 실행 기록을 남겨 주세요.`, coachMessage: quotaFallback };
+};
 
 export default { async fetch(request: Request, env: Env): Promise<Response> {
   const origin = env.ALLOWED_ORIGIN || '*';
@@ -80,7 +88,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
       const parsed = asObject(jsonFromText(content));
       const fallback = '오늘 남은 일정부터 차례대로 완료하세요.';
       return json({ summary: text(parsed?.summary, fallback), bottleneck: text(parsed?.bottleneck, ''), nextAction: text(parsed?.nextAction, fallback), coachMessage: text(parsed?.coachMessage, content.slice(0, 160) || fallback) }, 200, origin);
-    } catch (error) { return json({ error: error instanceof Error ? error.message : 'AI 코치 연결에 실패했습니다.' }, error instanceof KimiError ? error.status : 502, origin); }
+    } catch (error) { if (error instanceof KimiError && error.status === 429) return json(localCoachReply(context as Record<string, unknown>), 200, origin); return json({ error: error instanceof Error ? error.message : 'AI 코치 연결에 실패했습니다.' }, error instanceof KimiError ? error.status : 502, origin); }
   }
   if (url.pathname === '/api/ai/teacher-feedback-summary' && request.method === 'POST') {
     if (!user) return json({ error: 'Unauthorized' }, 401, origin);
@@ -97,7 +105,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     try {
       const message = await kimi(env, 'You summarize teacher feedback for a student. Never override, reinterpret, or invent a teacher decision. Use only the supplied academic context. Give a short Korean priority order with at most two concrete actions.', JSON.stringify(safeContext), 180);
       return json({ message }, 200, origin);
-    } catch (error) { return json({ error: error instanceof Error ? error.message : 'AI summary failed' }, error instanceof KimiError ? error.status : 502, origin); }
+    } catch (error) { if (error instanceof KimiError && error.status === 429) return json({ message: quotaFallback, limited: true }, 200, origin); return json({ error: error instanceof Error ? error.message : 'AI summary failed' }, error instanceof KimiError ? error.status : 502, origin); }
   }
   if (url.pathname === '/api/ai/chat' && request.method === 'POST') {
     if (!user) return json({ error: 'Unauthorized' }, 401, origin);
@@ -106,7 +114,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     const messages = rawMessages.map(asObject).filter((item): item is Record<string, unknown> => Boolean(item)).filter((item) => (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string').map((item) => `${item.role === 'user' ? '사용자' : '코치'}: ${text(item.content, '').slice(0, 500)}`).join('\n');
     if (!messages) return json({ error: '유효한 질문이 필요합니다.' }, 400, origin);
     try { return json({ message: await kimi(env, coachSystem, `선별된 학습 데이터:\n${JSON.stringify(context)}\n\n최근 대화:\n${messages}\n\n위 질문에만 짧게 답하세요.`, 320) }, 200, origin); }
-    catch (error) { return json({ error: error instanceof Error ? error.message : 'AI 상담 연결에 실패했습니다.' }, error instanceof KimiError ? error.status : 502, origin); }
+    catch (error) { if (error instanceof KimiError && error.status === 429) return json({ message: quotaFallback, limited: true }, 200, origin); return json({ error: error instanceof Error ? error.message : 'AI 상담 연결에 실패했습니다.' }, error instanceof KimiError ? error.status : 502, origin); }
   }
   if (url.pathname !== '/api/sync' || !['GET', 'PUT'].includes(request.method)) return json({ error: 'Not found' }, 404, origin);
   if (!user) return json({ error: 'Unauthorized' }, 401, origin);
