@@ -164,3 +164,10 @@ test('초기 비밀번호 변경은 현재 비밀번호를 확인하고 기존 �
   assert.match(app, /required=\{passwordRequired\}/);
   assert.match(app, /비밀번호 변경/);
 });
+
+test('운영 로그인 화면은 Worker 주소를 자동 적용하고 서버 입력을 숨긴다', async () => {
+  const source = await readFile(new URL('../src/components/LoginPage.tsx', import.meta.url), 'utf8');
+  assert.match(source, /DEFAULT_WORKER_URL = 'https:\/\/trinity-os-sync\.khk090525\.workers\.dev'/);
+  assert.match(source, /import\.meta\.env\.DEV \? saved\.url \|\| DEFAULT_WORKER_URL : DEFAULT_WORKER_URL/);
+  assert.match(source, /import\.meta\.env\.DEV && \(showServerSettings/);
+});

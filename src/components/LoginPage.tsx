@@ -10,7 +10,7 @@ const DEFAULT_WORKER_URL = 'https://trinity-os-sync.khk090525.workers.dev';
 export default function LoginPage({ onAuthenticated }: { onAuthenticated: () => void }) {
   const saved = loadCloudflareConfig();
   const [role, setRole] = useState<EntryRole>('student');
-  const [url, setUrl] = useState(saved.url || DEFAULT_WORKER_URL);
+  const [url, setUrl] = useState(import.meta.env.DEV ? saved.url || DEFAULT_WORKER_URL : DEFAULT_WORKER_URL);
   const [showServerSettings, setShowServerSettings] = useState(false);
   const [username, setUsername] = useState(saved.username || '');
   const [password, setPassword] = useState('');
@@ -70,9 +70,9 @@ export default function LoginPage({ onAuthenticated }: { onAuthenticated: () => 
           <button type="button" className={role === 'parent' ? 'active' : ''} onClick={() => setRole('parent')}>학부모 로그인</button>
         </div>
         <form onSubmit={submit} className="login-form">
-          {showServerSettings
+          {import.meta.env.DEV && (showServerSettings
             ? <label><span>Worker 주소</span><input type="url" required value={url} onChange={(event) => setUrl(event.target.value)} /><small>기본 서버가 자동으로 연결되어 있습니다.</small></label>
-            : <button type="button" className="server-settings" onClick={() => setShowServerSettings(true)}><ServerCog size={16} /><span>연결 서버 변경</span></button>}
+            : <button type="button" className="server-settings" onClick={() => setShowServerSettings(true)}><ServerCog size={16} /><span>연결 서버 변경</span></button>)}
           <label><span>아이디</span><input required autoCapitalize="none" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} /></label>
           <label><span>비밀번호</span><input type="password" required minLength={8} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
           <button className="button primary" disabled={busy}><KeyRound size={16} />{busy ? '확인 중…' : `${roleLabel} 로그인`}</button>
