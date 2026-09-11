@@ -3,7 +3,8 @@
 The browser never calls NVIDIA NIM and never contains an NVIDIA API key. Its AI
 entry points are authenticated Worker routes:
 
-- POST /api/ai/daily-coach
+- POST /api/ai/daily-coach (deprecated; returns 410 without calling AI)
+- POST /api/ai/study-analysis
 - POST /api/ai/chat
 - POST /api/ai/teacher-feedback-summary
 - POST /api/ai/arena-coach
@@ -15,10 +16,12 @@ include the student's private learning payload.
 
 Architecture:
 
-React component → src/lib/aiCoach.ts → Worker route → AI service → AI provider → NVIDIA NIM
+AppData → local Analytics/Rule Engine → Dashboard
+
+Explicit user request → compressed context → Worker → D1 cache/budget → AI provider → NVIDIA NIM
 
 src/lib/ai/providers/nvidia-kimi.ts owns the NVIDIA HTTP contract, timeout,
-bounded retry, error parsing, and response validation. Routes only validate
+single-attempt request, error parsing, and response validation. Routes only validate
 input and build prompts. A future provider is added behind the AIProvider
 interface without changing routes or React components.
 
@@ -38,27 +41,24 @@ Vite variables, localStorage, or client source code.
 | NVIDIA_MODEL | moonshotai/kimi-k3 | Optional NIM model override |
 | NVIDIA_BASE_URL | NVIDIA chat completions URL | Optional NIM-compatible endpoint override |
 | AI_TIMEOUT_MS | 25000 | Bounded to 1–60 seconds |
-| AI_MAX_RETRIES | 1 | Bounded to 0–2; retries only network/5xx failures |
-| AI_DEBUG | unset | Set true only in development to log provider status and response body |
+| AI_MAX_RETRIES | 0 | Compatibility setting; provider requests are never retried |
+| AI_USER_DAILY_LIMIT | 12 | Maximum provider cache misses per user per UTC day |
+| AI_GLOBAL_DAILY_LIMIT | 100 | Maximum provider cache misses across users per UTC day |
+| AI_CHAT_COOLDOWN_SECONDS | 8 | Minimum interval between uncached chat requests |
+| AI_DEBUG | unset | Set true only in development to log provider status without prompts or keys |
 
 429, 401, 403, 5xx, invalid responses, and timeouts have distinct user-safe
-messages. In development, AI_DEBUG=true writes the actual NVIDIA status and
-truncated error body to Worker logs. Provider response bodies and API keys are
-never returned to the browser.
+messages. In development, AI_DEBUG=true writes structured provider status logs.
+Prompts, provider error bodies, and API keys are not logged or returned to the browser.
 
 ## Request protection
 
-- Browser: 30-minute daily-coach cache, semantic cache keys, request
+- Browser: 30-minute explicit-analysis cache, semantic cache keys, request
   coalescing, and a 35-second client timeout.
-- Worker: 30-minute daily cache, 10-minute feedback-summary cache, in-flight
-  coalescing, and per-user cooldowns (15 seconds for summaries, 2.5 seconds for
-  chat).
-- NVIDIA: no retry on 401, 403, or 429; at most one jittered retry for
-  transient network/5xx failures.
-
-The Worker cache and cooldown are isolate-local by design. For a multi-instance,
-high-traffic deployment, move those controls to a Durable Object or KV while
-keeping the same AIService interface.
+- Worker: persistent D1 cache (30-minute study/Arena, 10-minute feedback, 5-minute
+  chat), per-user/global daily limits, and a configurable chat cooldown.
+- NVIDIA: exactly one HTTP attempt. 401, 403, 429, 5xx, network failures, and
+  timeouts are never retried automatically.
 
 ## Deploy
 
@@ -83,9 +83,49 @@ Then add the Arena tables and initial 2028 season:
 
     npx wrangler d1 execute trinity-os-db --remote --file=./migrations/0005_trinity_arena.sql --config wrangler.toml
 
+Add the persistent AI cache and usage ledger before deploying the local-first Coach:
+
+    npx wrangler d1 execute trinity-os-db --remote --file=./migrations/0006_ai_cache_usage.sql --config wrangler.toml
+
+`/api/ai/daily-coach` is retained only as a non-AI `410 Gone` compatibility response.
+The app calls `/api/ai/study-analysis` only after an explicit button click. Responses
+are cached in D1 by user, operation, and a context hash. Prompt bodies and API keys
+are never written to D1.
+
+AI budget variables are intentionally independent of NVIDIA's current product limits:
+
+- `AI_USER_DAILY_LIMIT` (default config: `12`)
+- `AI_GLOBAL_DAILY_LIMIT` (default config: `100`)
+- `AI_CHAT_COOLDOWN_SECONDS` (default config: `8`)
+
+Every cache miss that reaches the provider is recorded in `ai_usage`. Inspect daily
+volume without storing prompts:
+
+    SELECT operation, success, status_code, COUNT(*) AS calls
+    FROM ai_usage
+    WHERE date(created_at) >= date('now', '-6 day')
+    GROUP BY operation, success, status_code;
+
 For a brand-new database, use `schema.sql` as usual. `SYNC_TOKEN` remains a
 Worker secret and is only used by the administrator to issue or revoke personal
-tokens. Never give `SYNC_TOKEN` to a user.
+tokens. Never give `SYNC_TOKEN` to a user. The student UI continues to use the
+existing username/password login; personal tokens are optional for managed access.
+
+Create a username/password student account from PowerShell. This is the account
+used by the Korean student login screen; no infrastructure or personal API token
+is sent to the student:
+
+    $workerUrl = 'https://YOUR-WORKER.workers.dev'
+    $setupSecret = Read-Host 'SYNC_TOKEN' -AsSecureString
+    $setupToken = [Net.NetworkCredential]::new('', $setupSecret).Password
+    $student = Get-Credential -Message 'New student username and password'
+    $body = @{ username = $student.UserName; password = $student.GetNetworkCredential().Password } | ConvertTo-Json
+    Invoke-RestMethod -Method Post -Uri "$workerUrl/api/admin/students" -Headers @{ 'X-Setup-Token' = $setupToken } -ContentType 'application/json' -Body $body
+
+`POST /api/admin/students` accepts usernames containing ASCII letters, numbers,
+periods, underscores, and hyphens (3-40 characters), and passwords of 8-128
+characters. Duplicate usernames return HTTP `409`. Public self-registration is
+intentionally disabled.
 
 Issue a personal token from PowerShell (the returned `token` is shown only in
 this response, so deliver it over a secure channel):
@@ -94,9 +134,7 @@ this response, so deliver it over a secure channel):
     Invoke-RestMethod -Method Post -Uri 'https://YOUR-WORKER.workers.dev/api/admin/access-tokens' -Headers @{ 'X-Setup-Token' = $setupToken; 'Content-Type' = 'application/json' } -Body '{"username":"student-a","label":"student-a personal device"}'
 
 On a new deployment, create the administrator's own token first by adding
-`"admin":true` to that JSON body. Normal user tokens must omit it. Each user
-enters only the Worker URL and their personal `trinity_pat_...` token on the
-login screen.
+`"admin":true` to that JSON body. Normal user tokens must omit it.
 
 To immediately invalidate every token issued for one user:
 

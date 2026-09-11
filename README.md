@@ -81,7 +81,7 @@ npx wrangler secret put SYNC_TOKEN
 npm run deploy
 ```
 
-배포된 Worker URL과 `SYNC_TOKEN` 값을 앱의 `데이터 및 설정 → Cloudflare 동기화`에 입력합니다. Worker는 `GET /api/sync`, `PUT /api/sync`, `GET /api/health`를 제공하며, 허용된 출처는 `wrangler.toml`의 `ALLOWED_ORIGIN`으로 제한됩니다.
+배포된 앱은 로그인 세션으로 Worker와 동기화합니다. `SYNC_TOKEN`은 학생에게 전달하거나 브라우저에 입력하는 값이 아니라, 신규 계정을 만드는 관리자 전용 Worker secret입니다. Worker는 `GET /api/sync`, `PUT /api/sync`, `GET /api/health`를 제공하며, 허용된 출처는 `wrangler.toml`의 `ALLOWED_ORIGIN`으로 제한됩니다.
 
 브라우저 데이터는 앱의 **데이터 및 설정 → 데이터 백업**으로 주기적으로 JSON 파일로 보관하세요. `resources.json`을 나중에 수정해도 이미 사용 중인 브라우저의 자료 데이터는 유지됩니다. 초기화하려면 해당 사이트의 브라우저 저장 데이터를 삭제한 뒤 다시 실행합니다.
 
@@ -93,17 +93,40 @@ npm run deploy
 
 `vite.config.ts`가 상대 경로(`base: './'`)를 사용하므로 사용자/프로젝트 Pages 모두 지원합니다.
 
-## 다중 사용자 개인 API 토큰
+## 신규 사용자 가입 방법
 
-Cloudflare/D1 관리 토큰을 사용자에게 주지 마세요. Worker가 발급하는
-`trinity_pat_...` 개인 토큰만 사용자에게 전달하면, 각 토큰은 별도 사용자와
-별도 D1 학습 데이터에 연결됩니다. 기존 D1을 사용 중이라면 배포 전에 아래
-마이그레이션을 한 번 실행해야 합니다.
+현재 공개 회원가입은 열어 두지 않았습니다. 새 학생은 관리자에게 아이디를 요청하고, 관리자가 계정을 만든 뒤 로그인 정보를 안전한 채널로 전달합니다. 학생에게 Cloudflare API 토큰이나 `SYNC_TOKEN`을 요구하지 않습니다.
+
+관리자는 PowerShell에서 다음 명령을 실행합니다. 비밀번호와 `SYNC_TOKEN`은 화면에 표시되지 않습니다.
+
+```powershell
+$workerUrl = 'https://trinity-os-sync.khk090525.workers.dev'
+$setupSecret = Read-Host '관리자 SYNC_TOKEN' -AsSecureString
+$setupToken = [Net.NetworkCredential]::new('', $setupSecret).Password
+$student = Get-Credential -Message '신규 학생 아이디와 사용할 비밀번호를 입력하세요'
+$body = @{
+  username = $student.UserName
+  password = $student.GetNetworkCredential().Password
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post `
+  -Uri "$workerUrl/api/admin/students" `
+  -Headers @{ 'X-Setup-Token' = $setupToken } `
+  -ContentType 'application/json' `
+  -Body $body
+
+Remove-Variable setupToken, setupSecret, student, body
+```
+
+계정 생성 후 학생은 [TRINITY OS](https://trinityos.mcv.kr)에서 **학생 로그인**을 선택하고 발급받은 아이디와 비밀번호로 로그인합니다. 아이디는 영문·숫자·마침표·밑줄·하이픈으로 3~40자, 비밀번호는 8자 이상이어야 합니다. 같은 아이디가 이미 있으면 새 계정을 만들지 않고 `409` 오류를 반환합니다.
+
+## 다중 사용자 데이터 분리와 개인 API 토큰
+
+각 로그인 계정은 별도 D1 학습 데이터에 연결됩니다. 자동화 연동용 `trinity_pat_...` 개인 토큰도 지원하지만 일반 학생 로그인에는 필요하지 않습니다. Cloudflare/D1 관리 토큰과 `SYNC_TOKEN`은 사용자에게 절대 전달하지 마세요. 기존 D1을 사용 중이라면 배포 전에 아래 마이그레이션을 한 번 실행해야 합니다.
 
 ```bash
 cd worker
 npx wrangler d1 execute trinity-os-db --remote --file=./migrations/0004_multi_user_api_tokens.sql --config wrangler.toml
 ```
 
-토큰 발급·폐기 방법과 PowerShell 명령은 [worker/README.md](worker/README.md)를
-참고하세요. `SYNC_TOKEN`은 발급 관리자만 보관하는 Worker secret입니다.
+자동화용 개인 토큰 발급·폐기 방법은 [worker/README.md](worker/README.md)를 참고하세요.

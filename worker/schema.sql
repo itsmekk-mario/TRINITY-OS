@@ -33,6 +33,28 @@ CREATE TABLE IF NOT EXISTS learning_state_history (
 );
 CREATE INDEX IF NOT EXISTS learning_state_history_user_saved ON learning_state_history(user_id, saved_at DESC);
 
+CREATE TABLE IF NOT EXISTS ai_cache (
+  cache_key TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  operation TEXT NOT NULL,
+  response TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ai_cache_expiry ON ai_cache(expires_at);
+CREATE TABLE IF NOT EXISTS ai_usage (
+  id TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  operation TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  model TEXT,
+  created_at TEXT NOT NULL,
+  success INTEGER NOT NULL DEFAULT 0,
+  status_code INTEGER
+);
+CREATE INDEX IF NOT EXISTS ai_usage_user_created ON ai_usage(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS ai_usage_created ON ai_usage(created_at DESC);
+
 CREATE TABLE IF NOT EXISTS arena_profiles (
   user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   nickname TEXT NOT NULL UNIQUE,

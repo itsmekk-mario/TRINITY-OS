@@ -6,10 +6,11 @@ import { arena } from './arena.ts';
 export interface Env {
   DB: D1Database; SYNC_TOKEN?: string; NVIDIA_API_KEY?: string; NVIDIA_MODEL?: string; NVIDIA_BASE_URL?: string;
   AI_PROVIDER?: string; AI_TIMEOUT_MS?: string; AI_MAX_RETRIES?: string; AI_DEBUG?: string; ENVIRONMENT?: string;
+  AI_USER_DAILY_LIMIT?: string; AI_GLOBAL_DAILY_LIMIT?: string; AI_CHAT_COOLDOWN_SECONDS?: string;
   ALLOWED_ORIGIN?: string; SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; SUPABASE_BUCKET?: string;
 }
 const encoder = new TextEncoder();
-const json = (body: unknown, status = 200, origin = '*', extra: HeadersInit = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS', 'Cache-Control': 'no-store', ...extra } });
+const json = (body: unknown, status = 200, origin = '*', extra: HeadersInit = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Setup-Token', 'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS', 'Cache-Control': 'no-store', ...extra } });
 const hex = (bytes: ArrayBuffer) => [...new Uint8Array(bytes)].map((v) => v.toString(16).padStart(2, '0')).join('');
 const randomHex = (size = 32) => { const bytes = new Uint8Array(size); crypto.getRandomValues(bytes); return hex(bytes.buffer); };
 const sha256 = async (value: string) => hex(await crypto.subtle.digest('SHA-256', encoder.encode(value)));
@@ -20,9 +21,14 @@ async function ensureTables(db: D1Database) { await db.batch([
   db.prepare('CREATE TABLE IF NOT EXISTS api_tokens (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, label TEXT NOT NULL, created_at TEXT NOT NULL, revoked_at TEXT)'),
   db.prepare('CREATE TABLE IF NOT EXISTS learning_state_history (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, payload TEXT NOT NULL, saved_at TEXT NOT NULL)'),
   db.prepare('CREATE TABLE IF NOT EXISTS learning_state (user_id INTEGER PRIMARY KEY, payload TEXT NOT NULL, updated_at TEXT NOT NULL)'),
+  db.prepare('CREATE TABLE IF NOT EXISTS ai_cache (cache_key TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, operation TEXT NOT NULL, response TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL)'),
+  db.prepare('CREATE TABLE IF NOT EXISTS ai_usage (id TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, operation TEXT NOT NULL, provider TEXT NOT NULL, model TEXT, created_at TEXT NOT NULL, success INTEGER NOT NULL DEFAULT 0, status_code INTEGER)'),
 ]); await db.batch([
   db.prepare('CREATE INDEX IF NOT EXISTS api_tokens_user_active ON api_tokens(user_id, revoked_at)'),
   db.prepare('CREATE INDEX IF NOT EXISTS learning_state_history_user_saved ON learning_state_history(user_id, saved_at DESC)'),
+  db.prepare('CREATE INDEX IF NOT EXISTS ai_cache_expiry ON ai_cache(expires_at)'),
+  db.prepare('CREATE INDEX IF NOT EXISTS ai_usage_user_created ON ai_usage(user_id, created_at DESC)'),
+  db.prepare('CREATE INDEX IF NOT EXISTS ai_usage_created ON ai_usage(created_at DESC)'),
 ]); const columns = await db.prepare('PRAGMA table_info(users)').all<{ name: string }>(); if (!columns.results.some((column) => column.name === 'is_admin')) await db.prepare('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0').run(); }
 type User = { id: number; username: string; is_admin: number };
 async function sessionUser(request: Request, env: Env) { const bearer = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, ''); if (!bearer) return null; const hash = await sha256(bearer); return env.DB.prepare("SELECT u.id,u.username,u.is_admin FROM api_tokens t JOIN users u ON u.id=t.user_id WHERE t.token_hash=? AND t.revoked_at IS NULL UNION ALL SELECT u.id,u.username,u.is_admin FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND datetime(s.expires_at)>datetime('now') LIMIT 1").bind(hash, hash).first<User>(); }
@@ -37,20 +43,44 @@ async function secretMatches(provided: string, expected: string | undefined) {
 }
 const tokenName = (value: unknown) => typeof value === 'string' ? value.trim().slice(0, 40) : '';
 
-const coachSystem = '너는 TRINITY OS의 수능 학습 코치다. 감정적인 격려를 길게 하지 말고, 제공된 학습 데이터에 근거해 가장 중요한 다음 행동 하나를 제시한다. 데이터에 없는 사실을 만들지 말고 계획량을 무조건 늘리지 않는다. 학습량보다 실제 병목과 실행을 우선하며, 미완료 일정이 많아도 비난하지 않는다. 한국어로 1~2문장, 80자 안팎으로 답한다.';
-const dailySystem = `${coachSystem}\n반드시 JSON만 반환한다: {"summary":"...","bottleneck":"...","nextAction":"...","coachMessage":"..."}. 각 값은 짧은 한국어 문장이다.`;
+const coachSystem = `너는 TRINITY OS의 수능 학습 코치다.
+제공된 TRINITY Analytics 결과만 근거로 판단하고 데이터에 없는 사실을 추측하거나 만들지 않는다.
+공부시간을 무조건 늘리지 않고, 문제 수 증가보다 반복 병목의 수정과 재검증을 우선한다.
+Weekly Capability Goal이 있으면 새 계획을 추가하기 전에 기존 목표와 연결한다.
+wrongJudgment, missedCue, correction, retry 상태를 중요하게 보되 제공되지 않은 원문은 추론하지 않는다.
+근거가 부족하면 데이터가 부족하다고 명시한다. 학년, 등급, 대학 합격 가능성을 임의로 판단하지 않는다.
+감정적 격려를 길게 하지 않는다. 현재 상태, 가장 중요한 병목, 근거, 가장 중요한 다음 행동 1개 순서로 한국어로 짧게 답한다.
+사용자가 여러 대안을 명시적으로 요구하지 않으면 행동을 여러 개 나열하지 않는다.`;
 const arenaSystem = '너는 TRINITY Arena의 성장 코치다. 순위나 공부시간만으로 학생을 평가하거나 압박하지 않는다. 제공된 점수 근거와 그룹 평균을 비교해 가장 개선 여지가 큰 영역 하나와 실행 가능한 다음 행동 1~2개를 한국어 3문장 이내로 제시한다. 개인정보를 추론하지 않고, 데이터가 부족하면 부족하다고 명시한다.';
 const asObject = (value: unknown): Record<string, unknown> | null => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
 const text = (value: unknown, fallback = '') => typeof value === 'string' ? value.slice(0, 900) : fallback;
-const jsonFromText = (value: string) => { try { return JSON.parse(value) as unknown; } catch { const match = value.match(/\{[\s\S]*\}/); try { return match ? JSON.parse(match[0]) as unknown : null; } catch { return null; } } };
 const stableJson = (value: unknown): string => Array.isArray(value) ? `[${value.map(stableJson).join(',')}]` : value && typeof value === 'object' ? `{${Object.keys(value as Record<string, unknown>).sort().map((key) => `${JSON.stringify(key)}:${stableJson((value as Record<string, unknown>)[key])}`).join(',')}}` : JSON.stringify(value);
-const providerConfig = (env: Env): AIServiceConfig => ({ provider: env.AI_PROVIDER || 'nvidia-kimi', apiKey: env.NVIDIA_API_KEY, model: env.NVIDIA_MODEL, baseUrl: env.NVIDIA_BASE_URL, timeoutMs: env.AI_TIMEOUT_MS, maxRetries: env.AI_MAX_RETRIES, debug: env.AI_DEBUG, environment: env.ENVIRONMENT });
+const finite = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+const short = (value: unknown, size = 120) => typeof value === 'string' ? value.slice(0, size) : undefined;
+const compactItems = (value: unknown, limit: number, select: (item: Record<string, unknown>) => Record<string, unknown>) => Array.isArray(value) ? value.map(asObject).filter((item): item is Record<string, unknown> => Boolean(item)).slice(0, limit).map(select) : [];
+function safeStudyContext(value: unknown) {
+  const context = asObject(value); if (!context) return null;
+  const execution = asObject(context.execution) ?? {}, primary = asObject(context.primaryBottleneck), retry = asObject(context.retryStatus), local = asObject(context.localDiagnosis);
+  if (!local || !short(local.nextAction)) return null;
+  return {
+    period: context.period === '7d' ? '7d' : '14d',
+    execution: { studyMinutes7d: finite(execution.studyMinutes7d), previousStudyMinutes7d: finite(execution.previousStudyMinutes7d), completionRateToday: finite(execution.completionRateToday), dailyDrillCompletionRate7d: finite(execution.dailyDrillCompletionRate7d) },
+    subjectSummary: compactItems(context.subjectSummary, 4, (item) => ({ subject: short(item.subject, 12), studyMinutes7d: finite(item.studyMinutes7d), recentScoreTrend: short(item.recentScoreTrend, 20) })),
+    primaryBottleneck: primary ? { name: short(primary.name), count7d: finite(primary.count7d), count14d: finite(primary.count14d), trend: short(primary.trend, 20), repeatedCues: Array.isArray(primary.repeatedCues) ? primary.repeatedCues.slice(0, 2).map((item) => short(item, 80)) : [], repeatedJudgments: Array.isArray(primary.repeatedJudgments) ? primary.repeatedJudgments.slice(0, 2).map((item) => short(item, 80)) : [], correctionAction: short(primary.correctionAction, 140), transferDrill: short(primary.transferDrill, 140) } : undefined,
+    secondaryBottlenecks: compactItems(context.secondaryBottlenecks, 2, (item) => ({ name: short(item.name), count7d: finite(item.count7d), count14d: finite(item.count14d) })),
+    retryStatus: retry ? { scheduled: finite(retry.scheduled), completed: finite(retry.completed), overdue: finite(retry.overdue) } : undefined,
+    weeklyGoals: compactItems(context.weeklyGoals, 3, (item) => ({ subject: short(item.subject, 12), ability: short(item.ability), successCriterion: short(item.successCriterion, 160) })),
+    plaire: asObject(context.plaire) ? { bottleneck: short(asObject(context.plaire)?.bottleneck), nextAction: short(asObject(context.plaire)?.nextAction, 160) } : undefined,
+    localDiagnosis: { status: short(local.status, 180), primaryBottleneck: short(local.primaryBottleneck), nextAction: short(local.nextAction, 220), successCriterion: short(local.successCriterion, 180), evidence: Array.isArray(local.evidence) ? local.evidence.slice(0, 3).map((item) => short(item, 140)) : [] },
+  };
+}
+const providerConfig = (env: Env): AIServiceConfig => ({ provider: env.AI_PROVIDER || 'nvidia-kimi', apiKey: env.NVIDIA_API_KEY, model: env.NVIDIA_MODEL, baseUrl: env.NVIDIA_BASE_URL, timeoutMs: env.AI_TIMEOUT_MS, maxRetries: env.AI_MAX_RETRIES, debug: env.AI_DEBUG, environment: env.ENVIRONMENT, userDailyLimit: env.AI_USER_DAILY_LIMIT, globalDailyLimit: env.AI_GLOBAL_DAILY_LIMIT, chatCooldownSeconds: env.AI_CHAT_COOLDOWN_SECONDS });
 const aiMessage = (error: AIProviderError) => {
   switch (error.code) {
     case 'AI_NOT_CONFIGURED': return 'AI 코치가 아직 설정되지 않았습니다. 관리자에게 문의해 주세요.';
     case 'AI_AUTHENTICATION_FAILED': return 'AI 연결 인증에 실패했습니다. 관리자에게 설정 확인을 요청해 주세요.';
     case 'AI_ACCESS_DENIED': return '현재 AI 모델 접근 권한이 없습니다. 관리자에게 모델 설정 확인을 요청해 주세요.';
-    case 'AI_RATE_LIMITED': return `AI 요청이 잠시 제한되었습니다.${error.retryAfterSeconds ? ` ${error.retryAfterSeconds}초 후 다시 시도해 주세요.` : ' 잠시 후 다시 시도해 주세요.'}`;
+    case 'AI_RATE_LIMITED': return /[가-힣]/.test(error.message) ? error.message : `AI 요청이 잠시 제한되었습니다.${error.retryAfterSeconds ? ` ${error.retryAfterSeconds}초 후 다시 시도해 주세요.` : ' 잠시 후 다시 시도해 주세요.'} 기본 TRINITY 분석은 정상적으로 사용할 수 있습니다.`;
     case 'AI_TIMEOUT': return 'AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.';
     case 'AI_PROVIDER_UNAVAILABLE': return 'AI 서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해 주세요.';
     case 'AI_INVALID_RESPONSE': return 'AI 응답 형식을 확인하지 못했습니다. 다시 시도해 주세요.';
@@ -62,9 +92,23 @@ const prompt = (system: string, user: string): ChatMessage[] => [{ role: 'system
 
 export default { async fetch(request: Request, env: Env): Promise<Response> {
   const origin = env.ALLOWED_ORIGIN || '*';
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS' } });
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Setup-Token', 'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS' } });
   await ensureTables(env.DB); const url = new URL(request.url);
   if (url.pathname === '/api/health' && request.method === 'GET') return json({ ok: true, service: 'trinity-os-sync' }, 200, origin);
+  if (url.pathname === '/api/admin/students' && request.method === 'POST') {
+    const issuerToken = request.headers.get('X-Setup-Token') || '';
+    if (!await secretMatches(issuerToken, env.SYNC_TOKEN)) return json({ error: '관리자 인증에 실패했습니다.' }, 401, origin);
+    const body = await request.json<{ username?: unknown; password?: unknown; admin?: unknown }>();
+    const username = typeof body.username === 'string' ? body.username.trim() : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+    if (!/^[A-Za-z0-9._-]{3,40}$/.test(username)) return json({ error: '아이디는 영문, 숫자, 마침표, 밑줄, 하이픈으로 3~40자여야 합니다.' }, 400, origin);
+    if (password.length < 8 || password.length > 128) return json({ error: '비밀번호는 8~128자로 입력해 주세요.' }, 400, origin);
+    const existing = await env.DB.prepare('SELECT id FROM users WHERE username=?').bind(username).first<{ id: number }>();
+    if (existing) return json({ error: '이미 사용 중인 아이디입니다.' }, 409, origin);
+    const salt = randomHex(16), now = new Date().toISOString(), admin = body.admin === true ? 1 : 0;
+    await env.DB.prepare('INSERT INTO users(username,password_hash,salt,is_admin,created_at) VALUES(?,?,?,?,?)').bind(username, await passwordHash(password, salt), salt, admin, now).run();
+    return json({ username, isAdmin: admin === 1, createdAt: now }, 201, origin);
+  }
   if (url.pathname === '/api/admin/access-tokens' && request.method === 'POST') {
     const issuerToken = request.headers.get('X-Setup-Token') || '';
     if (!await secretMatches(issuerToken, env.SYNC_TOKEN)) return json({ error: 'Unauthorized' }, 401, origin);
@@ -101,14 +145,15 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
   const arenaResponse = await arena(request, env, user, origin, { json, randomHex });
   if (arenaResponse) return arenaResponse;
   if (url.pathname === '/api/auth/me' && request.method === 'GET') return user ? json({ ok: true, username: user.username }, 200, origin) : json({ error: 'Unauthorized' }, 401, origin);
-  if (url.pathname === '/api/ai/daily-coach' && request.method === 'POST') {
+  if (url.pathname === '/api/ai/daily-coach' && request.method === 'POST') return json({ error: '자동 AI 분석 API는 종료되었습니다. Dashboard의 로컬 TRINITY 분석을 사용해 주세요.', code: 'LOCAL_COACH_ONLY' }, 410, origin);
+  if (url.pathname === '/api/ai/study-analysis' && request.method === 'POST') {
     if (!user) return json({ error: 'Unauthorized' }, 401, origin);
-    const body = asObject(await request.json<unknown>()); const context = body?.context;
-    if (!asObject(context)) return json({ error: '학습 컨텍스트가 필요합니다.' }, 400, origin);
+    const body = asObject(await request.json<unknown>()); const context = safeStudyContext(body?.context);
+    if (!context) return json({ error: '압축된 TRINITY Analytics 결과가 필요합니다.' }, 400, origin);
+    const requestText = `TRINITY Analytics 결과:\n${JSON.stringify(context)}\n\n이 결과를 다시 계산하지 말고 근거를 연결해 현재 상태, 핵심 병목, 근거, 다음 행동 1개와 검증 기준을 짧게 설명하세요.`;
     try {
-      const result = await aiService.complete({ user: user.username, operation: 'daily-coach', cacheKey: await sha256(stableJson(context)), force: body?.force === true, maxTokens: 180, config: providerConfig(env), messages: prompt(dailySystem, `오늘의 선별된 학습 데이터:\n${JSON.stringify(context)}`) });
-      const parsed = asObject(jsonFromText(result.content)); const fallback = '오늘 첫 일정부터 차분히 완료해 보세요.';
-      return json({ summary: text(parsed?.summary, fallback), bottleneck: text(parsed?.bottleneck, ''), nextAction: text(parsed?.nextAction, fallback), coachMessage: text(parsed?.coachMessage, result.content.slice(0, 160) || fallback), cached: result.cached }, 200, origin);
+      const result = await aiService.complete({ db: env.DB, userId: user.id, user: user.username, operation: 'study-analysis', cacheKey: await sha256(stableJson(context)), maxTokens: 260, config: providerConfig(env), messages: prompt(coachSystem, requestText) });
+      return json({ message: text(result.content, '정밀 분석 결과를 확인하지 못했습니다.'), cached: result.cached }, 200, origin);
     } catch (cause) { return aiError(cause, origin); }
   }
   if (url.pathname === '/api/ai/teacher-feedback-summary' && request.method === 'POST') {
@@ -116,23 +161,23 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     const body = asObject(await request.json<unknown>()); const context = asObject(body?.context);
     if (!context) return json({ error: 'Teacher feedback context is required.' }, 400, origin);
     const safe = { today: asObject(context.today), subjectFeedback: Array.isArray(context.subjectFeedback) ? context.subjectFeedback.slice(0, 5) : [], academicFeedback: Array.isArray(context.academicFeedback) ? context.academicFeedback.slice(0, 3) : [], weeklyGoals: Array.isArray(context.weeklyGoals) ? context.weeklyGoals.slice(0, 5) : [], recentBottlenecks: Array.isArray(context.recentBottlenecks) ? context.recentBottlenecks.slice(0, 5) : [] };
-    try { const result = await aiService.complete({ user: user.username, operation: 'teacher-feedback-summary', cacheKey: await sha256(stableJson(safe)), maxTokens: 180, config: providerConfig(env), messages: prompt('You summarize teacher feedback for a student. Never override, reinterpret, or invent a teacher decision. Use only the supplied academic context. Give a short Korean priority order with at most two concrete actions.', JSON.stringify(safe)) }); return json({ message: result.content, cached: result.cached }, 200, origin); } catch (cause) { return aiError(cause, origin); }
+    try { const result = await aiService.complete({ db: env.DB, userId: user.id, user: user.username, operation: 'teacher-feedback-summary', cacheKey: await sha256(stableJson(safe)), maxTokens: 180, config: providerConfig(env), messages: prompt('You summarize teacher feedback for a student. Never override, reinterpret, or invent a teacher decision. Use only the supplied academic context. Give a short Korean priority order with at most two concrete actions.', JSON.stringify(safe)) }); return json({ message: result.content, cached: result.cached }, 200, origin); } catch (cause) { return aiError(cause, origin); }
   }
   if (url.pathname === '/api/ai/arena-coach' && request.method === 'POST') {
     if (!user) return json({ error: 'Unauthorized' }, 401, origin);
     const body = asObject(await request.json<unknown>()); const context = asObject(body?.context);
     if (!context) return json({ error: 'Arena 성장 컨텍스트가 필요합니다.' }, 400, origin);
     const safe = { score: asObject(context.score), metrics: asObject(context.metrics), breakdown: asObject(context.breakdown), group: asObject(context.group), nextActions: Array.isArray(context.nextActions) ? context.nextActions.slice(0, 3) : [] };
-    try { const result = await aiService.complete({ user: user.username, operation: 'arena-coach', cacheKey: await sha256(stableJson(safe)), maxTokens: 220, config: providerConfig(env), messages: prompt(arenaSystem, JSON.stringify(safe)) }); return json({ message: result.content, cached: result.cached }, 200, origin); } catch (cause) { return aiError(cause, origin); }
+    try { const result = await aiService.complete({ db: env.DB, userId: user.id, user: user.username, operation: 'arena-coach', cacheKey: await sha256(stableJson(safe)), maxTokens: 220, config: providerConfig(env), messages: prompt(arenaSystem, JSON.stringify(safe)) }); return json({ message: result.content, cached: result.cached }, 200, origin); } catch (cause) { return aiError(cause, origin); }
   }
   if (url.pathname === '/api/ai/chat' && request.method === 'POST') {
     if (!user) return json({ error: 'Unauthorized' }, 401, origin);
-    const body = asObject(await request.json<unknown>()); const context = body?.context; const raw = Array.isArray(body?.messages) ? body.messages.slice(-6) : [];
-    if (!asObject(context) || !raw.length) return json({ error: '학습 컨텍스트와 질문이 필요합니다.' }, 400, origin);
-    const conversation = raw.map(asObject).filter((item): item is Record<string, unknown> => Boolean(item)).filter((item) => (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string').map((item) => `${item.role === 'user' ? '사용자' : '코치'}: ${text(item.content).slice(0, 500)}`).join('\n');
+    const body = asObject(await request.json<unknown>()); const context = safeStudyContext(body?.context); const raw = Array.isArray(body?.messages) ? body.messages.slice(-6) : [];
+    if (!context || !raw.length) return json({ error: '학습 컨텍스트와 질문이 필요합니다.' }, 400, origin);
+    const conversation = raw.map(asObject).filter((item): item is Record<string, unknown> => Boolean(item)).filter((item) => (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string').map((item) => `${item.role === 'user' ? '사용자' : '코치'}: ${text(item.content).slice(0, 300)}`).join('\n');
     if (!conversation) return json({ error: '유효한 질문이 필요합니다.' }, 400, origin);
     const requestText = `선별된 학습 데이터:\n${JSON.stringify(context)}\n\n최근 대화:\n${conversation}\n\n위 질문에만 짧게 답하세요.`;
-    try { const result = await aiService.complete({ user: user.username, operation: 'chat', cacheKey: await sha256(requestText), maxTokens: 320, config: providerConfig(env), messages: prompt(coachSystem, requestText) }); return json({ message: result.content }, 200, origin); } catch (cause) { return aiError(cause, origin); }
+    try { const result = await aiService.complete({ db: env.DB, userId: user.id, user: user.username, operation: 'chat', cacheKey: await sha256(requestText), maxTokens: 280, config: providerConfig(env), messages: prompt(coachSystem, requestText) }); return json({ message: result.content, cached: result.cached }, 200, origin); } catch (cause) { return aiError(cause, origin); }
   }
   if (url.pathname !== '/api/sync' || !['GET', 'PUT'].includes(request.method)) return json({ error: 'Not found' }, 404, origin);
   if (!user) return json({ error: 'Unauthorized' }, 401, origin);

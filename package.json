@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build && node scripts/create-spa-entrypoints.mjs",
+    "test": "node --experimental-transform-types --test \"tests/*.test.mjs\"",
     "preview": "vite preview"
   },
   "dependencies": {
