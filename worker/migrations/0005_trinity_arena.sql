@@ -1,38 +1,3 @@
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT NOT NULL UNIQUE,
-  password_hash TEXT,
-  salt TEXT,
-  is_admin INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS sessions (
-  token_hash TEXT PRIMARY KEY,
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  expires_at TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS api_tokens (
-  token_hash TEXT PRIMARY KEY,
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  label TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  revoked_at TEXT
-);
-CREATE INDEX IF NOT EXISTS api_tokens_user_active ON api_tokens(user_id, revoked_at);
-CREATE TABLE IF NOT EXISTS learning_state (
-  user_id INTEGER PRIMARY KEY REFERENCES users(id),
-  payload TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS learning_state_history (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  payload TEXT NOT NULL,
-  saved_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS learning_state_history_user_saved ON learning_state_history(user_id, saved_at DESC);
-
 CREATE TABLE IF NOT EXISTS arena_profiles (
   user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   nickname TEXT NOT NULL UNIQUE,
@@ -45,6 +10,7 @@ CREATE TABLE IF NOT EXISTS arena_profiles (
   profile_image TEXT,
   updated_at TEXT NOT NULL
 );
+
 CREATE TABLE IF NOT EXISTS arena_groups (
   id TEXT PRIMARY KEY,
   owner_user_id INTEGER NOT NULL REFERENCES users(id),
@@ -56,6 +22,7 @@ CREATE TABLE IF NOT EXISTS arena_groups (
   invite_code TEXT NOT NULL UNIQUE,
   created_at TEXT NOT NULL
 );
+
 CREATE TABLE IF NOT EXISTS arena_group_members (
   group_id TEXT NOT NULL REFERENCES arena_groups(id) ON DELETE CASCADE,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -63,7 +30,14 @@ CREATE TABLE IF NOT EXISTS arena_group_members (
   joined_at TEXT NOT NULL,
   PRIMARY KEY(group_id, user_id)
 );
-CREATE TABLE IF NOT EXISTS arena_seasons (id TEXT PRIMARY KEY,name TEXT NOT NULL,starts_at TEXT NOT NULL,ends_at TEXT NOT NULL);
+
+CREATE TABLE IF NOT EXISTS arena_seasons (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  starts_at TEXT NOT NULL,
+  ends_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS arena_score_snapshots (
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -80,6 +54,7 @@ CREATE TABLE IF NOT EXISTS arena_score_snapshots (
   UNIQUE(user_id, season_id, week_start)
 );
 CREATE INDEX IF NOT EXISTS arena_scores_season_score ON arena_score_snapshots(season_id, score DESC);
+
 CREATE TABLE IF NOT EXISTS arena_rivals (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   rival_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -87,6 +62,7 @@ CREATE TABLE IF NOT EXISTS arena_rivals (
   PRIMARY KEY(user_id, rival_user_id),
   CHECK(user_id <> rival_user_id)
 );
+
 CREATE TABLE IF NOT EXISTS arena_achievements (
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -96,4 +72,6 @@ CREATE TABLE IF NOT EXISTS arena_achievements (
   awarded_at TEXT NOT NULL,
   UNIQUE(user_id, code)
 );
-INSERT OR IGNORE INTO arena_seasons(id,name,starts_at,ends_at) VALUES('suneung-2028-fall','2028 수능 시즌','2026-09-01','2026-12-31');
+
+INSERT OR IGNORE INTO arena_seasons(id,name,starts_at,ends_at)
+VALUES('suneung-2028-fall','2028 수능 시즌','2026-09-01','2026-12-31');

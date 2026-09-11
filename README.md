@@ -92,3 +92,18 @@ npm run deploy
 3. 이후 `main`에 push할 때마다 `.github/workflows/deploy.yml`이 자동 빌드·배포합니다.
 
 `vite.config.ts`가 상대 경로(`base: './'`)를 사용하므로 사용자/프로젝트 Pages 모두 지원합니다.
+
+## 다중 사용자 개인 API 토큰
+
+Cloudflare/D1 관리 토큰을 사용자에게 주지 마세요. Worker가 발급하는
+`trinity_pat_...` 개인 토큰만 사용자에게 전달하면, 각 토큰은 별도 사용자와
+별도 D1 학습 데이터에 연결됩니다. 기존 D1을 사용 중이라면 배포 전에 아래
+마이그레이션을 한 번 실행해야 합니다.
+
+```bash
+cd worker
+npx wrangler d1 execute trinity-os-db --remote --file=./migrations/0004_multi_user_api_tokens.sql --config wrangler.toml
+```
+
+토큰 발급·폐기 방법과 PowerShell 명령은 [worker/README.md](worker/README.md)를
+참고하세요. `SYNC_TOKEN`은 발급 관리자만 보관하는 Worker secret입니다.

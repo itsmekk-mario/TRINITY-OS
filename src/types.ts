@@ -20,6 +20,79 @@ export type NotionPage = { id: string; title: string; icon: string; createdAt: s
 export type RoutineItem = { id: string; time: string; title: string; detail: string; subject: Subject | '생활' };
 export type PlaireEntry = { date: string; record: string; criterion: string; wrongJudgment: string; lens: string; focus: string; simulation: string; workingMemory: string; automatic: string; conscious: string; transfer: string; bottleneck: string; nextAction: string; levels: { criterion: number; immersion: number; embodiment: number } };
 export type TrinityEntry = { id: string; date: string; subject: Subject; mode: '국어' | '수학'; fields: Record<string, string> };
+export type ArenaGroupType = 'university' | 'department' | 'custom';
+export type ArenaVisibility = 'public' | 'private';
+export type ArenaProfile = {
+  userId?: number;
+  nickname: string;
+  grade: string;
+  targetUniversity: string;
+  targetDepartment: string;
+  targetAdmissionType: string;
+  studyGoal: string[];
+  achievementLevel: string;
+  profileImage?: string;
+};
+export type ArenaGroup = {
+  id: string;
+  name: string;
+  type: ArenaGroupType;
+  targetUniversity?: string;
+  targetDepartment?: string;
+  memberCount: number;
+  visibility: ArenaVisibility;
+  joined: boolean;
+  owner: boolean;
+  inviteCode?: string;
+};
+export type ArenaScoreBreakdown = {
+  execution: number;
+  problemSolving: number;
+  consistency: number;
+  growth: number;
+};
+export type ArenaScoreMetrics = {
+  currentWeekSeconds: number;
+  previousWeekSeconds: number;
+  planExecutionRate: number;
+  activeDays: number;
+  streakDays: number;
+  scoreChange: number;
+  drillCompletionRate: number;
+  completedTripleDrills: number;
+  weaknessImprovementRate: number;
+  growthRate: number;
+  weakAreas: string[];
+  nextActions: string[];
+};
+export type ArenaScore = {
+  total: number;
+  breakdown: ArenaScoreBreakdown;
+  metrics: ArenaScoreMetrics;
+  calculatedAt: string;
+};
+export type ArenaRankingEntry = {
+  rank: number;
+  userId: number;
+  nickname: string;
+  score: number;
+  growthRate: number;
+  targetUniversity: string;
+  targetDepartment: string;
+  isMe?: boolean;
+};
+export type ArenaSeason = { id: string; name: string; startsAt: string; endsAt: string; status: 'upcoming' | 'active' | 'ended' };
+export type ArenaAchievement = { id: string; code: string; title: string; description: string; awardedAt: string };
+export type ArenaRival = ArenaRankingEntry & { comparison?: { label: string; mine: number; rival: number; unit: string }[]; insight?: string };
+export type ArenaBootstrap = {
+  profile: ArenaProfile | null;
+  groups: ArenaGroup[];
+  ranking: ArenaRankingEntry[];
+  rivals: ArenaRival[];
+  achievements: ArenaAchievement[];
+  season: ArenaSeason;
+  latestScore: ArenaScore | null;
+};
 export type AppData = {
   calendar: Record<string, CalendarEntry>;
   sessions: TimerSession[];

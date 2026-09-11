@@ -2,6 +2,17 @@ name = "trinity-os-sync"
 main = "src/index.ts"
 compatibility_date = "2026-08-24"
 
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 0.1
+
 [[d1_databases]]
 binding = "DB"
 database_name = "trinity-os-db"

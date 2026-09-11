@@ -6,6 +6,12 @@ entry points are authenticated Worker routes:
 - POST /api/ai/daily-coach
 - POST /api/ai/chat
 - POST /api/ai/teacher-feedback-summary
+- POST /api/ai/arena-coach
+
+TRINITY Arena uses authenticated routes under `/api/arena` for nickname-only
+profiles, goal groups, score snapshots, rankings, rivals, seasons, and badges.
+These tables are separate from `learning_state`; public ranking responses never
+include the student's private learning payload.
 
 Architecture:
 
@@ -59,3 +65,39 @@ keeping the same AIService interface.
     npm install
     npx wrangler d1 execute trinity-os-db --remote --file=./schema.sql --config wrangler.toml
     npx wrangler deploy --config wrangler.toml
+
+## Personal API tokens and separate workspaces
+
+Do not share a Cloudflare API token or a D1 token with an app user. Those are
+infrastructure credentials. The Worker now issues its own personal tokens
+(`trinity_pat_...`), and only stores a SHA-256 hash of each token in D1.
+Every token belongs to one `users.id`; sync reads and writes are filtered by
+that id, so one user's learning data cannot be returned for another user's
+token.
+
+For an existing deployment, migrate D1 before deploying the new Worker:
+
+    npx wrangler d1 execute trinity-os-db --remote --file=./migrations/0004_multi_user_api_tokens.sql --config wrangler.toml
+
+Then add the Arena tables and initial 2028 season:
+
+    npx wrangler d1 execute trinity-os-db --remote --file=./migrations/0005_trinity_arena.sql --config wrangler.toml
+
+For a brand-new database, use `schema.sql` as usual. `SYNC_TOKEN` remains a
+Worker secret and is only used by the administrator to issue or revoke personal
+tokens. Never give `SYNC_TOKEN` to a user.
+
+Issue a personal token from PowerShell (the returned `token` is shown only in
+this response, so deliver it over a secure channel):
+
+    $setupToken = Read-Host 'SYNC_TOKEN'
+    Invoke-RestMethod -Method Post -Uri 'https://YOUR-WORKER.workers.dev/api/admin/access-tokens' -Headers @{ 'X-Setup-Token' = $setupToken; 'Content-Type' = 'application/json' } -Body '{"username":"student-a","label":"student-a personal device"}'
+
+On a new deployment, create the administrator's own token first by adding
+`"admin":true` to that JSON body. Normal user tokens must omit it. Each user
+enters only the Worker URL and their personal `trinity_pat_...` token on the
+login screen.
+
+To immediately invalidate every token issued for one user:
+
+    Invoke-RestMethod -Method Delete -Uri 'https://YOUR-WORKER.workers.dev/api/admin/access-tokens/student-a' -Headers @{ 'X-Setup-Token' = $setupToken }
