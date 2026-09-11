@@ -80,6 +80,7 @@ export async function support(request:Request, env:Env, owner:boolean, origin:st
     const q=env.DB.prepare(sql);return out({comments:(await (owner?q:q.bind(account!.id)).all()).results});
    }
    if(method==='POST'&&account){
+    if(['subject_teacher','academic_manager'].includes(account.role))return out({error:'교사 의견은 구조화된 FEEDBACK으로 작성하세요.'},403);
     const b=await request.json<any>();const body=strings(b.body,4000),target=strings(b.target,200);
     if(!body||!target)return out({error:'대상과 의견을 입력하세요.'},400);
     await env.DB.prepare('INSERT INTO support_comments(id,account_id,target,body,created_at) VALUES(?,?,?,?,?)').bind(h.randomHex(16),account.id,target,body,new Date().toISOString()).run();return out({ok:true},201);

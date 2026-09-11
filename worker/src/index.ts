@@ -82,6 +82,23 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
       return json({ summary: text(parsed?.summary, fallback), bottleneck: text(parsed?.bottleneck, ''), nextAction: text(parsed?.nextAction, fallback), coachMessage: text(parsed?.coachMessage, content.slice(0, 160) || fallback) }, 200, origin);
     } catch (error) { return json({ error: error instanceof Error ? error.message : 'AI 코치 연결에 실패했습니다.' }, error instanceof KimiError ? error.status : 502, origin); }
   }
+  if (url.pathname === '/api/ai/teacher-feedback-summary' && request.method === 'POST') {
+    if (!user) return json({ error: 'Unauthorized' }, 401, origin);
+    const body = asObject(await request.json<unknown>());
+    const context = asObject(body?.context);
+    if (!context) return json({ error: 'Teacher feedback context is required' }, 400, origin);
+    const safeContext = {
+      today: asObject(context.today),
+      subjectFeedback: Array.isArray(context.subjectFeedback) ? context.subjectFeedback.slice(0, 5) : [],
+      academicFeedback: Array.isArray(context.academicFeedback) ? context.academicFeedback.slice(0, 3) : [],
+      weeklyGoals: Array.isArray(context.weeklyGoals) ? context.weeklyGoals.slice(0, 5) : [],
+      recentBottlenecks: Array.isArray(context.recentBottlenecks) ? context.recentBottlenecks.slice(0, 5) : [],
+    };
+    try {
+      const message = await kimi(env, 'You summarize teacher feedback for a student. Never override, reinterpret, or invent a teacher decision. Use only the supplied academic context. Give a short Korean priority order with at most two concrete actions.', JSON.stringify(safeContext), 180);
+      return json({ message }, 200, origin);
+    } catch (error) { return json({ error: error instanceof Error ? error.message : 'AI summary failed' }, error instanceof KimiError ? error.status : 502, origin); }
+  }
   if (url.pathname === '/api/ai/chat' && request.method === 'POST') {
     if (!user) return json({ error: 'Unauthorized' }, 401, origin);
     const body = asObject(await request.json<unknown>()); const context = body?.context; const rawMessages = Array.isArray(body?.messages) ? body?.messages.slice(-6) : [];

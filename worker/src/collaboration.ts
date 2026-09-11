@@ -3,7 +3,7 @@ import type { AppData } from '../../src/types';
 type Env = { DB: D1Database };
 type Account = { id: string; username: string; role: string };
 type Helpers = { json: (body: unknown, status?: number, origin?: string) => Response; randomHex: (size?: number) => string };
-type Permission = 'viewSessions'|'viewScores'|'viewWrongAnswers'|'viewCalendar'|'viewWeeklyGoals'|'viewPlaire'|'createFeedback'|'createDrillSuggestion';
+type Permission = 'viewSessions'|'viewScores'|'viewWrongAnswers'|'viewMockExams'|'viewCalendar'|'viewWeeklyGoals'|'viewDrills'|'viewPlaire'|'viewAcademicInsights'|'createFeedback';
 type Assignment = { id:string; student_id:string; teacher_id:string; role:'subject_teacher'|'academic_manager'; subject:string|null; permissions_json:string; created_at:string };
 
 const STUDENT_ID = 'student-1';
@@ -33,6 +33,28 @@ const summary = (data: AppData) => {
   const drills = (data.dailyDrills ?? []).filter(item=>item.date >= since);
   return { totalSeconds:sessions.reduce((total,item)=>total+item.seconds,0), bySubject, executionRate:plans.length ? Math.round(done/plans.length*100) : 0, drills:{done:drills.filter(item=>item.done).length,total:drills.length}, unfinishedPlans:plans.length-done, recentScores:(data.scores??[]).slice(-6).map(item=>({date:item.date,name:item.name,korean:item.korean,math:item.math,english:item.english})), recentBottlenecks:[...new Set((data.wrongAnswerDrills??[]).map(item=>item.bottleneck).filter(Boolean))].slice(0,5) };
 };
+function buildTeacherStudentView(data: AppData, assignment: Assignment) {
+  const manager = assignment.role === 'academic_manager';
+  const p = permissions(assignment.permissions_json);
+  const projection = outData(data, assignment.subject, manager);
+  if (!manager) {
+    if (!p.viewSessions) projection.sessions=[];
+    if (!p.viewScores || !p.viewMockExams) projection.scores=[];
+    if (!p.viewWrongAnswers) projection.wrongAnswerDrills=[];
+    if (!p.viewCalendar) projection.plans=[];
+    if (!p.viewWeeklyGoals) projection.weeklyCapabilityGoals=[];
+    if (!p.viewDrills) projection.dailyDrills=[];
+  }
+  // Plaire is always restricted: only an explicitly permitted, academic-only
+  // subset is exposed. Journals, Notion, auth, AI chat, and free text never leave here.
+  if (!p.viewPlaire && !p.viewAcademicInsights) projection.plaire=[];
+  return {
+    student:{id:STUDENT_ID,displayName:'학생'},
+    progress:{weeklyStudyMinutes:Math.round(projection.sessions.reduce((total,item)=>total+item.seconds,0)/60),executionRate:summary(data).executionRate,subjectProgress:summary(data).bySubject},
+    sessions:projection.sessions,mockExams:projection.scores,scores:projection.scores,wrongAnswerDrills:projection.wrongAnswerDrills,
+    weeklyGoals:projection.weeklyCapabilityGoals,dailyDrills:projection.dailyDrills,resources:(data.resources??[]).filter(item=>manager||item.subject===assignment.subject).map(({id,subject,name,total,done})=>({id,subject,name,total,done})),academicInsights:projection.plaire,
+  };
+}
 async function state(env: Env) { const row = await env.DB.prepare('SELECT payload FROM learning_state WHERE id=1').first<{payload:string}>(); return row ? JSON.parse(row.payload) as AppData : null; }
 async function assignmentFor(env: Env, account: Account, studentId: string, role?: Assignment['role']) { if (studentId !== STUDENT_ID) return null; const sql = role ? 'SELECT * FROM student_teacher_assignments WHERE teacher_id=? AND student_id=? AND role=?' : 'SELECT * FROM student_teacher_assignments WHERE teacher_id=? AND student_id=?'; return env.DB.prepare(sql).bind(account.id,studentId,...(role?[role]:[])).first<Assignment>(); }
 const feedbackRow = (row: Record<string, unknown>) => ({ ...row, categories: (()=>{ try{return JSON.parse(String(row.categories_json ?? '[]'));}catch{return[];} })(), acknowledgedByStudent:Boolean(row.acknowledged_at) });
@@ -90,7 +112,7 @@ export async function collaboration(request: Request, env: Env, owner: boolean, 
     const studentId=match[1], section=match[2]; const subjectAssignment=await assignmentFor(env,account,studentId,'subject_teacher'); const managerAssignment=await assignmentFor(env,account,studentId,'academic_manager'); const assignment=managerAssignment ?? subjectAssignment;
     if (!assignment) return out({error:'No assignment for this student'},403);
     if (!section && method === 'GET') return out({studentId,assignment:{role:assignment.role,subject:assignment.subject,permissions:permissions(assignment.permissions_json)},summary:(await state(env))?summary((await state(env))!):null});
-    if (section === 'data' && method === 'GET') { const data=await state(env); if (!data) return out({data:null}); const projection=outData(data,assignment.subject,assignment.role==='academic_manager'); const p=permissions(assignment.permissions_json); if (assignment.role==='subject_teacher') { if (!p.viewSessions) projection.sessions=[]; if (!p.viewScores) projection.scores=[]; if (!p.viewWrongAnswers) projection.wrongAnswerDrills=[]; if (!p.viewCalendar) projection.plans=[]; if (!p.viewWeeklyGoals) { projection.weeklyCapabilityGoals=[]; projection.dailyDrills=[]; } } return out({studentId,data:projection}); }
+    if (section === 'data' && method === 'GET') { const data=await state(env); if (!data) return out({studentId,data:null,teacherView:null}); const teacherView=buildTeacherStudentView(data,assignment); return out({studentId,data:{sessions:teacherView.sessions,scores:teacherView.scores,wrongAnswerDrills:teacherView.wrongAnswerDrills,weeklyCapabilityGoals:teacherView.weeklyGoals,dailyDrills:teacherView.dailyDrills,resources:teacherView.resources,plaire:teacherView.academicInsights},teacherView}); }
     if (section === 'feedback' && method === 'GET') { const rows=await env.DB.prepare('SELECT f.*,a.username AS teacher_name,a.collaboration_role AS teacher_role FROM teacher_feedback f JOIN support_accounts a ON a.id=f.teacher_id WHERE f.student_id=? AND (f.type=? OR ?=1) ORDER BY f.created_at DESC LIMIT 100').bind(studentId,assignment.role==='academic_manager'?'academic_management':'subject',assignment.role==='academic_manager'?1:0).all<Record<string,unknown>>(); return out({feedback:rows.results.filter(row=>assignment.role==='academic_manager'||row.subject===assignment.subject).map(feedbackRow)}); }
     if (section === 'feedback' && method === 'POST') { if (!allowed(assignment,'createFeedback')) return out({error:'Feedback permission required'},403); const body=await request.json<Record<string,unknown>>(); const type=assignment.role==='academic_manager'?'academic_management':'subject', now=new Date().toISOString(), id=h.randomHex(16); const status=['needs_improvement','normal','stable'].includes(String(body.status))?String(body.status):'normal'; const subject=type==='subject'?assignment.subject:null; await env.DB.prepare('INSERT INTO teacher_feedback(id,student_id,teacher_id,type,subject,title,categories_json,status,progress,bottleneck,observation,action,success_criterion,comment,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,studentId,account.id,type,subject,clean(body.title,160),JSON.stringify(asArray(body.categories)),status,'active',clean(body.bottleneck),clean(body.observation,2000),clean(body.action,1200),clean(body.successCriterion,1200),clean(body.comment,2000),now,now).run(); return out({ok:true,id},201); }
     return out({error:'Not found'},404);

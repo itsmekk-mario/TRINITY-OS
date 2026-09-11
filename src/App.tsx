@@ -68,8 +68,8 @@ export default function App() {
  const portal = new URLSearchParams(window.location.search).get('portal');
  if (portal === 'teacher' || portal === 'tutor') return <CollaborativePortal role="subject_teacher" />;
  if (portal === 'manager') return <CollaborativePortal role="academic_manager" />;
- if (portal === 'admin') return <FeedbackAdmin />;
+ if (portal === 'admin' || portal === 'owner') return <FeedbackAdmin />;
+ if (portal === 'legacy-owner') return <SupportOwner />;
  if (portal === 'parent') return <SupportPortal role="parent" />;
- if (portal === 'owner') return <SupportOwner />;
  return <><LongPressReorder/><StudentApp/></>;
 }
