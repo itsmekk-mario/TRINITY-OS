@@ -50,3 +50,10 @@ export function logoutLocal() {
   const config = loadCloudflareConfig();
   saveCloudflareConfig({ url: config.url, token: '', username: '', mustChangePassword: false });
 }
+
+export async function logout() {
+  const config=loadCloudflareConfig();
+  try {
+    if(config.url&&config.token)await fetch(`${config.url.replace(/\/+$/,'')}/api/auth/logout`,{method:'POST',headers:{Authorization:`Bearer ${config.token}`,'Content-Type':'application/json'}});
+  } finally { logoutLocal(); }
+}

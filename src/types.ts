@@ -73,7 +73,7 @@ export type ArenaScore = {
 };
 export type ArenaRankingEntry = {
   rank: number;
-  userId: number;
+  userId: string;
   nickname: string;
   score: number;
   growthRate: number;

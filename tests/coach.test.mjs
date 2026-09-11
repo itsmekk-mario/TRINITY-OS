@@ -150,7 +150,7 @@ test('신규 학생 계정은 관리자 전용 비밀번호 로그인 계정으�
   const source = await readFile(new URL('../worker/src/index.ts', import.meta.url), 'utf8');
   assert.match(source, /\/api\/admin\/students/);
   assert.match(source, /X-Setup-Token/);
-  assert.match(source, /INSERT INTO users\(username,password_hash,salt,is_admin,must_change_password,created_at\)/);
+  assert.match(source, /password_iterations,is_admin,must_change_password,active,arena_public_id/);
   assert.match(source, /이미 사용 중인 아이디입니다/);
 });
 
@@ -158,7 +158,7 @@ test('초기 비밀번호 변경은 현재 비밀번호를 확인하고 기존 �
   const worker = await readFile(new URL('../worker/src/index.ts', import.meta.url), 'utf8');
   const app = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
   assert.match(worker, /\/api\/auth\/change-password/);
-  assert.match(worker, /passwordHash\(currentPassword, account\.salt\)/);
+  assert.match(worker, /passwordHash\(currentPassword, account\.salt,account\.password_iterations\)/);
   assert.match(worker, /must_change_password=0/);
   assert.match(worker, /DELETE FROM sessions WHERE user_id=\?/);
   assert.match(app, /required=\{passwordRequired\}/);

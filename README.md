@@ -129,4 +129,6 @@ cd worker
 npx wrangler d1 execute trinity-os-db --remote --file=./migrations/0004_multi_user_api_tokens.sql --config wrangler.toml
 ```
 
+Production 보안 구조, 세션·권한 모델, secret 설정 및 배포 체크리스트는 [docs/SECURITY.md](docs/SECURITY.md)를 확인하세요. 기존 운영 D1에는 `worker/migrations/0008_security_hardening.sql`을 이전 migration 다음 순서로 적용해야 합니다.
+
 자동화용 개인 토큰 발급·폐기 방법은 [worker/README.md](worker/README.md)를 참고하세요.

@@ -2,7 +2,7 @@ import { CloudCog, DownloadCloud, History, LogOut, UploadCloud } from 'lucide-re
 import { useState } from 'react';
 import type { AppData } from '../types';
 import { fetchCloudflareData, loadCloudflareConfig, loadRecoveryCopy, saveCloudflareConfig, saveRecoveryCopy, uploadCloudflareData } from '../lib/cloudflare';
-import { logoutLocal } from '../lib/auth';
+import { logout } from '../lib/auth';
 
 const countRecords = (value: AppData) => Object.keys(value.calendar).length + value.sessions.length + Object.keys(value.journals).length + value.scores.length + Object.keys(value.plaire).length + value.trinity.length;
 
@@ -56,7 +56,7 @@ export default function CloudflareSync({ data, update, onLogout }: { data: AppDa
       <button className="button primary" onClick={upload} disabled={disabled}><UploadCloud size={16}/>{busy?'처리 중…':'이 기기 → 서버 저장'}</button>
       <button className="button" onClick={download} disabled={disabled}><DownloadCloud size={16}/>서버 → 이 기기로 가져오기</button>
       {recovery&&<button className="button" onClick={restore} disabled={busy}><History size={16}/>가져오기 전 데이터 복구</button>}
-      <button className="button" onClick={()=>{if(onLogout)onLogout();else{logoutLocal();location.reload();}}} disabled={busy}><LogOut size={16}/>로그아웃</button>
+      <button className="button" onClick={()=>{if(onLogout)onLogout();else void logout().finally(()=>location.reload());}} disabled={busy}><LogOut size={16}/>로그아웃</button>
     </div>{status&&<p className="drive-status">{status}</p>}
   </div>;
 }

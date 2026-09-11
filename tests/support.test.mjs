@@ -6,15 +6,16 @@ import { createHash, randomBytes, pbkdf2Sync } from 'node:crypto';
 import { registerHooks } from 'node:module';
 registerHooks({resolve(specifier,context,next){try{return next(specifier,context);}catch(e){if(specifier.startsWith('./')||specifier.startsWith('../'))return next(specifier+'.ts',context);throw e;}}});
 const db=new DatabaseSync(':memory:');
-db.exec("CREATE TABLE learning_state(id INTEGER PRIMARY KEY,payload TEXT,updated_at TEXT); CREATE TABLE users(id INTEGER PRIMARY KEY,username TEXT);INSERT INTO users VALUES(1,'keep-me')");
+db.exec("CREATE TABLE learning_state(user_id INTEGER PRIMARY KEY,payload TEXT,updated_at TEXT); CREATE TABLE users(id INTEGER PRIMARY KEY,username TEXT,password_hash TEXT,salt TEXT,is_admin INTEGER NOT NULL DEFAULT 0,must_change_password INTEGER NOT NULL DEFAULT 0,password_changed_at TEXT,created_at TEXT); CREATE TABLE api_tokens(token_hash TEXT PRIMARY KEY,user_id INTEGER,label TEXT,created_at TEXT,revoked_at TEXT); INSERT INTO users(id,username,created_at) VALUES(1,'keep-me','2026-09-07')");
 const sql=readFileSync(new URL('../worker/migrations/0001_support_portal.sql',import.meta.url),'utf8');
 db.exec(sql);db.exec(sql);
 db.exec(readFileSync(new URL('../worker/migrations/0002_feedback_collaboration.sql',import.meta.url),'utf8'));
 db.exec(readFileSync(new URL('../worker/migrations/0003_feedback_context.sql',import.meta.url),'utf8'));
+db.exec(readFileSync(new URL('../worker/migrations/0008_security_hardening.sql',import.meta.url),'utf8'));
 assert.equal(db.prepare('SELECT username FROM users').get().username,'keep-me');
 const wrap=(stmt,args=[])=>({bind:(...values)=>wrap(stmt,values),first:async()=>stmt.get(...args)??null,run:async()=>stmt.run(...args),all:async()=>({results:stmt.all(...args)})});
 const env={DB:{prepare:sql=>wrap(db.prepare(sql)),batch:async list=>{db.exec('BEGIN');try{const out=[];for(const statement of list)out.push(await statement.run());db.exec('COMMIT');return out;}catch(e){db.exec('ROLLBACK');throw e;}}}};
-const h={json:(v,status=200)=>new Response(JSON.stringify(v),{status}),sha256:async s=>createHash('sha256').update(s).digest('hex'),randomHex:(n=32)=>randomBytes(n).toString('hex'),passwordHash:async(p,s)=>pbkdf2Sync(p,s,100000,32,'sha256').toString('hex')};
+const h={json:(v,status=200)=>new Response(JSON.stringify(v),{status}),sha256:async s=>createHash('sha256').update(s).digest('hex'),randomHex:(n=32)=>randomBytes(n).toString('hex'),passwordHash:async(p,s,iterations=310000)=>pbkdf2Sync(p,s,iterations,32,'sha256').toString('hex'),secretMatches:async(a,b)=>a===b,boundedJson:async request=>JSON.parse(await request.text())};
 async function call(path,method='GET',body,token='',owner=false){
  return support(new Request('https://test'+path,{method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})}),env,owner,'https://app',h);
 }
@@ -26,6 +27,9 @@ for(const key of ['../math.pdf','/math.pdf','https://evil.test/math.pdf','folder
 db.prepare('INSERT INTO learning_state VALUES(1,?,?)').run(JSON.stringify(data),'2026-09-07');
 assert.equal((await call('/api/support/data')).status,401);
 assert.equal((await call('/api/support/accounts','POST',{username:'teacher',password:'correct-password-123',role:'tutor'},'',true)).status,201);
+const teacherAccount=db.prepare("SELECT id FROM support_accounts WHERE username='teacher'").get();
+const studentPublicId=db.prepare('SELECT arena_public_id FROM users WHERE id=1').get().arena_public_id;
+db.prepare("INSERT INTO student_support_assignments(id,student_user_id,support_account_id,role,subject,permissions_json,created_at) VALUES('teacher-assignment',1,?,'subject_teacher','수학',?,'2026-09-07')").run(teacherAccount.id,JSON.stringify({viewSessions:true,viewScores:true,viewWrongAnswers:true,viewMockExams:true,viewCalendar:true,viewWeeklyGoals:true,viewDrills:true,createFeedback:true}));
 assert.equal((await call('/api/support/login','POST',{username:'teacher',password:'wrong',role:'tutor'})).status,401);
 const auth=await (await call('/api/support/login','POST',{username:'teacher',password:'correct-password-123',role:'tutor'})).json();
 assert(auth.token);const token=auth.token;
@@ -40,8 +44,8 @@ assert.equal((await call('/api/support/accounts','GET',null,token)).status,403);
 assert.equal((await call('/api/support/data','PUT',{},token)).status,404);
 const shared=await(await call('/api/support/data','GET',null,token)).json();
 assert(!JSON.stringify(shared).includes('PRIVATE'));
-assert.equal((await call('/api/support/comments','POST',{target:'주간 총평',body:'잘했습니다'},token)).status,201);
-assert.equal((await(await call('/api/support/comments','GET',null,'',true)).json()).comments.length,1);
+assert.equal((await call('/api/support/comments','POST',{target:'주간 총평',body:'잘했습니다'},token)).status,403);
+assert.equal((await(await call('/api/support/comments','GET',null,'',true)).json()).comments.length,0);
 assert.equal((await call('/api/exams','POST',{title:'math',agency:'평가원',year:2026,subject:'수학',object_key:'math.pdf'},token)).status,403);
 assert.equal((await call('/api/exams','POST',{title:'math',agency:'평가원',year:2026,subject:'수학',object_key:'math.pdf'},'',true)).status,201);
 const docs=await(await call('/api/exams','GET',null,token)).json();
@@ -51,6 +55,8 @@ const account=db.prepare("SELECT id FROM support_accounts WHERE username='teache
 await call('/api/support/accounts','PUT',{id:account.id},'',true);
 assert.equal((await call('/api/support/data','GET',null,token)).status,401);
 await call('/api/support/accounts','POST',{username:'guardian',password:'parent-password-123',role:'parent'},'',true);
+const guardianAccount=db.prepare("SELECT id FROM support_accounts WHERE username='guardian'").get();
+db.prepare("INSERT INTO student_support_assignments(id,student_user_id,support_account_id,role,subject,permissions_json,created_at) VALUES('parent-assignment',1,?,'parent',NULL,?,'2026-09-07')").run(guardianAccount.id,JSON.stringify({viewSessions:true,viewScores:true,viewCalendar:true,viewWeeklyGoals:true,viewDrills:true}));
 const parent=await(await call('/api/support/login','POST',{username:'guardian',password:'parent-password-123',role:'parent'})).json();
 assert.equal((await call('/api/exams','GET',null,parent.token)).status,403);
 assert.equal((await call('/api/exams/'+docs.documents[0].id,'GET',null,parent.token)).status,403);

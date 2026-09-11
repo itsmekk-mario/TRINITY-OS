@@ -6,6 +6,9 @@ CREATE TABLE IF NOT EXISTS users (
   is_admin INTEGER NOT NULL DEFAULT 0,
   must_change_password INTEGER NOT NULL DEFAULT 0,
   password_changed_at TEXT,
+  password_iterations INTEGER NOT NULL DEFAULT 310000,
+  active INTEGER NOT NULL DEFAULT 1,
+  arena_public_id TEXT UNIQUE,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS sessions (
@@ -18,6 +21,7 @@ CREATE TABLE IF NOT EXISTS api_tokens (
   token_hash TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id),
   label TEXT NOT NULL,
+  scopes TEXT NOT NULL DEFAULT 'sync:read,sync:write',
   created_at TEXT NOT NULL,
   revoked_at TEXT
 );
@@ -56,6 +60,14 @@ CREATE TABLE IF NOT EXISTS ai_usage (
 );
 CREATE INDEX IF NOT EXISTS ai_usage_user_created ON ai_usage(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS ai_usage_created ON ai_usage(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS student_login_attempts (key TEXT PRIMARY KEY,attempts INTEGER NOT NULL,expires_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS admin_rate_limits (key TEXT PRIMARY KEY,attempts INTEGER NOT NULL,expires_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS security_audit_logs (
+  id TEXT PRIMARY KEY, actor_type TEXT NOT NULL, actor_id TEXT, action TEXT NOT NULL,
+  target_type TEXT, target_id TEXT, created_at TEXT NOT NULL, metadata_json TEXT NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS security_audit_created ON security_audit_logs(created_at DESC);
 
 CREATE TABLE IF NOT EXISTS arena_profiles (
   user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

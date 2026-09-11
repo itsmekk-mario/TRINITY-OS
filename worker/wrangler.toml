@@ -20,6 +20,8 @@ database_id = "e6b6cdaa-bbce-437d-8074-a7248bbc4b4f"
 
 [vars]
 ALLOWED_ORIGIN = "https://trinityos.mcv.kr"
+ENVIRONMENT = "production"
+SESSION_TTL_DAYS = "7"
 AI_PROVIDER = "nvidia-kimi"
 NVIDIA_MODEL = "openai/gpt-oss-20b"
 AI_TIMEOUT_MS = "25000"
