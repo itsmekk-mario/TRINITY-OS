@@ -29,12 +29,15 @@ async function kimi(env: Env, system: string, user: string, maxTokens: number) {
   for (let attempt = 0; attempt < 2; attempt++) {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 60_000);
     try {
-      const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', { method: 'POST', signal: controller.signal, headers: { Authorization: `Bearer ${env.NVIDIA_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: env.NVIDIA_MODEL || 'meta/llama-3.2-3b-instruct', temperature: 0.25, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) });
+      // GLM-5.2 is the primary NVIDIA-hosted model. NVIDIA_MODEL remains an
+      // optional escape hatch for a future account-specific NIM deployment.
+      const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', { method: 'POST', signal: controller.signal, headers: { Authorization: `Bearer ${env.NVIDIA_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: env.NVIDIA_MODEL || 'z-ai/glm-5.2', temperature: 0.25, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) });
       const retryAfter = response.headers.get('Retry-After');
       if (response.status === 429 && attempt === 0 && retryAfter) { await sleep(retryAfterMilliseconds(retryAfter)); continue; }
       const payload = await response.json() as { choices?: { message?: { content?: unknown } }[]; error?: { message?: string } };
       if (!response.ok) {
         if (response.status === 429) throw new KimiError('NVIDIA AI 요청 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.', 429);
+        if (response.status === 410) throw new KimiError('선택한 NVIDIA NIM 모델 엔드포인트가 더 이상 제공되지 않습니다. 모델 설정을 확인해 주세요.', 410);
         throw new KimiError(payload.error?.message || `AI 요청 실패 (${response.status})`, response.status);
       }
       const content = payload.choices?.[0]?.message?.content; if (typeof content !== 'string' || !content.trim()) throw new KimiError('AI 응답이 비어 있습니다.'); return content.trim();
