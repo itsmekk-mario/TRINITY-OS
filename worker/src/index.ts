@@ -18,15 +18,32 @@ const dailySystem = `${coachSystem}\n반드시 JSON만 반환한다: {"summary":
 const asObject = (value: unknown): Record<string, unknown> | null => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
 const text = (value: unknown, fallback = '') => typeof value === 'string' ? value.slice(0, 900) : fallback;
 const jsonFromText = (value: string) => { try { return JSON.parse(value) as unknown; } catch { const match = value.match(/\{[\s\S]*\}/); try { return match ? JSON.parse(match[0]) as unknown : null; } catch { return null; } } };
+class KimiError extends Error { constructor(message: string, readonly status = 502) { super(message); } }
+const sleep = (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+const retryAfterMilliseconds = (value: string | null) => {
+  const seconds = Number(value);
+  return Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds * 1000, 10_000) : 2_000;
+};
 async function kimi(env: Env, system: string, user: string, maxTokens: number) {
-  if (!env.NVIDIA_API_KEY) throw new Error('AI 코치가 아직 설정되지 않았습니다.');
-  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 12_000);
-  try {
-    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', { method: 'POST', signal: controller.signal, headers: { Authorization: `Bearer ${env.NVIDIA_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'moonshotai/kimi-k3', temperature: 0.25, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) });
-    const payload = await response.json() as { choices?: { message?: { content?: unknown } }[]; error?: { message?: string } };
-    if (!response.ok) throw new Error(payload.error?.message || `AI 요청 실패 (${response.status})`);
-    const content = payload.choices?.[0]?.message?.content; if (typeof content !== 'string' || !content.trim()) throw new Error('AI 응답이 비어 있습니다.'); return content.trim();
-  } finally { clearTimeout(timeout); }
+  if (!env.NVIDIA_API_KEY) throw new KimiError('AI 코치가 아직 설정되지 않았습니다.', 503);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 60_000);
+    try {
+      const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', { method: 'POST', signal: controller.signal, headers: { Authorization: `Bearer ${env.NVIDIA_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'moonshotai/kimi-k3', temperature: 0.25, reasoning_effort: 'low', max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) });
+      if (response.status === 429 && attempt === 0) { await sleep(retryAfterMilliseconds(response.headers.get('Retry-After'))); continue; }
+      const payload = await response.json() as { choices?: { message?: { content?: unknown } }[]; error?: { message?: string } };
+      if (!response.ok) {
+        if (response.status === 429) throw new KimiError('NVIDIA AI 요청 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.', 429);
+        throw new KimiError(payload.error?.message || `AI 요청 실패 (${response.status})`, response.status);
+      }
+      const content = payload.choices?.[0]?.message?.content; if (typeof content !== 'string' || !content.trim()) throw new KimiError('AI 응답이 비어 있습니다.'); return content.trim();
+    } catch (error) {
+      if (error instanceof KimiError) throw error;
+      if (error instanceof DOMException && error.name === 'AbortError') throw new KimiError('NVIDIA AI 응답 시간이 60초를 초과했습니다. 잠시 후 다시 시도해 주세요.', 504);
+      throw new KimiError(error instanceof Error ? error.message : 'AI 코치 연결에 실패했습니다.');
+    } finally { clearTimeout(timeout); }
+  }
+  throw new KimiError('NVIDIA AI 요청 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.', 429);
 }
 
 export default { async fetch(request: Request, env: Env): Promise<Response> {
@@ -63,7 +80,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
       const parsed = asObject(jsonFromText(content));
       const fallback = '오늘 남은 일정부터 차례대로 완료하세요.';
       return json({ summary: text(parsed?.summary, fallback), bottleneck: text(parsed?.bottleneck, ''), nextAction: text(parsed?.nextAction, fallback), coachMessage: text(parsed?.coachMessage, content.slice(0, 160) || fallback) }, 200, origin);
-    } catch (error) { return json({ error: error instanceof Error ? error.message : 'AI 코치 연결에 실패했습니다.' }, 502, origin); }
+    } catch (error) { return json({ error: error instanceof Error ? error.message : 'AI 코치 연결에 실패했습니다.' }, error instanceof KimiError ? error.status : 502, origin); }
   }
   if (url.pathname === '/api/ai/chat' && request.method === 'POST') {
     if (!user) return json({ error: 'Unauthorized' }, 401, origin);
@@ -72,7 +89,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     const messages = rawMessages.map(asObject).filter((item): item is Record<string, unknown> => Boolean(item)).filter((item) => (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string').map((item) => `${item.role === 'user' ? '사용자' : '코치'}: ${text(item.content, '').slice(0, 500)}`).join('\n');
     if (!messages) return json({ error: '유효한 질문이 필요합니다.' }, 400, origin);
     try { return json({ message: await kimi(env, coachSystem, `선별된 학습 데이터:\n${JSON.stringify(context)}\n\n최근 대화:\n${messages}\n\n위 질문에만 짧게 답하세요.`, 320) }, 200, origin); }
-    catch (error) { return json({ error: error instanceof Error ? error.message : 'AI 상담 연결에 실패했습니다.' }, 502, origin); }
+    catch (error) { return json({ error: error instanceof Error ? error.message : 'AI 상담 연결에 실패했습니다.' }, error instanceof KimiError ? error.status : 502, origin); }
   }
   if (url.pathname !== '/api/sync' || !['GET', 'PUT'].includes(request.method)) return json({ error: 'Not found' }, 404, origin);
   if (!user) return json({ error: 'Unauthorized' }, 401, origin);
