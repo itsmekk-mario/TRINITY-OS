@@ -91,7 +91,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
   }
   if (url.pathname === '/api/auth/login' && request.method === 'POST') {
     const body = await request.json<{ username?: string; password?: string }>(); const account = await env.DB.prepare('SELECT id,username,password_hash,salt FROM users WHERE username=?').bind(body.username?.trim() || '').first<{ id: number; username: string; password_hash: string | null; salt: string | null }>();
-    if (!account?.password_hash || !account.salt) return json({ error: 'Invalid credentials.' }, 401, origin);
+    if (!account?.password_hash || !account.salt) return json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' }, 401, origin);
     if (!account || await passwordHash(body.password || '', account.salt) !== account.password_hash) return json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' }, 401, origin);
     return json(await createSession(env, account.username, account.id), 200, origin);
   }
