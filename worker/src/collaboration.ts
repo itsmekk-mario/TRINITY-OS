@@ -59,7 +59,7 @@ async function state(env: Env) { const row = await env.DB.prepare('SELECT payloa
 async function assignmentFor(env: Env, account: Account, studentId: string, role?: Assignment['role']) { if (studentId !== STUDENT_ID) return null; const sql = role ? 'SELECT * FROM student_teacher_assignments WHERE teacher_id=? AND student_id=? AND role=?' : 'SELECT * FROM student_teacher_assignments WHERE teacher_id=? AND student_id=?'; return env.DB.prepare(sql).bind(account.id,studentId,...(role?[role]:[])).first<Assignment>(); }
 const feedbackRow = (row: Record<string, unknown>) => ({ ...row, categories: (()=>{ try{return JSON.parse(String(row.categories_json ?? '[]'));}catch{return[];} })(), acknowledgedByStudent:Boolean(row.acknowledged_at) });
 const feedbackContext = (body: Record<string, unknown>) => ({
-  type: ['general','mock_exam','wrong_answer','weekly_goal','subject_progress'].includes(String(body.contextType)) ? String(body.contextType) : 'general',
+  type: ['general','mock_exam','wrong_answer','drill','weekly_goal','subject_progress','statistics','resource','weekly_plan'].includes(String(body.contextType)) ? String(body.contextType) : 'general',
   targetId: clean(body.contextTargetId,100) || null,
 });
 
