@@ -13,7 +13,7 @@ export interface Env {
 }
 const json = (body: unknown, status = 200, origin = '', extra: HeadersInit = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', ...(origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}), 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Setup-Token', 'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS', 'Cache-Control': 'no-store', ...extra } });
 async function ensureTables(db: D1Database) { await db.batch([
-  db.prepare('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT, salt TEXT, is_admin INTEGER NOT NULL DEFAULT 0, must_change_password INTEGER NOT NULL DEFAULT 0, password_changed_at TEXT, password_iterations INTEGER NOT NULL DEFAULT 310000, active INTEGER NOT NULL DEFAULT 1, arena_public_id TEXT, created_at TEXT NOT NULL)'),
+  db.prepare('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT, salt TEXT, is_admin INTEGER NOT NULL DEFAULT 0, must_change_password INTEGER NOT NULL DEFAULT 0, password_changed_at TEXT, password_iterations INTEGER NOT NULL DEFAULT 100000, active INTEGER NOT NULL DEFAULT 1, arena_public_id TEXT, created_at TEXT NOT NULL)'),
   db.prepare('CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL)'),
   db.prepare('CREATE TABLE IF NOT EXISTS api_tokens (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, label TEXT NOT NULL, created_at TEXT NOT NULL, revoked_at TEXT)'),
   db.prepare('CREATE TABLE IF NOT EXISTS learning_state_history (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, payload TEXT NOT NULL, saved_at TEXT NOT NULL)'),
@@ -116,7 +116,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     if (existing) return json({ error: '이미 사용 중인 아이디입니다.' }, 409, origin);
     const salt = randomHex(16), now = new Date().toISOString(), admin = body.admin === true ? 1 : 0;
     const publicId=`arena_${randomHex(16)}`;
-    await env.DB.prepare('INSERT INTO users(username,password_hash,salt,password_iterations,is_admin,must_change_password,active,arena_public_id,created_at) VALUES(?,?,?,310000,?,1,1,?,?)').bind(username, await passwordHash(password, salt), salt, admin, publicId, now).run();
+    await env.DB.prepare('INSERT INTO users(username,password_hash,salt,password_iterations,is_admin,must_change_password,active,arena_public_id,created_at) VALUES(?,?,?,?,?,1,1,?,?)').bind(username, await passwordHash(password, salt), salt, PASSWORD_HASH_ITERATIONS, admin, publicId, now).run();
     await audit(env,'student.create','setup-token','user',publicId);
     return json({ username, isAdmin: admin === 1, mustChangePassword: true, createdAt: now }, 201, origin);
   }

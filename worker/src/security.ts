@@ -1,6 +1,6 @@
 export const LEGACY_PASSWORD_ITERATIONS = 100_000;
-// 310k is a substantial upgrade while remaining practical within Workers CPU budgets.
-export const PASSWORD_HASH_ITERATIONS = 310_000;
+// Cloudflare Workers Web Crypto currently rejects PBKDF2 iteration counts above 100k.
+export const PASSWORD_HASH_ITERATIONS = 100_000;
 export const DEFAULT_SESSION_TTL_DAYS = 7;
 export const MAX_SYNC_BODY = 5 * 1024 * 1024;
 export const MAX_JSON_BODY = 256 * 1024;

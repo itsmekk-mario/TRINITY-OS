@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
   is_admin INTEGER NOT NULL DEFAULT 0,
   must_change_password INTEGER NOT NULL DEFAULT 0,
   password_changed_at TEXT,
-  password_iterations INTEGER NOT NULL DEFAULT 310000,
+  password_iterations INTEGER NOT NULL DEFAULT 100000,
   active INTEGER NOT NULL DEFAULT 1,
   arena_public_id TEXT UNIQUE,
   created_at TEXT NOT NULL

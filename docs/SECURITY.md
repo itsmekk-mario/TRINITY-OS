@@ -2,7 +2,7 @@
 
 ## Authentication architecture
 
-Student passwords are stored as PBKDF2-HMAC-SHA256 hashes with per-account salts and an iteration count. New hashes use 310,000 iterations; legacy 100,000-iteration hashes are upgraded after a successful login. Student sessions expire after seven days by default and can be configured with `SESSION_TTL_DAYS` (1–30). Password changes revoke every prior session.
+Student passwords are stored as PBKDF2-HMAC-SHA256 hashes with per-account salts and 100,000 iterations. Cloudflare Workers Web Crypto currently rejects higher PBKDF2 iteration counts, so the runtime-compatible ceiling is used consistently. Student sessions expire after seven days by default and can be configured with `SESSION_TTL_DAYS` (1–30). Password changes revoke every prior session.
 
 Browser sessions and personal API tokens are distinct authorization types. Personal tokens are limited to explicit `sync:read` and/or `sync:write` scopes. They cannot change passwords, use AI endpoints, or mutate Arena state.
 
@@ -49,4 +49,3 @@ Supabase service-role credentials remain Worker-only. Upstream Supabase response
 - [ ] `public/_headers` is deployed
 - [ ] D1 migration `0008_security_hardening.sql` is applied
 - [ ] Tests and production build pass
-

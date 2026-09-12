@@ -1,5 +1,6 @@
 import type { AppData } from '../../src/types';
 import { collaboration } from './collaboration.ts';
+import { PASSWORD_HASH_ITERATIONS } from './security.ts';
 type Env = { DB: D1Database; SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; SUPABASE_BUCKET?: string };
 export function publicExamPath(key: string): string | null {
  if (!key || key.length > 500 || /[\\:%?#\u0000-\u001f\u007f]/.test(key) || !key.toLowerCase().endsWith('.pdf')) return null;
@@ -47,9 +48,9 @@ export async function support(request:Request, env:Env, owner:boolean, origin:st
    if((tries?.attempts??0)>15)return out({error:'시도가 많습니다. 15분 후 다시 로그인하세요.'},429);
    await env.DB.prepare('DELETE FROM support_login_attempts WHERE expires_at<?').bind(now).run();
    const a=await env.DB.prepare("SELECT id,username,COALESCE(collaboration_role,CASE role WHEN 'tutor' THEN 'subject_teacher' ELSE role END) AS role,salt,password_hash,COALESCE(password_iterations,100000) password_iterations FROM support_accounts WHERE username=? AND active=1 AND (collaboration_role=? OR role=? OR (role='tutor' AND ?='subject_teacher'))").bind(username,role,role,role).first<Account&{salt:string;password_hash:string;password_iterations:number}>();
-   const iterations=a?.password_iterations??310000; const hash=await h.passwordHash(b.password,a?.salt??'dummy-salt-for-login',iterations);
+   const iterations=a?.password_iterations??PASSWORD_HASH_ITERATIONS; const hash=await h.passwordHash(b.password,a?.salt??'dummy-salt-for-login',iterations);
    if(!a||!await h.secretMatches(hash,a.password_hash))return out({error:'아이디 또는 비밀번호가 올바르지 않습니다.'},401);
-   if(iterations<310000){const salt=h.randomHex(16);await env.DB.prepare('UPDATE support_accounts SET password_hash=?,salt=?,password_iterations=310000 WHERE id=?').bind(await h.passwordHash(b.password,salt,310000),salt,a.id).run();}
+   if(iterations<PASSWORD_HASH_ITERATIONS){const salt=h.randomHex(16);await env.DB.prepare('UPDATE support_accounts SET password_hash=?,salt=?,password_iterations=? WHERE id=?').bind(await h.passwordHash(b.password,salt,PASSWORD_HASH_ITERATIONS),salt,PASSWORD_HASH_ITERATIONS,a.id).run();}
    const token=h.randomHex();
    await env.DB.prepare('INSERT INTO support_sessions(token_hash,account_id,expires_at) VALUES(?,?,?)').bind(await h.sha256(token),a.id,new Date(now+7*86400000).toISOString()).run();
    return out({token,username:a.username,role:a.role});
@@ -68,7 +69,7 @@ export async function support(request:Request, env:Env, owner:boolean, origin:st
     const username=strings(b.username,40), requestedRole=strings(b.role,30), collaborationRole=requestedRole==='tutor'?'subject_teacher':requestedRole;if(!username||!['tutor','parent','subject_teacher','academic_manager','admin'].includes(requestedRole)||typeof b.password!=='string'||b.password.length<12||b.password.length>256)return out({error:'아이디와 12자 이상의 비밀번호, 역할을 확인하세요.'},400);
     if(await env.DB.prepare('SELECT id FROM support_accounts WHERE username=?').bind(username).first())return out({error:'이미 사용 중인 아이디입니다.'},409);
     const salt=h.randomHex(16);
-    const id=h.randomHex(16),now=new Date().toISOString();await env.DB.batch([env.DB.prepare('INSERT INTO support_accounts(id,username,role,collaboration_role,password_hash,salt,password_iterations,created_at) VALUES(?,?,?,?,?,?,310000,?)').bind(id,username,collaborationRole==='parent'?'parent':'tutor',collaborationRole,await h.passwordHash(b.password,salt,310000),salt,now),env.DB.prepare('INSERT INTO security_audit_logs(id,actor_type,actor_id,action,target_type,target_id,created_at,metadata_json) VALUES(?,?,?,?,?,?,?,?)').bind(h.randomHex(16),'student_admin',studentActor?String(studentActor.id):null,'support_account.create','support_account',id,now,JSON.stringify({role:collaborationRole}))]);return out({ok:true},201);
+    const id=h.randomHex(16),now=new Date().toISOString();await env.DB.batch([env.DB.prepare('INSERT INTO support_accounts(id,username,role,collaboration_role,password_hash,salt,password_iterations,created_at) VALUES(?,?,?,?,?,?,?,?)').bind(id,username,collaborationRole==='parent'?'parent':'tutor',collaborationRole,await h.passwordHash(b.password,salt,PASSWORD_HASH_ITERATIONS),salt,PASSWORD_HASH_ITERATIONS,now),env.DB.prepare('INSERT INTO security_audit_logs(id,actor_type,actor_id,action,target_type,target_id,created_at,metadata_json) VALUES(?,?,?,?,?,?,?,?)').bind(h.randomHex(16),'student_admin',studentActor?String(studentActor.id):null,'support_account.create','support_account',id,now,JSON.stringify({role:collaborationRole}))]);return out({ok:true},201);
    }
   }
   if(path==='/api/support/data'&&method==='GET'){
