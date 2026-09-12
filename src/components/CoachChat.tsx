@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useRef, useState } from 'react';
+import { useDialogFocus } from './motion/useDialogFocus';
 import { ArrowUp, MessageCircle, X } from 'lucide-react';
 import { requestCoachChat, type CoachChatMessage } from '../lib/aiCoach';
 import { answerLocalCoachQuestion } from '../lib/coach/localCoach';
@@ -9,12 +10,8 @@ export default function CoachChat({ analysis, context, onClose }: { analysis: Le
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    inputRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogFocus(true, dialogRef, onClose);
 
   const send = async (event: FormEvent) => {
     event.preventDefault();
@@ -38,5 +35,5 @@ export default function CoachChat({ analysis, context, onClose }: { analysis: Le
     } finally { setBusy(false); }
   };
 
-  return <div className="coach-sheet-backdrop" role="presentation" onPointerDown={onClose}><section className="coach-sheet" role="dialog" aria-modal="true" aria-labelledby="coach-chat-title" onPointerDown={(event) => event.stopPropagation()}><header><div><span className="card-label">TRINITY COACH</span><h2 id="coach-chat-title">AI 학습 상담</h2><p>기본 질문은 로컬에서, 복잡한 상담만 AI로 답합니다.</p></div><button className="icon-button" aria-label="상담 닫기" onClick={onClose}><X size={18} /></button></header><div className="coach-messages" aria-live="polite">{messages.length ? messages.map((message, index) => <p className={message.role} key={`${message.role}-${index}`}>{message.content}</p>) : <div className="coach-start"><MessageCircle size={18} /><p>예: “현재 병목이 뭐야?”는 AI 호출 없이 바로 답합니다.</p></div>}{busy && <p className="assistant loading">상담 내용을 확인하고 있습니다…</p>}</div><form onSubmit={send}><input ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} maxLength={300} placeholder="학습 상황을 짧게 물어보세요" aria-label="AI 코치에게 질문" /><button className="button primary" type="submit" disabled={!input.trim() || busy} aria-label="질문 보내기"><ArrowUp size={17} /></button></form></section></div>;
+  return <div className="coach-sheet-backdrop" role="presentation" onPointerDown={onClose}><section ref={dialogRef} tabIndex={-1} className="coach-sheet" role="dialog" aria-modal="true" aria-labelledby="coach-chat-title" onPointerDown={(event) => event.stopPropagation()}><header><div><span className="card-label">TRINITY COACH</span><h2 id="coach-chat-title">AI 학습 상담</h2><p>기본 질문은 로컬에서, 복잡한 상담만 AI로 답합니다.</p></div><button className="icon-button" aria-label="상담 닫기" onClick={onClose}><X size={18} /></button></header><div className="coach-messages" aria-live="polite">{messages.length ? messages.map((message, index) => <p className={message.role} key={`${message.role}-${index}`}>{message.content}</p>) : <div className="coach-start"><MessageCircle size={18} /><p>예: “현재 병목이 뭐야?”는 AI 호출 없이 바로 답합니다.</p></div>}{busy && <p className="assistant loading">상담 내용을 확인하고 있습니다…</p>}</div><form onSubmit={send}><input ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} maxLength={300} placeholder="학습 상황을 짧게 물어보세요" aria-label="AI 코치에게 질문" /><button className="button primary" type="submit" disabled={!input.trim() || busy} aria-label="질문 보내기"><ArrowUp size={17} /></button></form></section></div>;
 }

@@ -1,5 +1,6 @@
 import { KeyRound, X } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useDialogFocus } from './motion/useDialogFocus';
 import { changePassword } from '../lib/auth';
 
 export default function PasswordChangeDialog({ required = false, onClose, onChanged }: {
@@ -7,6 +8,8 @@ export default function PasswordChangeDialog({ required = false, onClose, onChan
   onClose?: () => void;
   onChanged: () => void;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  useDialogFocus(true, dialogRef, () => { if (!required) onClose?.(); });
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -28,7 +31,7 @@ export default function PasswordChangeDialog({ required = false, onClose, onChan
   };
 
   return <div className="modal-backdrop password-change-backdrop" onClick={() => !required && onClose?.()}>
-    <section className="modal password-change-modal" role="dialog" aria-modal="true" aria-labelledby="password-change-title" onClick={(event) => event.stopPropagation()}>
+    <section ref={dialogRef} tabIndex={-1} className="modal password-change-modal" role="dialog" aria-modal="true" aria-labelledby="password-change-title" onClick={(event) => event.stopPropagation()}>
       <div className="modal-head">
         <div><p className="eyebrow">ACCOUNT SECURITY</p><h2 id="password-change-title">{required ? '새 비밀번호를 설정하세요' : '비밀번호 변경'}</h2></div>
         {!required && <button type="button" aria-label="닫기" onClick={onClose}><X/></button>}
