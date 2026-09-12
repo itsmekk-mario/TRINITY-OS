@@ -3,7 +3,7 @@ import { Award, BarChart3, BookOpen, BrainCircuit, CalendarCheck, ChevronRight, 
 import type { LucideIcon } from 'lucide-react';
 import type { AppData, ArenaBootstrap, ArenaGroup, ArenaGroupType, ArenaProfile, ArenaRankingEntry, ArenaScore, ArenaVisibility } from '../types';
 import { Card, Field, PageHeader } from '../components/Ui';
-import { addArenaRival, createArenaGroup, fetchArena, fetchArenaRanking, joinArenaGroup, publishArenaScore, removeArenaRival, requestArenaCoach, saveArenaProfile } from '../lib/arenaApi';
+import { addArenaRival, ArenaApiError, createArenaGroup, fetchArena, fetchArenaRanking, joinArenaGroup, publishArenaScore as publishArenaScoreRequest, removeArenaRival, requestArenaCoach, saveArenaProfile } from '../lib/arenaApi';
 import { calculateArenaScore } from '../lib/arenaScore';
 import { ARENA_BADGE_CATEGORIES, calculateArenaBadges, type ArenaBadgeCategory, type ArenaBadgeIcon } from '../lib/arenaBadges';
 import '../arena.css';
@@ -54,6 +54,19 @@ export default function Arena({ data }: { data: AppData }) {
   const [badgeCategory, setBadgeCategory] = useState<'all' | ArenaBadgeCategory>('all'); const [secretMode, setSecretMode] = useState(false); const scoreTap = useRef({ count: 0, last: 0 }); const secretKeys = useRef('');
   const [groupForm, setGroupForm] = useState<{ name: string; type: ArenaGroupType; targetUniversity: string; targetDepartment: string; visibility: ArenaVisibility }>({ name: '', type: 'university', targetUniversity: '', targetDepartment: '', visibility: 'public' });
   const arena = arenaState ?? { profile: null, groups: [], ranking: [], rivals: [], achievements: [], season: { id: '', name: '', startsAt: '', endsAt: '', status: 'upcoming' as const }, latestScore: null };
+
+  const publishArenaScore = async () => {
+    try {
+      return await publishArenaScoreRequest();
+    } catch (cause) {
+      if (cause instanceof ArenaApiError && (cause.status === 404 || cause.status === 405)) {
+        setNotice('프로필은 저장되었습니다. Arena 점수 집계 서버를 업데이트하고 있습니다.');
+        window.setTimeout(() => setNotice(''), 4000);
+        return null;
+      }
+      throw cause;
+    }
+  };
 
   const reload = async (publish = false) => { setError(''); try { let result = await fetchArena(); if (publish && result.profile) { await publishArenaScore(); result = await fetchArena(); } setArena(result); setProfile(result.profile ?? EMPTY_PROFILE); setRanking(result.ranking); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Arena 데이터를 불러오지 못했습니다.'); } finally { setLoading(false); } };
   useEffect(() => { void reload(true); }, []); // The score snapshot is refreshed when Arena opens.

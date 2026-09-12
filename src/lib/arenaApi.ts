@@ -1,6 +1,13 @@
 import type { ArenaBootstrap, ArenaGroup, ArenaProfile, ArenaRankingEntry, ArenaScore } from '../types';
 import { loadCloudflareConfig } from './cloudflare';
 
+export class ArenaApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'ArenaApiError';
+  }
+}
+
 async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const config = loadCloudflareConfig();
   if (!config.url || !config.token) throw new Error('Arena를 사용하려면 로그인이 필요합니다.');
@@ -10,8 +17,8 @@ async function request<T>(path: string, method = 'GET', body?: unknown): Promise
     cache: 'no-store',
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
-  const payload = await response.json() as T & { error?: string };
-  if (!response.ok) throw new Error(payload.error || `Arena 요청에 실패했습니다. (${response.status})`);
+  const payload = await response.json().catch(() => ({})) as T & { error?: string };
+  if (!response.ok) throw new ArenaApiError(payload.error || `Arena 요청에 실패했습니다. (${response.status})`, response.status);
   return payload;
 }
 
