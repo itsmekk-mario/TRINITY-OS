@@ -159,9 +159,10 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     return json({ ...await createSession(env, account!.username, account!.id), mustChangePassword: account!.must_change_password === 1 }, 200, origin);
   }
   const auth = await authContext(request, env), user=auth?.user??null;
-  const extra = await support(request, env, user?.is_admin === 1, origin, { json, sha256, passwordHash, secretMatches, randomHex,boundedJson }, user);
+  const sessionUser=auth?.authType==='session'?user:null;
+  const extra = await support(request, env, sessionUser?.is_admin === 1, origin, { json, sha256, passwordHash, secretMatches, randomHex,boundedJson }, sessionUser);
   if (extra) return extra;
-  const arenaResponse = await arena(request, env, auth?.authType==='session'?user:null, origin, { json, randomHex,boundedJson });
+  const arenaResponse = await arena(request, env, sessionUser, origin, { json, randomHex,boundedJson });
   if (arenaResponse) return arenaResponse;
   if (url.pathname === '/api/auth/me' && request.method === 'GET') return user ? json({ ok: true, username: user.username, mustChangePassword: user.must_change_password === 1 }, 200, origin) : json({ error: 'Unauthorized' }, 401, origin);
   if (url.pathname === '/api/auth/logout' && request.method === 'POST') {
@@ -183,6 +184,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     await env.DB.batch([
       env.DB.prepare('UPDATE users SET password_hash=?,salt=?,password_iterations=?,must_change_password=0,password_changed_at=? WHERE id=?').bind(await passwordHash(newPassword, salt), salt,PASSWORD_HASH_ITERATIONS, now, user.id),
       env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(user.id),
+      env.DB.prepare('INSERT INTO security_audit_logs(id,actor_type,actor_id,action,target_type,target_id,created_at,metadata_json) VALUES(?,?,?,?,?,?,?,?)').bind(randomHex(16),'student',String(user.id),'password.change','user',String(user.id),now,'{}'),
     ]);
     return json({ ...await createSession(env, user.username, user.id), mustChangePassword: false }, 200, origin);
   }
