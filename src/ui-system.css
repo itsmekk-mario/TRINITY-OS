@@ -9,8 +9,9 @@
   --shadow-1:0 1px 2px rgba(14,25,40,.04),0 6px 18px rgba(14,25,40,.035);
   --shadow-2:0 2px 4px rgba(14,25,40,.05),0 14px 34px rgba(14,25,40,.08);
   --shadow-overlay:0 24px 70px rgba(4,12,24,.22);
-  --motion-fast:120ms;--motion-base:200ms;--motion-slow:320ms;
+  --motion-instant:80ms;--motion-fast:120ms;--motion-base:200ms;--motion-slow:320ms;
   --ease-standard:cubic-bezier(.22,1,.36,1);--ease-out:cubic-bezier(.16,1,.3,1);
+  --material-stroke:rgba(255,255,255,.72);--nav-highlight:rgba(255,255,255,.075);
 }
 html{scroll-behavior:auto;background:var(--background)}body{background:var(--background);color:var(--text-primary)}
 .learning-shell .card{background:var(--surface);border:1px solid var(--separator);border-radius:var(--radius-md);box-shadow:var(--shadow-1);backdrop-filter:none}.learning-shell .card:hover{border-color:var(--separator)}
@@ -44,6 +45,91 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}::view-transition-old(root),::view-transition-new(root){animation:none!important}}
 @media(max-width:760px){.learning-shell .mobile-bar,.learning-shell .mobile-bar strong,.learning-shell .mobile-bar button{color:var(--text-primary)}.learning-shell .page-header h1{font-size:clamp(29px,9vw,32px);overflow-wrap:anywhere}}
 
+/* Spatial polish — restrained depth, continuous motion, and quiet brand graphics. */
+html{scrollbar-gutter:stable}body{min-height:100vh;background:
+  radial-gradient(circle at 76% -18%,rgba(169,133,63,.085),transparent 35rem),
+  radial-gradient(circle at 18% 8%,rgba(16,28,45,.045),transparent 29rem),var(--background)}
+::selection{background:color-mix(in srgb,var(--gold) 30%,transparent);color:var(--text-primary)}
+.learning-shell>main{position:relative;isolation:isolate;min-height:100vh;background:transparent}
+.learning-shell>main:before{content:'';position:fixed;z-index:-2;inset:0 0 0 232px;pointer-events:none;background-image:linear-gradient(rgba(16,28,45,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(16,28,45,.018) 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.58),transparent 46%)}
+.page-transition{position:relative;isolation:isolate;animation:page-enter var(--motion-base) var(--ease-standard) both}
+.page-transition-content{position:relative;z-index:1}
+.page-atmosphere{position:absolute;z-index:0;top:-82px;right:-34px;width:min(37vw,520px);aspect-ratio:1;overflow:hidden;pointer-events:none;opacity:.62;mask-image:radial-gradient(circle at 65% 38%,#000 0 33%,transparent 72%)}
+.page-atmosphere i{position:absolute;border:1px solid color-mix(in srgb,var(--navy) 12%,transparent);border-radius:50%;transform:rotate(-12deg)}
+.page-atmosphere i:nth-child(1){inset:8%;animation:orbit-breathe 9s var(--ease-standard) infinite alternate}
+.page-atmosphere i:nth-child(2){inset:22%;border-color:color-mix(in srgb,var(--gold) 24%,transparent);animation:orbit-breathe 11s var(--ease-standard) -3s infinite alternate-reverse}
+.page-atmosphere i:nth-child(3){inset:38%;background:radial-gradient(circle at 34% 30%,rgba(255,255,255,.8),rgba(169,133,63,.075) 44%,transparent 72%);box-shadow:inset 0 0 35px rgba(169,133,63,.055)}
+@keyframes orbit-breathe{from{transform:rotate(-12deg) scale(.985)}to{transform:rotate(-7deg) scale(1.025)}}
+.page-transition-content>.page-header,.page-transition-content>*>.page-header{animation:content-rise 260ms var(--ease-out) both}
+.page-transition-content>:where(.today-hero,.segmented-control,.arena-tabs){animation:content-rise 300ms var(--ease-out) 35ms both}
+.page-transition-content>:where(.today-decision-grid,.today-content-grid,.learning-signal-grid,.hub-metric-grid,.arena-home,.arena-achievement-layout){animation:content-rise 340ms var(--ease-out) 70ms both}
+@keyframes content-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.learning-shell .page-header{position:relative;padding-bottom:18px}
+.learning-shell .page-header:after{content:'';position:absolute;left:0;bottom:0;width:min(72px,18vw);height:2px;border-radius:999px;background:linear-gradient(90deg,var(--gold),color-mix(in srgb,var(--gold) 14%,transparent));transform-origin:left;animation:line-reveal 440ms var(--ease-out) 70ms both}
+@keyframes line-reveal{from{opacity:0;transform:scaleX(.18)}to{opacity:1;transform:scaleX(1)}}
+.learning-shell .page-header h1{letter-spacing:-.048em;text-wrap:balance}
+.learning-shell .page-description{max-width:740px;line-height:1.65;text-wrap:pretty}
+
+.learning-shell>aside{overflow:hidden;border-right:1px solid rgba(255,255,255,.06);background:linear-gradient(165deg,#14233a 0%,var(--navy) 46%,#0b1524 100%)}
+.learning-shell>aside:after{content:'';position:absolute;right:-82px;bottom:-40px;width:210px;aspect-ratio:1;border:1px solid rgba(169,133,63,.13);border-radius:50%;box-shadow:0 0 0 32px rgba(169,133,63,.035),0 0 0 66px rgba(255,255,255,.018);pointer-events:none}
+.learning-shell .brand{position:relative;z-index:1}
+.learning-shell .brand-mark{position:relative;overflow:visible;isolation:isolate;background:linear-gradient(145deg,#c4a45e,#8f6e31);box-shadow:0 8px 24px rgba(0,0,0,.18),inset 0 1px rgba(255,255,255,.42)}
+.learning-shell .brand-mark:before{content:'';position:absolute;z-index:-1;inset:-6px;border:1px solid rgba(196,164,94,.24);border-radius:14px;transform:rotate(8deg)}
+.learning-shell>aside nav button svg,.learning-shell .utility-nav button svg{transition:transform var(--motion-base) var(--ease-out),color var(--motion-fast) ease}
+.learning-shell>aside nav button:hover svg,.learning-shell .utility-nav button:hover svg{transform:translateX(1px) scale(1.035)}
+.learning-shell>aside nav button.active,.learning-shell .utility-nav button.active{background:linear-gradient(90deg,rgba(255,255,255,.105),rgba(255,255,255,.055));box-shadow:inset 0 1px rgba(255,255,255,.045)}
+.learning-shell>aside nav button.active:before,.learning-shell .utility-nav button.active:before{box-shadow:0 0 14px rgba(196,164,94,.38);animation:nav-marker-in 260ms var(--ease-out) both}
+@keyframes nav-marker-in{from{opacity:0;transform:scaleY(.35)}to{opacity:1;transform:scaleY(1)}}
+
+.learning-shell .card{position:relative;box-shadow:0 1px 2px rgba(14,25,40,.035),0 10px 30px rgba(14,25,40,.025);transition:border-color var(--motion-fast) ease,box-shadow var(--motion-base) var(--ease-standard),transform var(--motion-base) var(--ease-standard)}
+.learning-shell :where(.interactive-card,.row-link,.settings-list>button){-webkit-tap-highlight-color:transparent}
+.learning-shell :where(.interactive-card,.row-link,.settings-list>button):hover{box-shadow:0 2px 5px rgba(14,25,40,.045),0 16px 38px rgba(14,25,40,.075)}
+.learning-shell .button{min-height:38px;border-radius:11px;font-weight:620;letter-spacing:-.012em;box-shadow:inset 0 1px rgba(255,255,255,.55)}
+.learning-shell .button.primary{position:relative;overflow:hidden;background:linear-gradient(180deg,#1a2a42,var(--navy));box-shadow:inset 0 1px rgba(255,255,255,.13),0 5px 14px rgba(16,28,45,.13)}
+.learning-shell .button.primary:after{content:'';position:absolute;inset:0;background:linear-gradient(110deg,transparent 15%,rgba(255,255,255,.13) 45%,transparent 72%);transform:translateX(-120%);transition:transform 520ms var(--ease-out);pointer-events:none}
+.learning-shell .button.primary:hover:after{transform:translateX(120%)}
+.learning-shell button:active:not(:disabled){transition-duration:var(--motion-instant);transform:scale(.982)}
+.learning-shell button:disabled{cursor:not-allowed;filter:saturate(.55);opacity:.52}
+.learning-shell :where(input,textarea,select){transition:border-color var(--motion-fast) ease,box-shadow var(--motion-base) var(--ease-out),background-color var(--motion-fast) ease}
+.learning-shell :where(input,textarea,select):focus{border-color:color-mix(in srgb,var(--navy) 42%,transparent);box-shadow:0 0 0 4px color-mix(in srgb,var(--navy) 8%,transparent)}
+
+.segmented-control{border:1px solid rgba(29,29,31,.045);box-shadow:inset 0 1px 2px rgba(14,25,40,.035)}
+.segmented-indicator{border:1px solid rgba(29,29,31,.06);box-shadow:0 1px 3px rgba(0,0,0,.08),0 5px 13px rgba(14,25,40,.055)}
+.segmented-control button{position:relative;z-index:1}.segmented-control button:active:not(:disabled){transform:scale(.97)}
+.today-hero{box-shadow:0 1px 2px rgba(14,25,40,.025),0 18px 48px rgba(14,25,40,.045)}
+.today-next{position:relative;isolation:isolate;background:linear-gradient(145deg,#182a44,#0c1727)}
+.today-next:after{content:'';position:absolute;z-index:-1;right:-45px;bottom:-72px;width:180px;aspect-ratio:1;border:1px solid rgba(196,164,94,.22);border-radius:50%;box-shadow:0 0 0 28px rgba(196,164,94,.045),0 0 0 58px rgba(255,255,255,.018)}
+.learning-signal{position:relative;overflow:hidden;transition:transform var(--motion-base) var(--ease-standard),border-color var(--motion-fast) ease,box-shadow var(--motion-base) ease}
+.learning-signal:after{content:'';position:absolute;left:20px;right:20px;bottom:0;height:2px;border-radius:2px;background:var(--signal-color,var(--gold));opacity:.2;transform:scaleX(.25);transform-origin:left;transition:opacity var(--motion-base),transform var(--motion-slow) var(--ease-out)}
+.learning-signal:hover:after{opacity:.7;transform:scaleX(1)}.learning-signal.positive{--signal-color:var(--success)}.learning-signal.negative{--signal-color:var(--danger)}
+.metric-number,.metric-value,.today-primary strong,.learning-signal strong{font-feature-settings:'tnum' 1,'ss01' 1}
+
+.sheet-backdrop{background:rgba(5,12,22,.32);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.detail-sheet{border-left:1px solid var(--material-stroke);box-shadow:-18px 0 64px rgba(4,12,24,.18)}
+.toast,.arena-notice{animation:toast-in var(--motion-slow) var(--ease-out) both;box-shadow:0 14px 40px rgba(4,12,24,.2)}
+@keyframes toast-in{from{opacity:0;transform:translate(-50%,8px) scale(.97)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+
+@media(max-width:760px){
+  .learning-shell>main:before{inset:0;background-size:40px 40px;opacity:.55}
+  .page-atmosphere{top:-40px;right:-72px;width:300px;opacity:.42}
+  .learning-shell .mobile-bar{border-bottom:1px solid color-mix(in srgb,var(--separator) 72%,transparent);background:color-mix(in srgb,var(--background) 88%,transparent);backdrop-filter:blur(18px) saturate(135%);-webkit-backdrop-filter:blur(18px) saturate(135%)}
+  .mobile-tab-bar{box-shadow:0 2px 4px rgba(10,18,30,.05),0 16px 42px rgba(10,18,30,.16);transition:transform var(--motion-base) var(--ease-out)}
+  .mobile-tab-bar button.active{background:linear-gradient(180deg,#1a2a42,var(--navy));box-shadow:inset 0 1px rgba(255,255,255,.15),0 4px 12px rgba(16,28,45,.16)}
+  .mobile-tab-bar button.active svg{animation:tab-icon-in 240ms var(--ease-out)}
+  .learning-shell .page-header{padding-bottom:15px}
+  .learning-shell .page-header:after{width:54px}
+  .detail-sheet{border-left:0;border-top:1px solid var(--material-stroke);box-shadow:0 -18px 60px rgba(4,12,24,.18)}
+}
+@keyframes tab-icon-in{from{transform:translateY(2px) scale(.9)}to{transform:translateY(0) scale(1)}}
+
+@media(prefers-color-scheme:dark){
+  :root{--material-stroke:rgba(255,255,255,.1)}
+  body{background:radial-gradient(circle at 76% -18%,rgba(195,161,94,.08),transparent 34rem),radial-gradient(circle at 18% 8%,rgba(77,107,148,.07),transparent 30rem),var(--background)}
+  .learning-shell>main:before{background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px)}
+  .learning-shell .button{box-shadow:inset 0 1px rgba(255,255,255,.06)}
+}
+
 /* Arena is intentionally light-scoped. OS dark-mode tokens must never produce
    white copy on its white profile, ranking, group, or metric surfaces. */
 .learning-shell .arena-page{color-scheme:light;--surface:#fff;--surface-secondary:#f1f2f5;--text-primary:#1d1d1f;--text-secondary:#56565c;--text-tertiary:#73737b;--arena-ink:#1d1d1f;--arena-sub:#56565c;--arena-line:rgba(29,29,31,.12);--arena-soft:#f1f2f5;color:#1d1d1f}
@@ -59,3 +145,34 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .learning-shell .arena-page :where(.arena-hero,.arena-season){background:#1d1d1f;color:#fff}
 .learning-shell .arena-page :where(.arena-hero,.arena-season) :where(h1,h2,h3,b,strong){color:#fff}
 .learning-shell .arena-page :where(.arena-hero,.arena-season) :where(p,small,span:not(.positive):not(.negative)){color:rgba(255,255,255,.68)}
+
+/* Arena motion language: score, rank, and badges feel connected without spectacle. */
+.learning-shell .arena-page .arena-tabs{position:relative;border:1px solid rgba(29,29,31,.045);box-shadow:inset 0 1px 2px rgba(14,25,40,.04)}
+.learning-shell .arena-page .arena-tabs button{transition:color var(--motion-fast) ease,background-color var(--motion-base) var(--ease-standard),box-shadow var(--motion-base) var(--ease-standard),transform var(--motion-fast) var(--ease-standard)}
+.learning-shell .arena-page .arena-tabs button.active{box-shadow:0 1px 3px rgba(0,0,0,.08),0 5px 12px rgba(14,25,40,.05)}
+.learning-shell .arena-page .arena-hero{background:
+  radial-gradient(circle at 88% 18%,rgba(196,164,94,.16),transparent 24%),
+  linear-gradient(132deg,#17283f 0%,#101c2d 58%,#0b1524 100%)}
+.learning-shell .arena-page .arena-hero:before{content:'';position:absolute;right:20px;top:20px;width:190px;aspect-ratio:1;border:1px solid rgba(196,164,94,.16);border-radius:50%;animation:arena-orbit 14s linear infinite}
+.learning-shell .arena-page .arena-hero:after{border-color:rgba(196,164,94,.19);box-shadow:0 0 0 54px rgba(196,164,94,.035),0 0 0 108px rgba(255,255,255,.018)}
+@keyframes arena-orbit{to{transform:rotate(360deg)}}
+.learning-shell .arena-score-ring{box-shadow:0 0 0 1px rgba(255,255,255,.1),0 18px 45px rgba(0,0,0,.2);transition:transform var(--motion-base) var(--ease-out),filter var(--motion-base) ease,box-shadow var(--motion-base) ease}
+.learning-shell .arena-score-ring:before{content:'';position:absolute;inset:-7px;border:1px solid rgba(196,164,94,.2);border-radius:50%;opacity:.75;transition:transform var(--motion-slow) var(--ease-out),opacity var(--motion-base)}
+.learning-shell .arena-score-ring:hover{transform:scale(1.018);filter:brightness(1.04);box-shadow:0 0 0 1px rgba(255,255,255,.14),0 22px 54px rgba(0,0,0,.25)}
+.learning-shell .arena-score-ring:hover:before{opacity:1;transform:scale(1.035)}
+.learning-shell .arena-breakdown>div>div i,.learning-shell .arena-season-progress i,.learning-shell .arena-badge-progress i{transition:width var(--motion-slow) var(--ease-out)}
+.learning-shell .arena-metrics .card>span,.learning-shell .arena-group-icon,.learning-shell .arena-badge>span{transition:transform var(--motion-base) var(--ease-out),background-color var(--motion-base),color var(--motion-base)}
+.learning-shell .arena-metrics .card:hover>span,.learning-shell .arena-group:hover .arena-group-icon{transform:scale(1.055)}
+.learning-shell .arena-badge{overflow:hidden;transition:opacity var(--motion-base),transform var(--motion-base) var(--ease-out),box-shadow var(--motion-base),border-color var(--motion-fast)}
+.learning-shell .arena-badge.unlocked:after{content:'';position:absolute;right:-38px;top:-48px;width:112px;aspect-ratio:1;border:1px solid rgba(169,133,63,.15);border-radius:50%;box-shadow:0 0 0 17px rgba(169,133,63,.025)}
+.learning-shell .arena-badge.unlocked:hover{transform:translateY(-2px);border-color:rgba(169,133,63,.2);box-shadow:0 14px 34px rgba(14,25,40,.07)}
+.learning-shell .arena-badge.unlocked:hover>span{transform:rotate(-4deg) scale(1.07)}
+.learning-shell .arena-table>div:not(.arena-table-head){transition:background-color var(--motion-fast),transform var(--motion-base) var(--ease-out)}
+.learning-shell .arena-table>div:not(.arena-table-head):hover{background:color-mix(in srgb,var(--surface-secondary) 58%,transparent);transform:translateX(2px)}
+.learning-shell .arena-onboarding>svg{filter:drop-shadow(0 10px 20px rgba(16,28,45,.13));animation:onboarding-float 4.8s var(--ease-standard) infinite alternate}
+@keyframes onboarding-float{from{transform:translateY(2px)}to{transform:translateY(-5px)}}
+
+@media(hover:none){
+  .learning-shell .arena-score-ring:hover,.learning-shell .arena-badge.unlocked:hover,.learning-shell .arena-table>div:not(.arena-table-head):hover{transform:none}
+  .learning-signal:hover:after{opacity:.2;transform:scaleX(.25)}
+}
