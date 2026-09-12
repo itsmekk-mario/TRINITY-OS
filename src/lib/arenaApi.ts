@@ -1,4 +1,4 @@
-import type { ArenaBootstrap, ArenaGroup, ArenaProfile, ArenaRankingEntry, ArenaScore } from '../types';
+import type { ArenaBootstrap, ArenaGroup, ArenaProfile, ArenaRankingEntry, ArenaScore, ArenaSeason } from '../types';
 import { loadCloudflareConfig } from './cloudflare';
 
 export class ArenaApiError extends Error {
@@ -24,6 +24,7 @@ async function request<T>(path: string, method = 'GET', body?: unknown): Promise
 
 export const fetchArena = () => request<ArenaBootstrap>('/api/arena');
 export const saveArenaProfile = (profile: ArenaProfile) => request<{ profile: ArenaProfile }>('/api/arena/profile', 'PUT', profile);
+export const saveArenaSeasonName = (name: string) => request<{ season: ArenaSeason }>('/api/arena/season', 'PUT', { name });
 export const publishArenaScore = () => request<{ ok: true; score: ArenaScore; achievements: ArenaBootstrap['achievements'] }>('/api/arena/recalculate', 'POST');
 export const createArenaGroup = (group: Pick<ArenaGroup, 'name' | 'type' | 'targetUniversity' | 'targetDepartment' | 'visibility'>) => request<{ group: ArenaGroup }>('/api/arena/groups', 'POST', group);
 export const joinArenaGroup = (groupIdOrCode: string) => request<{ ok: true }>('/api/arena/groups/join', 'POST', { groupIdOrCode });

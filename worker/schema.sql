@@ -100,6 +100,14 @@ CREATE TABLE IF NOT EXISTS arena_group_members (
   PRIMARY KEY(group_id, user_id)
 );
 CREATE TABLE IF NOT EXISTS arena_seasons (id TEXT PRIMARY KEY,name TEXT NOT NULL,starts_at TEXT NOT NULL,ends_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS arena_season_preferences (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  season_id TEXT NOT NULL REFERENCES arena_seasons(id) ON DELETE CASCADE,
+  custom_name TEXT NOT NULL CHECK(length(custom_name) BETWEEN 2 AND 32),
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY(user_id, season_id)
+);
+CREATE INDEX IF NOT EXISTS arena_season_preferences_season ON arena_season_preferences(season_id);
 CREATE TABLE IF NOT EXISTS arena_score_snapshots (
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

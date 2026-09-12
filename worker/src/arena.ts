@@ -9,6 +9,7 @@ function ensureArenaTables(db: D1Database) {
     db.prepare("CREATE TABLE IF NOT EXISTS arena_groups (id TEXT PRIMARY KEY,owner_user_id INTEGER NOT NULL REFERENCES users(id),name TEXT NOT NULL,type TEXT NOT NULL CHECK(type IN ('university','department','custom')),target_university TEXT NOT NULL DEFAULT '',target_department TEXT NOT NULL DEFAULT '',visibility TEXT NOT NULL CHECK(visibility IN ('public','private')),invite_code TEXT NOT NULL UNIQUE,created_at TEXT NOT NULL)"),
     db.prepare("CREATE TABLE IF NOT EXISTS arena_group_members (group_id TEXT NOT NULL REFERENCES arena_groups(id) ON DELETE CASCADE,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,role TEXT NOT NULL DEFAULT 'member',joined_at TEXT NOT NULL,PRIMARY KEY(group_id,user_id))"),
     db.prepare('CREATE TABLE IF NOT EXISTS arena_seasons (id TEXT PRIMARY KEY,name TEXT NOT NULL,starts_at TEXT NOT NULL,ends_at TEXT NOT NULL)'),
+    db.prepare('CREATE TABLE IF NOT EXISTS arena_season_preferences (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,season_id TEXT NOT NULL REFERENCES arena_seasons(id) ON DELETE CASCADE,custom_name TEXT NOT NULL,updated_at TEXT NOT NULL,PRIMARY KEY(user_id,season_id))'),
     db.prepare("CREATE TABLE IF NOT EXISTS arena_score_snapshots (id TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,season_id TEXT NOT NULL REFERENCES arena_seasons(id),week_start TEXT NOT NULL,score INTEGER NOT NULL,execution INTEGER NOT NULL,problem_solving INTEGER NOT NULL,consistency INTEGER NOT NULL,growth INTEGER NOT NULL,growth_rate REAL NOT NULL DEFAULT 0,metrics TEXT NOT NULL DEFAULT '{}',calculated_at TEXT NOT NULL,UNIQUE(user_id,season_id,week_start))"),
     db.prepare('CREATE TABLE IF NOT EXISTS arena_rivals (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,rival_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,created_at TEXT NOT NULL,PRIMARY KEY(user_id,rival_user_id),CHECK(user_id <> rival_user_id))'),
     db.prepare('CREATE TABLE IF NOT EXISTS arena_achievements (id TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,code TEXT NOT NULL,title TEXT NOT NULL,description TEXT NOT NULL,awarded_at TEXT NOT NULL,UNIQUE(user_id,code))'),
@@ -30,11 +31,16 @@ const profileDto = (row: ProfileRow) => ({ nickname: row.nickname, grade: row.gr
 type GroupRow = { id: string; owner_user_id: number; name: string; type: 'university' | 'department' | 'custom'; target_university: string; target_department: string; visibility: 'public' | 'private'; invite_code: string; member_count: number; joined: number };
 const groupDto = (row: GroupRow, userId: number) => ({ id: row.id, name: row.name, type: row.type, targetUniversity: row.target_university, targetDepartment: row.target_department, memberCount: row.member_count, visibility: row.visibility, joined: Boolean(row.joined), owner: row.owner_user_id === userId, ...(row.owner_user_id === userId ? { inviteCode: row.invite_code } : {}) });
 
-async function season(db: D1Database) {
-  const today = new Date().toISOString().slice(0, 10);
-  const row = await db.prepare('SELECT id,name,starts_at,ends_at FROM arena_seasons ORDER BY CASE WHEN ? BETWEEN starts_at AND ends_at THEN 0 WHEN starts_at>? THEN 1 ELSE 2 END, starts_at DESC LIMIT 1').bind(today, today).first<{ id: string; name: string; starts_at: string; ends_at: string }>();
-  if (!row) throw new Error('Arena season is unavailable.');
-  return { id: row.id, name: row.name, startsAt: row.starts_at, endsAt: row.ends_at, status: today < row.starts_at ? 'upcoming' as const : today > row.ends_at ? 'ended' as const : 'active' as const };
+async function season(db: D1Database, userId: number) {
+  const DAY = 86_400_000, CYCLE_DAYS = 14, anchor = Date.UTC(2026, 8, 1);
+  const today = new Date(), todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  const cycle = Math.max(0, Math.floor((todayUtc - anchor) / (DAY * CYCLE_DAYS)));
+  const startsAt = new Date(anchor + cycle * CYCLE_DAYS * DAY).toISOString().slice(0, 10);
+  const endsAt = new Date(anchor + (cycle * CYCLE_DAYS + CYCLE_DAYS - 1) * DAY).toISOString().slice(0, 10);
+  const id = `arena-14d-${startsAt}`, defaultName = `14일 성장 · 시즌 ${cycle + 1}`;
+  await db.prepare('INSERT OR IGNORE INTO arena_seasons(id,name,starts_at,ends_at) VALUES(?,?,?,?)').bind(id, defaultName, startsAt, endsAt).run();
+  const preference = await db.prepare('SELECT custom_name FROM arena_season_preferences WHERE user_id=? AND season_id=?').bind(userId, id).first<{custom_name:string}>();
+  return { id, name: preference?.custom_name || defaultName, startsAt, endsAt, status: 'active' as const };
 }
 
 type RankingRow = { user_id: number; public_id: string; nickname: string; target_university: string; target_department: string; score: number; growth_rate: number };
@@ -73,7 +79,7 @@ export async function arena(request: Request, env: ArenaEnv, user: ArenaUser | n
   if (!url.pathname.startsWith('/api/arena')) return null;
   if (!user) return tools.json({ error: 'Unauthorized' }, 401, origin);
   await ensureArenaTables(env.DB);
-  const currentSeason = await season(env.DB); const now = new Date().toISOString();
+  const currentSeason = await season(env.DB, user.id); const now = new Date().toISOString();
 
   if (url.pathname === '/api/arena' && request.method === 'GET') {
     const [profile, groupRows, board, latest, rivalRows, badges] = await Promise.all([
@@ -95,6 +101,13 @@ export async function arena(request: Request, env: ArenaEnv, user: ArenaUser | n
     catch { return tools.json({ error: '이미 사용 중인 닉네임입니다.' }, 409, origin); }
     const saved = await env.DB.prepare('SELECT * FROM arena_profiles WHERE user_id=?').bind(user.id).first<ProfileRow>();
     return tools.json({ profile: saved ? profileDto(saved) : null }, 200, origin);
+  }
+
+  if (url.pathname === '/api/arena/season' && request.method === 'PUT') {
+    const body = object(await tools.boundedJson<unknown>(request)); const name = string(body?.name, 32);
+    if (name.length < 2) return tools.json({ error: '시즌 이름은 2자 이상 입력해 주세요.' }, 400, origin);
+    await env.DB.prepare('INSERT INTO arena_season_preferences(user_id,season_id,custom_name,updated_at) VALUES(?,?,?,?) ON CONFLICT(user_id,season_id) DO UPDATE SET custom_name=excluded.custom_name,updated_at=excluded.updated_at').bind(user.id,currentSeason.id,name,now).run();
+    return tools.json({ season: { ...currentSeason, name } }, 200, origin);
   }
 
   if (url.pathname === '/api/arena/score' && request.method === 'POST') return tools.json({error:'클라이언트 점수 제출은 허용되지 않습니다. /api/arena/recalculate를 사용하세요.'},405,origin,{Allow:'POST /api/arena/recalculate'});
