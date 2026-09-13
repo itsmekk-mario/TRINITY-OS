@@ -11,7 +11,7 @@ export interface Env {
   ALLOWED_ORIGIN?: string; SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; SUPABASE_BUCKET?: string;
   SESSION_TTL_DAYS?: string;
 }
-const json = (body: unknown, status = 200, origin = '', extra: HeadersInit = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', ...(origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}), 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Setup-Token', 'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS', 'Cache-Control': 'no-store', ...extra } });
+const json = (body: unknown, status = 200, origin = '', extra: HeadersInit = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', ...(origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}), 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Setup-Token', 'Access-Control-Allow-Methods': 'GET, PUT, POST, PATCH, DELETE, OPTIONS', 'Cache-Control': 'no-store', ...extra } });
 async function ensureTables(db: D1Database) { await db.batch([
   db.prepare('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT, salt TEXT, is_admin INTEGER NOT NULL DEFAULT 0, must_change_password INTEGER NOT NULL DEFAULT 0, password_changed_at TEXT, password_iterations INTEGER NOT NULL DEFAULT 100000, active INTEGER NOT NULL DEFAULT 1, arena_public_id TEXT, created_at TEXT NOT NULL)'),
   db.prepare('CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL)'),
@@ -96,7 +96,7 @@ const prompt = (system: string, user: string): ChatMessage[] => [{ role: 'system
 export default { async fetch(request: Request, env: Env): Promise<Response> {
  try {
   const cors=requestOrigin(request,env.ALLOWED_ORIGIN,env.ENVIRONMENT),origin=cors.responseOrigin;
-  if(request.method==='OPTIONS')return cors.allowed?new Response(null,{status:204,headers:{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'Content-Type, Authorization, X-Setup-Token','Access-Control-Allow-Methods':'GET, PUT, POST, DELETE, OPTIONS','Vary':'Origin'}}):json({error:'허용되지 않은 Origin입니다.'},403);
+  if(request.method==='OPTIONS')return cors.allowed?new Response(null,{status:204,headers:{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'Content-Type, Authorization, X-Setup-Token','Access-Control-Allow-Methods':'GET, PUT, POST, PATCH, DELETE, OPTIONS','Vary':'Origin'}}):json({error:'허용되지 않은 Origin입니다.'},403);
   if(!cors.allowed&&request.method!=='GET'&&request.method!=='HEAD')return json({error:'허용되지 않은 Origin입니다.'},403);
   const url = new URL(request.url), declared=Number(request.headers.get('Content-Length')||0), limit=url.pathname==='/api/sync'?MAX_SYNC_BODY:MAX_JSON_BODY;
   if(declared>limit)return json({error:'요청 본문이 너무 큽니다.'},413,origin);

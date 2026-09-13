@@ -7,6 +7,7 @@ import './auth.css';
 import './timer-enhanced.css';
 import './ui-polish.css';
 import './ui-system.css';
+import './teacher.css';
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
 

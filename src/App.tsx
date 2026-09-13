@@ -1,5 +1,5 @@
 import './team.css';
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { BrainCircuit, CalendarRange, ChartNoAxesCombined, Menu, Download, Gauge, Home, MessageSquareText, NotebookTabs, Settings, ShieldCheck, Swords, Target, Upload, UserRound, X } from 'lucide-react';
 import type { AppData } from './types';
@@ -14,7 +14,7 @@ import { logoutLocal, validateSession } from './lib/auth';
 import { autoSyncCloudflareData, loadCloudflareConfig } from './lib/cloudflare';
 import SupportPortal, { ExamArchive, SupportOwner } from './pages/SupportPortal';
 import FeedbackInbox from './pages/FeedbackInbox';
-import CollaborativePortal from './pages/CollaborativePortal';
+
 import FeedbackAdmin from './pages/FeedbackAdmin';
 import Arena from './pages/Arena';
 import PasswordChangeDialog from './components/PasswordChangeDialog';
@@ -24,6 +24,8 @@ import InsightsHub, { type InsightsView } from './pages/InsightsHub';
 import CoachPage from './pages/CoachPage';
 import PageTransition from './components/motion/PageTransition';
 import { useDialogFocus } from './components/motion/useDialogFocus';
+
+const CollaborativePortal = lazy(() => import('./pages/CollaborativePortal'));
 
 type Page = 'today' | 'plan' | 'train' | 'test' | 'insights' | 'coach' | 'feedback' | 'workspace' | 'profile' | 'archive';
 const primaryNav = [
@@ -103,8 +105,8 @@ function StudentApp() {
 
 export default function App() {
   const portal = new URLSearchParams(window.location.search).get('portal');
-  if (portal === 'teacher' || portal === 'tutor') return <CollaborativePortal role="subject_teacher" />;
-  if (portal === 'manager') return <CollaborativePortal role="academic_manager" />;
+  if (portal === 'teacher' || portal === 'tutor') return <Suspense fallback={<main className="team-page" role="status">교사 포털을 불러오는 중…</main>}><CollaborativePortal role="subject_teacher" /></Suspense>;
+  if (portal === 'manager') return <Suspense fallback={<main className="team-page" role="status">교사 포털을 불러오는 중…</main>}><CollaborativePortal role="academic_manager" /></Suspense>;
   if (portal === 'admin' || portal === 'owner') return <FeedbackAdmin />;
   if (portal === 'legacy-owner') return <SupportOwner />;
   if (portal === 'parent') return <SupportPortal role="parent" />;

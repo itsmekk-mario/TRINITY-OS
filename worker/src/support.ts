@@ -1,5 +1,5 @@
 import type { AppData } from '../../src/types';
-import { collaboration } from './collaboration.ts';
+import { collaboration, outData } from './collaboration.ts';
 import { PASSWORD_HASH_ITERATIONS } from './security.ts';
 type Env = { DB: D1Database; SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; SUPABASE_BUCKET?: string };
 export function publicExamPath(key: string): string | null {
@@ -75,10 +75,12 @@ export async function support(request:Request, env:Env, owner:boolean, origin:st
   if(path==='/api/support/data'&&method==='GET'){
    if(!account)return out({error:'전용 계정으로 로그인하세요.'},403);
    const requested=url.searchParams.get('student');
-   const assignment=await env.DB.prepare(`SELECT x.student_user_id,x.role,u.arena_public_id FROM student_support_assignments x JOIN users u ON u.id=x.student_user_id WHERE x.support_account_id=? AND x.role=? AND u.active=1 ${requested?'AND u.arena_public_id=?':''} ORDER BY x.created_at LIMIT 1`).bind(account.id,account.role,...(requested?[requested]:[])).first<{student_user_id:number;role:string;arena_public_id:string}>();
+   const assignment=await env.DB.prepare(`SELECT x.*,u.arena_public_id FROM student_support_assignments x JOIN users u ON u.id=x.student_user_id WHERE x.support_account_id=? AND x.role=? AND u.active=1 ${requested?'AND u.arena_public_id=?':''} ORDER BY x.created_at LIMIT 1`).bind(account.id,account.role,...(requested?[requested]:[])).first<Parameters<typeof outData>[1] & {arena_public_id:string}>();
    if(!assignment)return out({error:'배정된 학생이 없습니다.'},403);
    const row=await env.DB.prepare('SELECT payload,updated_at FROM learning_state WHERE user_id=?').bind(assignment.student_user_id).first<{payload:string;updated_at:string}>();
-   return out({role:account.role,username:account.username,studentId:assignment.arena_public_id,updatedAt:row?.updated_at??null,data:row?projection(JSON.parse(row.payload),account.role==='parent'?'parent':'tutor'):null});
+   const view=row?outData(JSON.parse(row.payload),assignment):null;
+   const legacy=view?{resources:view.resources,sessions:view.sessions,plans:view.plans,goals:view.weeklyCapabilityGoals,daily:view.dailyDrills,scores:view.scores.map(item=>({...item,math:'score' in item&&item.subject==='수학'?item.score:item.math})),wrong:view.wrongAnswerDrills,analysis:view.trinity,monthly:view.monthlyPlans,routine:view.routine,checklist:view.goals}:null;
+   return out({role:account.role,username:account.username,studentId:assignment.arena_public_id,updatedAt:row?.updated_at??null,data:legacy});
   }
   if(path==='/api/support/comments'){
    if(method==='GET'){

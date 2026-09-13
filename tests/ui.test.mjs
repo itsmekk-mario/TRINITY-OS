@@ -79,3 +79,28 @@ test('Static route entrypoints retain existing URLs and Arena alias', async () =
   assert.match(app, /path === '\/arena' \|\| path === '\/profile'/);
   assert.match(app, /popstate/); assert.doesNotMatch(app, /Profile · Arena|<Database/);
 });
+
+const { default: MathTeacherDashboard } = await load('../src/components/teacher/MathTeacherDashboard.tsx');
+const { default: LearningManagerDashboard } = await load('../src/components/teacher/LearningManagerDashboard.tsx');
+const { SignalCards } = await load('../src/components/teacher/shared.tsx');
+const teacherData = () => ({ sessions:[], scores:[], plans:[], wrongAnswerDrills:[], dailyDrills:[], weeklyCapabilityGoals:[], resources:[], trinity:[] });
+const teacherProps = () => ({ data:teacherData(), range:{start:'2026-09-08',end:'2026-09-14'}, subject:'수학', feedback:[], busy:false, canFeedback:true, onFeedback:async()=>{}, onSignalAction(){} });
+test('teacher roles render distinct information architectures and evidence-based empty states',()=>{
+ const math=renderToStaticMarkup(createElement(MathTeacherDashboard,teacherProps()));
+ const learning=renderToStaticMarkup(createElement(LearningManagerDashboard,teacherProps()));
+ assert.match(math,/Capability/);assert.match(math,/Bottlenecks/);assert.match(math,/Wrong Answers/);assert.doesNotMatch(math,/Schedule \/ Load/);
+ assert.match(learning,/Execution/);assert.match(learning,/Teacher Signals/);assert.match(learning,/Schedule \/ Load/);assert.doesNotMatch(learning,/Wrong Answers/);
+ assert.match(math,/현재 수학 병목을 판단할 기록이 부족합니다/);assert.match(learning,/데이터 부족/);assert.doesNotMatch(math,/성적 예측|실력 지수|AI confidence/);
+});
+test('signal cards prioritize active signals before resolved history',()=>{
+ const base={type:'subject',created_at:'2026-09-14',acknowledgedByStudent:false,signal:{sourceRole:'subject_teacher',targetRole:'academic_manager',subject:'수학',priority:'medium',type:'diagnosis',evidenceRefs:[],status:'open'}};
+ const items=[{...base,id:'resolved',title:'완료된 이전 판단',signal:{...base.signal,priority:'high',status:'resolved'}},{...base,id:'open',title:'지금 개입할 판단'}];
+ const html=renderToStaticMarkup(createElement(SignalCards,{items,role:'academic_manager',busy:false,onAction(){},onEvidence(){}}));
+ assert.ok(html.indexOf('지금 개입할 판단')<html.indexOf('완료된 이전 판단'));
+});
+
+test('restricted teacher metrics distinguish denied access from zero records',()=>{
+ const props=teacherProps();props.data.access={sessions:false,scores:false,wrongAnswers:false,weeklyGoals:false,drills:false,trinity:false};
+ const html=renderToStaticMarkup(createElement(MathTeacherDashboard,props));
+ assert.match(html,/열람 권한 없음/);assert.doesNotMatch(html,/오답 <b>0건/);
+});
