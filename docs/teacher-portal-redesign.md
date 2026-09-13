@@ -202,3 +202,9 @@ Worker 검증은 [Cloudflare TypeScript 문서](https://developers.cloudflare.co
 - 여러 교사가 동시에 같은 Signal 초안을 수정할 때의 version 충돌 보호와 stale diagnosis 알림을 개선할 수 있습니다.
 - 실제 Cloudflare 원격 D1·운영 계정·기기 실물 테스트는 배포 단계에서 확인해야 합니다. 이번에는 실제 핸들러 + SQLite + Edge와 Worker 타입/패키징을 검증했습니다.
 - 기존 Worker lockfile 의존성 설치 audit에 high 3건이 있습니다. 이번 UI 작업에서 강제 업그레이드를 적용하지 않았으며 별도 검토가 필요합니다.
+
+## Follow-up: Resource / ARENA and teacher login
+- Learning managers can open all subject Resources and a read-only ARENA growth review from dedicated tabs or Overview quick links.
+- ARENA uses existing D1 snapshots, achievements and joined groups. Queries are assignment-protected and student-scoped; no peer details, raw metrics, profile private fields or invite codes are returned. No migration required.
+- Common teacher login sends a generic teacher entry request; the backend authenticates only subject_teacher / academic_manager and returns the stored role. The frontend selects the session key and portal from that authenticated role.
+- Validation: 65 tests, frontend build and Worker typecheck; common login for both teacher roles; all tabs at 390/768/1024/1280/1440, student regressions and zero console errors.

@@ -1,5 +1,6 @@
 import { KeyRound, LockKeyhole, ServerCog } from 'lucide-react';
 import { useState } from 'react';
+import { teacherEntry } from '../lib/teacherEntry';
 import { login } from '../lib/auth';
 import { loadCloudflareConfig } from '../lib/cloudflare';
 
@@ -33,14 +34,15 @@ export default function LoginPage({ onAuthenticated }: { onAuthenticated: () => 
       const response = await fetch(`${url.replace(/\/+$/, '')}/api/support/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, role: role === 'teacher' ? 'subject_teacher' : 'parent' }),
+        body: JSON.stringify({ username, password, role: role === 'teacher' ? 'teacher' : 'parent' }),
       });
-      const value = await response.json() as { token?: string; error?: string };
+      const value = await response.json() as { token?: string; role?: string; error?: string };
       if (!response.ok || !value.token) throw new Error(value.error || '로그인에 실패했습니다.');
-      const supportRole = role === 'teacher' ? 'subject_teacher' : 'parent';
-      const key = role === 'teacher' ? 'trinity-collab:subject_teacher' : 'trinity-support:parent';
+      const entry = role === 'teacher' ? teacherEntry(value.role || '') : {key:'trinity-support:parent',portal:'parent',role:'parent'};
+      const supportRole = entry.role;
+      const key = entry.key;
       sessionStorage.setItem(key, JSON.stringify({ url: url.replace(/\/+$/, ''), token: value.token, role: supportRole }));
-      window.location.assign(role === 'teacher' ? '?portal=teacher' : '?portal=parent');
+      window.location.assign('?portal=' + entry.portal);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '로그인에 실패했습니다.');
     } finally {

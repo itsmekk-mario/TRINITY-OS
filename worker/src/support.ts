@@ -41,13 +41,13 @@ export async function support(request:Request, env:Env, owner:boolean, origin:st
  try {
   if(path==='/api/support/login'&&method==='POST'){
    const b=await h.boundedJson<any>(request);const username=strings(b.username,40), role=b.role;
-   if(!['tutor','parent','subject_teacher','academic_manager','admin'].includes(role)||typeof b.password!=='string'||b.password.length>256)return out({error:'입력을 확인하세요.'},400);
+   if(!['teacher','tutor','parent','subject_teacher','academic_manager','admin'].includes(role)||typeof b.password!=='string'||b.password.length>256)return out({error:'입력을 확인하세요.'},400);
    const now=Date.now(), window=Math.floor(now/900000), key=await h.sha256((request.headers.get('CF-Connecting-IP')||'local')+':'+window);
    await env.DB.prepare('INSERT INTO support_login_attempts(key,attempts,expires_at) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET attempts=attempts+1').bind(key,now+900000).run();
    const tries=await env.DB.prepare('SELECT attempts FROM support_login_attempts WHERE key=?').bind(key).first<{attempts:number}>();
    if((tries?.attempts??0)>15)return out({error:'시도가 많습니다. 15분 후 다시 로그인하세요.'},429);
    await env.DB.prepare('DELETE FROM support_login_attempts WHERE expires_at<?').bind(now).run();
-   const a=await env.DB.prepare("SELECT id,username,COALESCE(collaboration_role,CASE role WHEN 'tutor' THEN 'subject_teacher' ELSE role END) AS role,salt,password_hash,COALESCE(password_iterations,100000) password_iterations FROM support_accounts WHERE username=? AND active=1 AND (collaboration_role=? OR role=? OR (role='tutor' AND ?='subject_teacher'))").bind(username,role,role,role).first<Account&{salt:string;password_hash:string;password_iterations:number}>();
+   const a=await env.DB.prepare("SELECT id,username,COALESCE(collaboration_role,CASE role WHEN 'tutor' THEN 'subject_teacher' ELSE role END) AS role,salt,password_hash,COALESCE(password_iterations,100000) password_iterations FROM support_accounts WHERE username=? AND active=1 AND ((?='teacher' AND COALESCE(collaboration_role,CASE role WHEN 'tutor' THEN 'subject_teacher' ELSE role END) IN ('subject_teacher','academic_manager')) OR (?<>'teacher' AND (collaboration_role=? OR role=? OR (role='tutor' AND ?='subject_teacher'))))").bind(username,role,role,role,role,role).first<Account&{salt:string;password_hash:string;password_iterations:number}>();
    const iterations=a?.password_iterations??PASSWORD_HASH_ITERATIONS; const hash=await h.passwordHash(b.password,a?.salt??'dummy-salt-for-login',iterations);
    if(!a||!await h.secretMatches(hash,a.password_hash))return out({error:'아이디 또는 비밀번호가 올바르지 않습니다.'},401);
    if(iterations<PASSWORD_HASH_ITERATIONS){const salt=h.randomHex(16);await env.DB.prepare('UPDATE support_accounts SET password_hash=?,salt=?,password_iterations=? WHERE id=?').bind(await h.passwordHash(b.password,salt,PASSWORD_HASH_ITERATIONS),salt,PASSWORD_HASH_ITERATIONS,a.id).run();}

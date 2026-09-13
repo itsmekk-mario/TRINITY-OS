@@ -57,6 +57,19 @@ try{
  browser=await chromium.launch({channel:'msedge',headless:true});
  const context=await browser.newContext({viewport:{width:1280,height:900}});
  context.on('page',page=>{page.on('pageerror',error=>errors.push(error.message));page.on('console',message=>{if(message.type()==='error'&&!message.text().includes('503'))errors.push(message.text());});});
+ for (const [account,portal,title] of [['manager','manager','Learning Control Center'],['math','teacher','Math Intelligence']]) {
+  const loginContext=await browser.newContext(); const entry=await loginContext.newPage();
+  await entry.goto('http://127.0.0.1:4173/');
+  await entry.getByRole('button',{name:'선생님 로그인',exact:true}).first().click();
+  await entry.getByRole('button',{name:'연결 서버 변경'}).click();
+  await entry.getByLabel('Worker 주소').fill('http://127.0.0.1:8789');
+  await entry.getByLabel('아이디',{exact:true}).fill(account); await entry.getByLabel('비밀번호',{exact:true}).fill('test-password-123');
+  await entry.getByRole('button',{name:'선생님 로그인',exact:true}).last().click();
+  await entry.waitForURL('**/?portal='+portal); await entry.getByRole('heading',{name:title,exact:true}).waitFor();
+  assert(await entry.evaluate(role=>JSON.parse(sessionStorage.getItem('trinity-collab:'+role)).role,account==='manager'?'academic_manager':'subject_teacher'));
+  await loginContext.close();
+ }
+ console.log('PASS Common teacher login: server-authenticated manager/math routing');
  const math=await context.newPage();
  await math.goto('http://127.0.0.1:4173/?portal=teacher');
  await math.getByLabel('Worker 주소').fill('http://127.0.0.1:8789');
@@ -129,7 +142,7 @@ try{
   for(const [page,role] of [[math,'math'],[manager,'learning']]){
    await page.setViewportSize({width,height:900});
    console.log('CHECK',role,width);
-   for(const name of role==='math'?['Overview','Capability','Bottlenecks','Mock Exams','Wrong Answers','Drill','Resources','Feedback']:['Overview','Execution','Subjects','Weekly Goals','Teacher Signals','Schedule / Load','Trends','Feedback']){
+   for(const name of role==='math'?['Overview','Capability','Bottlenecks','Mock Exams','Wrong Answers','Drill','Resources','Feedback']:['Overview','Execution','Subjects','Weekly Goals','Teacher Signals','Schedule / Load','Trends','Resources','ARENA','Feedback']){
     await page.getByRole('tab',{name,exact:true}).click();
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),role+' '+width+' '+name+' overflow');
    }

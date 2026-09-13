@@ -117,3 +117,18 @@ test('legacy support data also respects the assigned subject and permission flag
  assert.equal(response.status,200);const value=await response.json();
  assert.deepEqual(value.data.sessions,[]);assert.deepEqual(value.data.scores,[]);assert.deepEqual(value.data.wrong,[]);assert(!JSON.stringify(value).includes('necessary only'));
 });
+
+test('common teacher entry routes the authenticated role and rejects other roles',async()=>{
+ const {teacherEntry}=await import('../src/lib/teacherEntry.ts');
+ assert.equal(teacherEntry('academic_manager').portal,'manager');
+ assert.equal(teacherEntry('academic_manager').key,'trinity-collab:academic_manager');
+ assert.equal(teacherEntry('subject_teacher').portal,'teacher');
+ assert.throws(()=>teacherEntry('parent'));
+});
+test('teacher ARENA projection is manager-only, student-scoped and omits private metadata',async()=>{
+ const {teacherArena}=await import('../worker/src/collaboration.ts'); const h=harness();
+ h.db.exec("CREATE TABLE arena_seasons(id TEXT,name TEXT); CREATE TABLE arena_score_snapshots(id TEXT,user_id INTEGER,season_id TEXT,week_start TEXT,score INTEGER,execution INTEGER,problem_solving INTEGER,consistency INTEGER,growth INTEGER,calculated_at TEXT,metrics TEXT); CREATE TABLE arena_achievements(id TEXT,user_id INTEGER,title TEXT,description TEXT,awarded_at TEXT); CREATE TABLE arena_groups(id TEXT,name TEXT,type TEXT,invite_code TEXT); CREATE TABLE arena_group_members(group_id TEXT,user_id INTEGER); INSERT INTO arena_seasons VALUES('s','Season'); INSERT INTO arena_score_snapshots VALUES('own',1,'s','2026-09-07',50,10,20,10,10,'2026-09-13','PRIVATE'),('other',2,'s','2026-09-07',99,30,30,30,9,'2026-09-13','PRIVATE'); INSERT INTO arena_groups VALUES('g','Group','custom','PRIVATE'); INSERT INTO arena_group_members VALUES('g',1)");
+ const wrap=(stmt,args=[])=>({bind:(...v)=>wrap(stmt,v),all:async()=>({results:stmt.all(...args)})}); const env={DB:{prepare:sql=>wrap(h.db.prepare(sql))}};
+ assert.equal(await teacherArena(env,1,'subject_teacher'),undefined);
+ const view=await teacherArena(env,1,'academic_manager'); assert.equal(view.snapshots.length,1);assert.equal(view.snapshots[0].id,'own');assert.equal(view.groups[0].name,'Group');assert(!JSON.stringify(view).includes('PRIVATE'));h.db.close();
+});
