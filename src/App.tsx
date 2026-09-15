@@ -1,7 +1,7 @@
 import './team.css';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { BrainCircuit, CalendarRange, ChartNoAxesCombined, Menu, Download, Gauge, Home, MessageSquareText, NotebookTabs, Settings, ShieldCheck, Swords, Target, Upload, UserRound, X } from 'lucide-react';
+import { BrainCircuit, CalendarRange, ChartNoAxesCombined, Menu, Download, Gauge, Home, MessageSquareText, NotebookTabs, Settings, ShieldCheck, Swords, Target, Upload, UserRound, Video, X } from 'lucide-react';
 import type { AppData } from './types';
 import { downloadBackup, loadData, parseBackup, saveData } from './lib/storage';
 import { APP_VERSION } from './data/config';
@@ -24,17 +24,22 @@ import InsightsHub, { type InsightsView } from './pages/InsightsHub';
 import CoachPage from './pages/CoachPage';
 import PageTransition from './components/motion/PageTransition';
 import { useDialogFocus } from './components/motion/useDialogFocus';
+import StudyRoom from './pages/StudyRoom';
 
+<<<<<<< HEAD
 const CollaborativePortal = lazy(() => import('./pages/CollaborativePortal'));
 
 type Page = 'today' | 'plan' | 'train' | 'test' | 'insights' | 'coach' | 'feedback' | 'workspace' | 'profile' | 'archive';
+=======
+type Page = 'today' | 'plan' | 'train' | 'test' | 'insights' | 'study-room' | 'coach' | 'feedback' | 'workspace' | 'profile' | 'archive';
+>>>>>>> 3cd9f49 (feat: add Cloudflare Realtime SFU cam study)
 const primaryNav = [
   { id: 'today', label: 'Today', icon: Home }, { id: 'plan', label: 'Plan', icon: CalendarRange }, { id: 'train', label: 'Train', icon: Target }, { id: 'test', label: 'Test', icon: Gauge }, { id: 'insights', label: 'Insights', icon: ChartNoAxesCombined },
 ] as const;
 const utilityNav = [
-  { id: 'coach', label: 'AI Coach', icon: BrainCircuit }, { id: 'feedback', label: 'Teacher Feedback', icon: MessageSquareText }, { id: 'profile', label: 'Arena', icon: Swords }, { id: 'workspace', label: 'Workspace', icon: NotebookTabs },
+  { id: 'study-room', label: 'Study Room', icon: Video }, { id: 'coach', label: 'AI Coach', icon: BrainCircuit }, { id: 'feedback', label: 'Teacher Feedback', icon: MessageSquareText }, { id: 'profile', label: 'Arena', icon: Swords }, { id: 'workspace', label: 'Workspace', icon: NotebookTabs },
 ] as const;
-const paths: Record<Page, string> = { today: '/today', plan: '/plan', train: '/train', test: '/test', insights: '/insights', coach: '/coach', feedback: '/feedback', workspace: '/workspace', profile: '/arena', archive: '/archive' };
+const paths: Record<Page, string> = { today: '/today', plan: '/plan', train: '/train', test: '/test', insights: '/insights', 'study-room': '/study-room', coach: '/coach', feedback: '/feedback', workspace: '/workspace', profile: '/arena', archive: '/archive' };
 const pageFromLocation = (): Page => {
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
   if (path === '/' || path === '/dashboard' || path === '/today') return 'today';
@@ -92,7 +97,7 @@ function StudentApp() {
   };
   const changeSubview = <T extends string>(target: Page, view: T, setter: (value: T) => void) => { scrollPositions.current.set(currentKey(), window.scrollY); setter(view); window.history.pushState({}, '', `${paths[target]}?view=${encodeURIComponent(view)}`); window.requestAnimationFrame(() => window.scrollTo({ top: scrollPositions.current.get(`${target}:${view}`) ?? 0, behavior: 'auto' })); };
   const importData = async (file?: File) => { if (!file) return; try { setData(await parseBackup(file)); setToast('백업 데이터를 복원했습니다.'); setSettings(false); } catch (error) { setToast(error instanceof Error ? error.message : '가져오기에 실패했습니다.'); } finally { window.setTimeout(() => setToast(''), 2200); } };
-  const screen = page === 'today' ? <Dashboard data={data} update={update} navigate={navigate} /> : page === 'plan' ? <PlanHub data={data} update={update} view={planView} onView={(view) => changeSubview('plan', view, setPlanView)} /> : page === 'train' ? <TrainHub data={data} update={update} view={trainView} onView={(view) => changeSubview('train', view, setTrainView)} /> : page === 'test' ? <ScoreTracker data={data} update={update} /> : page === 'insights' ? <InsightsHub data={data} update={update} view={insightsView} onView={(view) => changeSubview('insights', view, setInsightsView)} /> : page === 'coach' ? <CoachPage data={data} /> : page === 'feedback' ? <FeedbackInbox data={data} update={update} /> : page === 'workspace' ? <NotionWorkspace data={data} update={update} /> : page === 'profile' ? <Arena data={data} /> : <ExamArchive />;
+  const screen = page === 'today' ? <Dashboard data={data} update={update} navigate={navigate} /> : page === 'plan' ? <PlanHub data={data} update={update} view={planView} onView={(view) => changeSubview('plan', view, setPlanView)} /> : page === 'train' ? <TrainHub data={data} update={update} view={trainView} onView={(view) => changeSubview('train', view, setTrainView)} /> : page === 'test' ? <ScoreTracker data={data} update={update} /> : page === 'insights' ? <InsightsHub data={data} update={update} view={insightsView} onView={(view) => changeSubview('insights', view, setInsightsView)} /> : page === 'study-room' ? <StudyRoom data={data} /> : page === 'coach' ? <CoachPage data={data} /> : page === 'feedback' ? <FeedbackInbox data={data} update={update} /> : page === 'workspace' ? <NotionWorkspace data={data} update={update} /> : page === 'profile' ? <Arena data={data} /> : <ExamArchive />;
   if (!authenticated) return <LoginPage onAuthenticated={() => { const config = loadCloudflareConfig(); setAuthenticated(true); setPasswordRequired(Boolean(config.mustChangePassword)); }} />;
   return <div className="app-shell learning-shell">
     <aside ref={sidebarRef} tabIndex={menu ? -1 : undefined} role={menu ? 'dialog' : undefined} aria-modal={menu || undefined} aria-label={menu ? '메뉴' : undefined} className={menu ? 'open' : ''}><div className="brand"><div className="brand-mark">T</div><div><strong>TRINITY OS</strong><span>Learning Operating System</span></div><button className="mobile-close" aria-label="메뉴 닫기" onClick={() => setMenu(false)}><X /></button></div><nav className="primary-nav" aria-label="핵심 메뉴">{primaryNav.map(({ id, label, icon: Icon }) => <button key={id} aria-current={page === id ? 'page' : undefined} className={page === id ? 'active' : ''} onClick={() => navigate(id)}><Icon size={19} /><span>{label}</span></button>)}</nav><div className="utility-nav"><span>UTILITY</span>{utilityNav.map(({ id, label, icon: Icon }) => <button key={id} aria-current={page === id ? 'page' : undefined} className={page === id ? 'active' : ''} onClick={() => navigate(id)}><Icon size={17} /><span>{label}</span></button>)}</div><div className="account-area"><button className="account-button" onClick={() => { setMenu(false); setSettings(true); }} aria-label={`${username} 계정 및 설정`}><span className="account-avatar"><UserRound size={19} /></span><span><b>{username}</b><small>Settings</small></span><Settings size={16} /></button></div></aside>

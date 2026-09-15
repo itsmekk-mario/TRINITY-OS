@@ -1,15 +1,23 @@
 import { support } from './support.ts';
 import { aiService, type AIServiceConfig } from './lib/ai/service.ts';
 import { AIProviderError, type ChatMessage } from './lib/ai/types.ts';
+import { parseAndSelectLocalAIContext } from './lib/ai/context.ts';
 import { arena } from './arena.ts';
 import { boundedJson, MAX_JSON_BODY, MAX_SYNC_BODY, PASSWORD_HASH_ITERATIONS, passwordHash, randomHex, requestOrigin, RequestError, secretMatches, sessionTtlDays, sha256, validateAppData } from './security.ts';
+import { StudyRoomDurableObject } from './study-room/StudyRoomDurableObject.ts';
+import { connectStudyRoomWebSocket, handleStudyRoomApi } from './study-room/routes.ts';
+
+export { StudyRoomDurableObject };
 
 export interface Env {
   DB: D1Database; SYNC_TOKEN?: string; NVIDIA_API_KEY?: string; NVIDIA_MODEL?: string; NVIDIA_BASE_URL?: string;
   AI_PROVIDER?: string; AI_TIMEOUT_MS?: string; AI_MAX_RETRIES?: string; AI_DEBUG?: string; ENVIRONMENT?: string;
   AI_USER_DAILY_LIMIT?: string; AI_GLOBAL_DAILY_LIMIT?: string; AI_CHAT_COOLDOWN_SECONDS?: string;
+  LOCAL_AI_BASE_URL?: string; LOCAL_AI_API_KEY?: string; LOCAL_AI_TIMEOUT_MS?: string; LOCAL_AI_MODEL?: string;
   ALLOWED_ORIGIN?: string; SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; SUPABASE_BUCKET?: string;
   SESSION_TTL_DAYS?: string;
+  STUDY_ROOM: DurableObjectNamespace<StudyRoomDurableObject>;
+  CALLS_APP_ID?: string; CALLS_APP_SECRET?: string;
 }
 const json = (body: unknown, status = 200, origin = '', extra: HeadersInit = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', ...(origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}), 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Setup-Token', 'Access-Control-Allow-Methods': 'GET, PUT, POST, PATCH, DELETE, OPTIONS', 'Cache-Control': 'no-store', ...extra } });
 async function ensureTables(db: D1Database) { await db.batch([
@@ -23,20 +31,24 @@ async function ensureTables(db: D1Database) { await db.batch([
   db.prepare('CREATE TABLE IF NOT EXISTS student_login_attempts (key TEXT PRIMARY KEY,attempts INTEGER NOT NULL,expires_at INTEGER NOT NULL)'),
   db.prepare('CREATE TABLE IF NOT EXISTS admin_rate_limits (key TEXT PRIMARY KEY,attempts INTEGER NOT NULL,expires_at INTEGER NOT NULL)'),
   db.prepare("CREATE TABLE IF NOT EXISTS security_audit_logs (id TEXT PRIMARY KEY,actor_type TEXT NOT NULL,actor_id TEXT,action TEXT NOT NULL,target_type TEXT,target_id TEXT,created_at TEXT NOT NULL,metadata_json TEXT NOT NULL DEFAULT '{}')"),
+  db.prepare('CREATE TABLE IF NOT EXISTS study_rooms (id TEXT PRIMARY KEY,invite_code TEXT NOT NULL UNIQUE,name TEXT NOT NULL,owner_user_id INTEGER NOT NULL REFERENCES users(id),created_at TEXT NOT NULL,is_active INTEGER NOT NULL DEFAULT 1,max_participants INTEGER NOT NULL DEFAULT 10 CHECK(max_participants BETWEEN 2 AND 10))'),
+  db.prepare('CREATE TABLE IF NOT EXISTS study_room_members (room_id TEXT NOT NULL REFERENCES study_rooms(id) ON DELETE CASCADE,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,connection_id TEXT NOT NULL,joined_at TEXT NOT NULL,left_at TEXT,PRIMARY KEY(room_id,user_id,joined_at))'),
 ]); await db.batch([
   db.prepare('CREATE INDEX IF NOT EXISTS api_tokens_user_active ON api_tokens(user_id, revoked_at)'),
   db.prepare('CREATE INDEX IF NOT EXISTS learning_state_history_user_saved ON learning_state_history(user_id, saved_at DESC)'),
   db.prepare('CREATE INDEX IF NOT EXISTS ai_cache_expiry ON ai_cache(expires_at)'),
   db.prepare('CREATE INDEX IF NOT EXISTS ai_usage_user_created ON ai_usage(user_id, created_at DESC)'),
   db.prepare('CREATE INDEX IF NOT EXISTS ai_usage_created ON ai_usage(created_at DESC)'),
+  db.prepare('CREATE INDEX IF NOT EXISTS study_rooms_invite_active ON study_rooms(invite_code,is_active)'),
+  db.prepare('CREATE INDEX IF NOT EXISTS study_room_members_open ON study_room_members(room_id,left_at)'),
 ]); const columns = await db.prepare('PRAGMA table_info(users)').all<{ name: string }>(); if (!columns.results.some((column) => column.name === 'is_admin')) await db.prepare('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0').run(); if (!columns.results.some((column) => column.name === 'must_change_password')) await db.prepare('ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0').run(); if (!columns.results.some((column) => column.name === 'password_changed_at')) await db.prepare('ALTER TABLE users ADD COLUMN password_changed_at TEXT').run(); if (!columns.results.some((column) => column.name === 'password_iterations')) await db.prepare('ALTER TABLE users ADD COLUMN password_iterations INTEGER NOT NULL DEFAULT 100000').run(); if (!columns.results.some((column) => column.name === 'active')) await db.prepare('ALTER TABLE users ADD COLUMN active INTEGER NOT NULL DEFAULT 1').run(); if (!columns.results.some((column) => column.name === 'arena_public_id')) await db.prepare('ALTER TABLE users ADD COLUMN arena_public_id TEXT').run(); await db.prepare("UPDATE users SET arena_public_id='arena_'||lower(hex(randomblob(16))) WHERE arena_public_id IS NULL").run(); const tokenColumns=await db.prepare('PRAGMA table_info(api_tokens)').all<{name:string}>(); if(!tokenColumns.results.some(column=>column.name==='scopes'))await db.prepare("ALTER TABLE api_tokens ADD COLUMN scopes TEXT NOT NULL DEFAULT 'sync:read,sync:write'").run(); }
-type User = { id: number; username: string; is_admin: number; must_change_password: number };
+type User = { id: number; username: string; is_admin: number; must_change_password: number; arena_public_id?: string | null };
 type AuthContext = { user: User; authType: 'session'|'api_token'; tokenHash: string; scopes: string[] };
 async function authContext(request: Request, env: Env): Promise<AuthContext|null> {
   const bearer=(request.headers.get('Authorization')||'').replace(/^Bearer\s+/i,''); if(!bearer)return null; const tokenHash=await sha256(bearer);
-  const session=await env.DB.prepare("SELECT u.id,u.username,u.is_admin,u.must_change_password FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND u.active=1 AND datetime(s.expires_at)>datetime('now')").bind(tokenHash).first<User>();
+  const session=await env.DB.prepare("SELECT u.id,u.username,u.is_admin,u.must_change_password,u.arena_public_id FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND u.active=1 AND datetime(s.expires_at)>datetime('now')").bind(tokenHash).first<User>();
   if(session)return {user:session,authType:'session',tokenHash,scopes:[]};
-  const pat=await env.DB.prepare("SELECT u.id,u.username,u.is_admin,u.must_change_password,t.scopes FROM api_tokens t JOIN users u ON u.id=t.user_id WHERE t.token_hash=? AND t.revoked_at IS NULL AND u.active=1").bind(tokenHash).first<User&{scopes:string}>();
+  const pat=await env.DB.prepare("SELECT u.id,u.username,u.is_admin,u.must_change_password,u.arena_public_id,t.scopes FROM api_tokens t JOIN users u ON u.id=t.user_id WHERE t.token_hash=? AND t.revoked_at IS NULL AND u.active=1").bind(tokenHash).first<User&{scopes:string}>();
   return pat?{user:pat,authType:'api_token',tokenHash,scopes:(pat.scopes||'').split(',').map(value=>value.trim()).filter(Boolean)}:null;
 }
 async function createSession(env: Env, username: string, userId: number) { const token=randomHex(),hash=await sha256(token),expires=new Date(Date.now()+sessionTtlDays(env.SESSION_TTL_DAYS)*86400000).toISOString(); await env.DB.prepare("DELETE FROM sessions WHERE datetime(expires_at)<=datetime('now')").run(); await env.DB.prepare('INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)').bind(hash,userId,expires,new Date().toISOString()).run(); return {token,username,expiresAt:expires}; }
@@ -77,7 +89,12 @@ function safeStudyContext(value: unknown) {
     localDiagnosis: { status: short(local.status, 180), primaryBottleneck: short(local.primaryBottleneck), nextAction: short(local.nextAction, 220), successCriterion: short(local.successCriterion, 180), evidence: Array.isArray(local.evidence) ? local.evidence.slice(0, 3).map((item) => short(item, 140)) : [] },
   };
 }
-const providerConfig = (env: Env): AIServiceConfig => ({ provider: env.AI_PROVIDER || 'nvidia-kimi', apiKey: env.NVIDIA_API_KEY, model: env.NVIDIA_MODEL, baseUrl: env.NVIDIA_BASE_URL, timeoutMs: env.AI_TIMEOUT_MS, maxRetries: env.AI_MAX_RETRIES, debug: env.AI_DEBUG, environment: env.ENVIRONMENT, userDailyLimit: env.AI_USER_DAILY_LIMIT, globalDailyLimit: env.AI_GLOBAL_DAILY_LIMIT, chatCooldownSeconds: env.AI_CHAT_COOLDOWN_SECONDS });
+const providerConfig = (env: Env): AIServiceConfig => ({ provider: env.AI_PROVIDER || 'nvidia-kimi', apiKey: env.NVIDIA_API_KEY, model: env.NVIDIA_MODEL, baseUrl: env.NVIDIA_BASE_URL, timeoutMs: env.AI_TIMEOUT_MS, maxRetries: env.AI_MAX_RETRIES, debug: env.AI_DEBUG, environment: env.ENVIRONMENT, userDailyLimit: env.AI_USER_DAILY_LIMIT, globalDailyLimit: env.AI_GLOBAL_DAILY_LIMIT, chatCooldownSeconds: env.AI_CHAT_COOLDOWN_SECONDS, localAIBaseUrl: env.LOCAL_AI_BASE_URL, localAIApiKey: env.LOCAL_AI_API_KEY, localAITimeoutMs: env.LOCAL_AI_TIMEOUT_MS, localAIModel: env.LOCAL_AI_MODEL });
+async function localAIContext(env: Env, userId: number) {
+  if (env.AI_PROVIDER !== 'local-qwen') return undefined;
+  const row = await env.DB.prepare('SELECT payload FROM learning_state WHERE user_id=?').bind(userId).first<{ payload: string }>();
+  return parseAndSelectLocalAIContext(row?.payload);
+}
 const aiMessage = (error: AIProviderError) => {
   switch (error.code) {
     case 'AI_NOT_CONFIGURED': return 'AI 코치가 아직 설정되지 않았습니다. 관리자에게 문의해 주세요.';
@@ -86,6 +103,10 @@ const aiMessage = (error: AIProviderError) => {
     case 'AI_RATE_LIMITED': return /[가-힣]/.test(error.message) ? error.message : `AI 요청이 잠시 제한되었습니다.${error.retryAfterSeconds ? ` ${error.retryAfterSeconds}초 후 다시 시도해 주세요.` : ' 잠시 후 다시 시도해 주세요.'} 기본 TRINITY 분석은 정상적으로 사용할 수 있습니다.`;
     case 'AI_TIMEOUT': return 'AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.';
     case 'AI_PROVIDER_UNAVAILABLE': return 'AI 서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해 주세요.';
+    case 'LOCAL_AI_UNAVAILABLE': return '로컬 AI PC 또는 Tunnel에 연결할 수 없습니다. 기본 TRINITY 분석은 계속 사용할 수 있습니다.';
+    case 'LOCAL_AI_TIMEOUT': return '로컬 AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.';
+    case 'LOCAL_AI_MODEL_NOT_AVAILABLE': return '로컬 AI 모델을 사용할 수 없습니다. 관리자에게 Ollama 모델 상태 확인을 요청해 주세요.';
+    case 'LOCAL_AI_INVALID_RESPONSE': return '로컬 AI 응답 형식을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.';
     case 'AI_INVALID_RESPONSE': return 'AI 응답 형식을 확인하지 못했습니다. 다시 시도해 주세요.';
     default: return 'AI 요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
   }
@@ -103,6 +124,11 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
   await ensureTables(env.DB);
   if(request.method!=='GET'&&['/api/support/accounts','/api/collab/assignments'].includes(url.pathname)&&!await adminAllowed(request,env))return json({error:'요청이 너무 많습니다.'},429,origin,{'Retry-After':'60'});
   if (url.pathname === '/api/health' && request.method === 'GET') return json({ ok: true, service: 'trinity-os-sync' }, 200, origin);
+  if (url.pathname.startsWith('/api/study-rooms/') && url.pathname.endsWith('/websocket')) {
+    if (!cors.allowed) return json({ error: '허용되지 않은 Origin입니다.' }, 403);
+    const response = await connectStudyRoomWebSocket(request, env);
+    if (response) return response;
+  }
   if (url.pathname === '/api/admin/students' && request.method === 'POST') {
     const issuerToken = request.headers.get('X-Setup-Token') || '';
     if (!await adminAllowed(request,env)) return json({error:'요청이 너무 많습니다.'},429,origin,{'Retry-After':'60'});
@@ -164,6 +190,8 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
   if (extra) return extra;
   const arenaResponse = await arena(request, env, sessionUser, origin, { json, randomHex,boundedJson });
   if (arenaResponse) return arenaResponse;
+  const studyRoomResponse = await handleStudyRoomApi(request, env, sessionUser, origin, json);
+  if (studyRoomResponse) return studyRoomResponse;
   if (url.pathname === '/api/auth/me' && request.method === 'GET') return user ? json({ ok: true, username: user.username, mustChangePassword: user.must_change_password === 1 }, 200, origin) : json({ error: 'Unauthorized' }, 401, origin);
   if (url.pathname === '/api/auth/logout' && request.method === 'POST') {
     if(!auth||auth.authType!=='session')return json({error:'Unauthorized'},401,origin);
@@ -195,7 +223,8 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     if (!context) return json({ error: '압축된 TRINITY Analytics 결과가 필요합니다.' }, 400, origin);
     const requestText = `TRINITY Analytics 결과:\n${JSON.stringify(context)}\n\n이 결과를 다시 계산하지 말고 근거를 연결해 현재 상태, 핵심 병목, 근거, 다음 행동 1개와 검증 기준을 짧게 설명하세요.`;
     try {
-      const result = await aiService.complete({ db: env.DB, userId: user.id, user: user.username, operation: 'study-analysis', cacheKey: await sha256(stableJson(context)), maxTokens: 260, config: providerConfig(env), messages: prompt(coachSystem, requestText) });
+      const selected = await localAIContext(env, user.id);
+      const result = await aiService.complete({ db: env.DB, userId: user.id, user: user.username, operation: 'study-analysis', cacheKey: await sha256(stableJson({ context, selected })), maxTokens: 260, context: selected, config: providerConfig(env), messages: prompt(coachSystem, requestText) });
       return json({ message: text(result.content, '정밀 분석 결과를 확인하지 못했습니다.'), cached: result.cached }, 200, origin);
     } catch (cause) { return aiError(cause, origin); }
   }
@@ -220,7 +249,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     const conversation = raw.map(asObject).filter((item): item is Record<string, unknown> => Boolean(item)).filter((item) => (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string').map((item) => `${item.role === 'user' ? '사용자' : '코치'}: ${text(item.content).slice(0, 300)}`).join('\n');
     if (!conversation) return json({ error: '유효한 질문이 필요합니다.' }, 400, origin);
     const requestText = `선별된 학습 데이터:\n${JSON.stringify(context)}\n\n최근 대화:\n${conversation}\n\n위 질문에만 짧게 답하세요.`;
-    try { const result = await aiService.complete({ db: env.DB, userId: user.id, user: user.username, operation: 'chat', cacheKey: await sha256(requestText), maxTokens: 280, config: providerConfig(env), messages: prompt(coachSystem, requestText) }); return json({ message: result.content, cached: result.cached }, 200, origin); } catch (cause) { return aiError(cause, origin); }
+    try { const selected = await localAIContext(env, user.id); const result = await aiService.complete({ db: env.DB, userId: user.id, user: user.username, operation: 'chat', cacheKey: await sha256(`${requestText}:${stableJson(selected ?? {})}`), maxTokens: 280, context: selected, config: providerConfig(env), messages: prompt(coachSystem, requestText) }); return json({ message: result.content, cached: result.cached }, 200, origin); } catch (cause) { return aiError(cause, origin); }
   }
   if (url.pathname !== '/api/sync' || !['GET', 'PUT'].includes(request.method)) return json({ error: 'Not found' }, 404, origin);
   if (!auth||!user) return json({ error: 'Unauthorized' }, 401, origin);

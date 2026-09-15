@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build && node scripts/create-spa-entrypoints.mjs",
-    "test": "node --experimental-transform-types --test \"tests/*.test.mjs\"",
+    "test": "node --experimental-loader ./tests/cloudflare-loader.mjs --experimental-transform-types --test \"tests/*.test.mjs\"",
     "preview": "vite preview"
   },
   "dependencies": {

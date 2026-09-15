@@ -1,5 +1,28 @@
 # TRINITY OS Worker
 
+## CAM Study Room / Cloudflare Realtime SFU
+
+CAM Study Room uses one Cloudflare Realtime SFU session (one
+`RTCPeerConnection`) per logged-in participant. Each participant publishes at
+most one video track and subscribes to the other room members through that same
+SFU session. The Durable Object WebSocket carries presence, camera state, study
+state, and published track identifiers only; it never relays peer SDP or ICE and
+never carries media.
+
+Create a Realtime SFU application in the Cloudflare dashboard, then keep both
+values on the Worker. `CALLS_APP_SECRET` must never be placed in Vite variables,
+browser code, D1, or source control:
+
+    cd worker
+    npx wrangler secret put CALLS_APP_ID --config wrangler.toml
+    npx wrangler secret put CALLS_APP_SECRET --config wrangler.toml
+    npx wrangler d1 execute trinity-os-db --remote --file=./migrations/0010_cam_study_rooms.sql --config wrangler.toml
+    npx wrangler deploy --config wrangler.toml
+
+The D1 migration stores room metadata and joined/left timestamps only. Camera
+media is encrypted WebRTC traffic between the browser and Cloudflare Realtime
+SFU; TRINITY OS does not record it or write it to D1/R2/Worker storage.
+
 The browser never calls NVIDIA NIM and never contains an NVIDIA API key. Its AI
 entry points are authenticated Worker routes:
 
@@ -24,6 +47,27 @@ src/lib/ai/providers/nvidia-kimi.ts owns the NVIDIA HTTP contract, timeout,
 single-attempt request, error parsing, and response validation. Routes only validate
 input and build prompts. A future provider is added behind the AIProvider
 interface without changing routes or React components.
+
+## Local Qwen provider
+
+Phase 2 adds `local-qwen` behind the same `AIProvider` interface. The browser still calls only authenticated `/api/ai/*` Worker routes. The Worker selects a bounded projection from the authenticated user's D1 `learning_state`, then calls the FastAPI service through Cloudflare Tunnel.
+
+Non-secret configuration is in `wrangler.toml`:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `LOCAL_AI_BASE_URL` | `https://ai.trinityos.mcv.kr` | Tunnel public hostname; never sent to the browser |
+| `LOCAL_AI_TIMEOUT_MS` | `30000` | Worker-to-local inference timeout |
+| `LOCAL_AI_MODEL` | `qwen3:8b` | Cache/usage model identity |
+
+Set the shared Bearer credential interactively as a Worker secret. Put the same value only in the Windows `local-ai/.env` file.
+
+```powershell
+cd worker
+npx wrangler secret put LOCAL_AI_API_KEY --config wrangler.toml
+```
+
+After the Tunnel and secret are verified, change `AI_PROVIDER` from `nvidia-kimi` to `local-qwen` and deploy. Do not switch production while the PC, FastAPI, or Tunnel is unavailable. Local failures are normalized as `LOCAL_AI_UNAVAILABLE`, `LOCAL_AI_TIMEOUT`, `LOCAL_AI_MODEL_NOT_AVAILABLE`, or `LOCAL_AI_INVALID_RESPONSE`; no paid provider is called automatically.
 
 ## Required secret
 

@@ -13,6 +13,14 @@ head_sampling_rate = 1
 enabled = true
 head_sampling_rate = 0.1
 
+[[durable_objects.bindings]]
+name = "STUDY_ROOM"
+class_name = "StudyRoomDurableObject"
+
+[exports.StudyRoomDurableObject]
+type = "durable-object"
+storage = "sqlite"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "trinity-os-db"
@@ -29,4 +37,7 @@ AI_MAX_RETRIES = "0"
 AI_USER_DAILY_LIMIT = "12"
 AI_GLOBAL_DAILY_LIMIT = "100"
 AI_CHAT_COOLDOWN_SECONDS = "8"
+LOCAL_AI_BASE_URL = "https://ai.trinityos.mcv.kr"
+LOCAL_AI_TIMEOUT_MS = "30000"
+LOCAL_AI_MODEL = "qwen3:8b"
 # Set AI_DEBUG = "true" only in the development Worker environment.

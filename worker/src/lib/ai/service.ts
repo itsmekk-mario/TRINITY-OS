@@ -1,9 +1,10 @@
 import { NvidiaKimiProvider, type NvidiaKimiConfig } from './providers/nvidia-kimi.ts';
+import { LocalQwenProvider, type LocalQwenConfig } from './providers/local-qwen.ts';
 import { AIProviderError, type AIProvider, type ChatMessage } from './types.ts';
 
 export type AIOperation = 'study-analysis' | 'teacher-feedback-summary' | 'arena-coach' | 'chat';
 
-export interface AIServiceConfig extends NvidiaKimiConfig {
+export interface AIServiceConfig extends NvidiaKimiConfig, LocalQwenConfig {
   provider?: string;
   userDailyLimit?: string;
   globalDailyLimit?: string;
@@ -33,6 +34,7 @@ export class AIService {
   private provider(config: AIServiceConfig): AIProvider {
     if (this.makeProvider) return this.makeProvider(config);
     if (!config.provider || config.provider === 'nvidia-kimi') return new NvidiaKimiProvider(config);
+    if (config.provider === 'local-qwen') return new LocalQwenProvider(config);
     throw new AIProviderError('설정된 AI provider를 사용할 수 없습니다.', 503, 'AI_NOT_CONFIGURED');
   }
 
@@ -69,12 +71,13 @@ export class AIService {
     cacheKey: string;
     messages: ChatMessage[];
     maxTokens: number;
+    context?: Record<string, unknown>;
     config: AIServiceConfig;
   }): Promise<{ content: string; cached: boolean }> {
     const now = new Date();
     const nowIso = now.toISOString();
     const providerName = input.config.provider || 'nvidia-kimi';
-    const modelName = input.config.model || 'openai/gpt-oss-20b';
+    const modelName = providerName === 'local-qwen' ? input.config.localAIModel || 'qwen3:8b' : input.config.model || 'openai/gpt-oss-20b';
     const persistentKey = `${input.userId}:${providerName}:${modelName}:${input.operation}:${input.cacheKey}`;
     const cached = await this.cached(input.db, persistentKey, nowIso);
     if (cached !== null) return { content: cached, cached: true };
@@ -86,7 +89,7 @@ export class AIService {
 
     try {
       // Exactly one provider.chat call. The provider itself never retries.
-      const response = await this.provider(input.config).chat(input.messages, { maxTokens: input.maxTokens, temperature: 0.2 });
+      const response = await this.provider(input.config).chat(input.messages, { maxTokens: input.maxTokens, temperature: 0.2, context: input.context });
       const expiresAt = new Date(now.getTime() + CACHE_TTL_MS[input.operation]).toISOString();
       await Promise.all([
         input.db.prepare('INSERT INTO ai_cache(cache_key,user_id,operation,response,created_at,expires_at) VALUES(?,?,?,?,?,?) ON CONFLICT(cache_key) DO UPDATE SET response=excluded.response,created_at=excluded.created_at,expires_at=excluded.expires_at')

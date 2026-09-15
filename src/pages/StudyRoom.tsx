@@ -1,0 +1,27 @@
+import { useEffect, useState } from 'react';
+import type { AppData } from '../types';
+import { useCamera } from '../hooks/useCamera';
+import { useStudyRoom } from '../hooks/useStudyRoom';
+import type { StudyRoomInfo } from '../lib/studyRoom';
+import StudyRoomLobby from './StudyRoomLobby';
+import StudyGrid from '../components/study-room/StudyGrid';
+import StudyRoomHeader from '../components/study-room/StudyRoomHeader';
+import StudyRoomControls from '../components/study-room/StudyRoomControls';
+
+function ActiveStudyRoom({ initialRoom, data, onExit }: { initialRoom: StudyRoomInfo; data: AppData; onExit: () => void }) {
+  const camera = useCamera(), session = useStudyRoom(initialRoom.code, initialRoom, data, camera.stream, camera.enabled);
+  useEffect(() => { const recover = () => { if (document.visibilityState === 'visible') camera.recover(); }; document.addEventListener('visibilitychange', recover); return () => document.removeEventListener('visibilitychange', recover); }, [camera.recover]);
+  const leave = () => { session.leave(); camera.stop(); onExit(); };
+  return <div className="study-room-active"><StudyRoomHeader room={session.room} participants={session.participants} connectionState={session.connectionState} />
+    {(camera.error || session.error) && <div className="study-room-notice" role="status"><b>{camera.error ? '카메라가 꺼져 있습니다.' : session.error}</b><p>{camera.error ? '카메라 없이도 Study Room에 참여할 수 있습니다.' : '연결을 자동으로 다시 시도하고 있습니다.'}</p>{camera.error && <button className="button" onClick={() => void camera.start()}>다시 허용</button>}</div>}
+    <StudyGrid participants={session.participants} selfId={session.selfId} />
+    <StudyRoomControls cameraEnabled={camera.enabled} cameraStarting={camera.starting} onCamera={() => camera.enabled ? camera.stop() : void camera.start()} onFlip={() => void camera.flip()} onLeave={leave} />
+  </div>;
+}
+
+export default function StudyRoom({ data }: { data: AppData }) {
+  const [room, setRoom] = useState<StudyRoomInfo>();
+  const enter = (next: StudyRoomInfo) => { setRoom(next); window.history.replaceState({}, '', `/study-room?room=${encodeURIComponent(next.code)}`); };
+  const exit = () => { setRoom(undefined); window.history.replaceState({}, '', '/study-room'); };
+  return room ? <ActiveStudyRoom initialRoom={room} data={data} onExit={exit} /> : <StudyRoomLobby onEnter={enter} />;
+}

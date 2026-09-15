@@ -9,6 +9,7 @@ export interface ChatOptions {
   maxTokens: number;
   temperature?: number;
   timeoutMs?: number;
+  context?: Record<string, unknown>;
 }
 
 export interface AIResponse {
@@ -31,7 +32,11 @@ export type AIErrorCode =
   | 'AI_PROVIDER_UNAVAILABLE'
   | 'AI_TIMEOUT'
   | 'AI_INVALID_RESPONSE'
-  | 'AI_REQUEST_FAILED';
+  | 'AI_REQUEST_FAILED'
+  | 'LOCAL_AI_UNAVAILABLE'
+  | 'LOCAL_AI_TIMEOUT'
+  | 'LOCAL_AI_MODEL_NOT_AVAILABLE'
+  | 'LOCAL_AI_INVALID_RESPONSE';
 
 export class AIProviderError extends Error {
   constructor(
