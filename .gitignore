@@ -12,10 +12,7 @@ __pycache__/
 node_modules/
 worker/node_modules/
 dist/
-<<<<<<< HEAD
 .teacher-ui-check/
 .teacher-test-tools/
 *.zip
-=======
-*.zip
->>>>>>> 3cd9f49 (feat: add Cloudflare Realtime SFU cam study)
+

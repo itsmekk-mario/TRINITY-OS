@@ -26,13 +26,21 @@ import PageTransition from './components/motion/PageTransition';
 import { useDialogFocus } from './components/motion/useDialogFocus';
 import StudyRoom from './pages/StudyRoom';
 
-<<<<<<< HEAD
 const CollaborativePortal = lazy(() => import('./pages/CollaborativePortal'));
 
-type Page = 'today' | 'plan' | 'train' | 'test' | 'insights' | 'coach' | 'feedback' | 'workspace' | 'profile' | 'archive';
-=======
-type Page = 'today' | 'plan' | 'train' | 'test' | 'insights' | 'study-room' | 'coach' | 'feedback' | 'workspace' | 'profile' | 'archive';
->>>>>>> 3cd9f49 (feat: add Cloudflare Realtime SFU cam study)
+type Page =
+  | 'today'
+  | 'plan'
+  | 'train'
+  | 'test'
+  | 'insights'
+  | 'study-room'
+  | 'coach'
+  | 'feedback'
+  | 'workspace'
+  | 'profile'
+  | 'archive';
+
 const primaryNav = [
   { id: 'today', label: 'Today', icon: Home }, { id: 'plan', label: 'Plan', icon: CalendarRange }, { id: 'train', label: 'Train', icon: Target }, { id: 'test', label: 'Test', icon: Gauge }, { id: 'insights', label: 'Insights', icon: ChartNoAxesCombined },
 ] as const;

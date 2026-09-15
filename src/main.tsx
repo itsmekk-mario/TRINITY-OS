@@ -7,11 +7,8 @@ import './auth.css';
 import './timer-enhanced.css';
 import './ui-polish.css';
 import './ui-system.css';
-<<<<<<< HEAD
 import './teacher.css';
-=======
-import './study-room.css';
->>>>>>> 3cd9f49 (feat: add Cloudflare Realtime SFU cam study)
+import './study-room.css'; 
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
 

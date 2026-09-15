@@ -11,11 +11,12 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
-    "typescript": "5.8.3",
+    "livekit-client": "^2.22.3",
+    "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "lucide-react": "latest"
+    "typescript": "5.8.3",
+    "vite": "latest"
   },
   "devDependencies": {
     "@types/react": "latest",
