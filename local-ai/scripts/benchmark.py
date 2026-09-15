@@ -21,7 +21,7 @@ CASES: list[tuple[str, dict[str, Any]]] = [
         "context": {
             "sessions": [{"date": "2026-09-15", "subject": "수학", "seconds": 5400}],
             "scores": [{"date": "2026-09-14", "name": "주간 점검", "math": 72}],
-            "wrongAnswers": [{"subject": "수학", "bottleneck": "조건 해석 누락", "retry": "scheduled"}],
+            "wrongAnswerDrills": [{"subject": "수학", "bottleneck": "조건 해석 누락", "retry": "scheduled"}],
             "weeklyCapabilityGoals": [{"subject": "수학", "ability": "조건 표시", "done": False}],
             "dailyDrills": [{"subject": "수학", "title": "조건에 밑줄 긋기", "done": False}],
         },
