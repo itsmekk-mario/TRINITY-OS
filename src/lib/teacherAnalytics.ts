@@ -5,10 +5,12 @@ export type TeacherData = Pick<AppData, 'sessions' | 'wrongAnswerDrills' | 'week
   scores: (Partial<AppData['scores'][number]> & { id: string; date: string; name: string; subject?: Subject; score?: number })[];
   access?: { sessions:boolean; scores:boolean; wrongAnswers:boolean; weeklyGoals:boolean; drills:boolean; trinity:boolean };
   plans: { id: string; date: string; subject: string; title: string; done: boolean; quantity?: string }[];
+  calendarDays?: { date:string; study?:string; minutes?:number; exam?:string; event?:string; condition?:number; reflection?:string }[];
+  plaire?: { date:string; bottleneck?:string; nextAction?:string }[];
   trinity?: Pick<AppData['trinity'][number], 'id' | 'date' | 'subject' | 'fields'>[];
 };
 export type DateRange = { start: string; end: string };
-export const localDate = (date = new Date()) => date.toLocaleDateString('sv-SE');
+export const localDate = (date = new Date()) => date.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
 export function recentRange(days: number, now = new Date()): DateRange {
   const start = new Date(now); start.setDate(start.getDate() - days + 1);
   return { start: localDate(start), end: localDate(now) };
