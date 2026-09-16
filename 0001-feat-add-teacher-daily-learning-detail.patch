@@ -1,0 +1,210 @@
+From 36fa1ceac0283d54d882ce2bfbde75bac462375f Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Wed, 16 Sep 2026 07:07:00 -0500
+Subject: [PATCH] feat: add teacher daily learning detail
+
+---
+ .../teacher/DailyLearningDetail.tsx           | 61 +++++++++++++++++++
+ .../teacher/LearningManagerDashboard.tsx      |  5 +-
+ src/lib/date.ts                               | 14 ++---
+ src/lib/teacherAnalytics.ts                   |  4 +-
+ src/teacher.css                               |  5 ++
+ tsconfig.app.tsbuildinfo                      |  2 +-
+ worker/src/collaboration.ts                   |  9 ++-
+ 7 files changed, 86 insertions(+), 14 deletions(-)
+ create mode 100644 src/components/teacher/DailyLearningDetail.tsx
+
+diff --git a/src/components/teacher/DailyLearningDetail.tsx b/src/components/teacher/DailyLearningDetail.tsx
+new file mode 100644
+index 0000000..a3deaf7
+--- /dev/null
++++ b/src/components/teacher/DailyLearningDetail.tsx
+@@ -0,0 +1,61 @@
++import { useMemo, useState } from 'react';
++import { CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, Clock3, FileText, Flag, Target, X } from 'lucide-react';
++import { parsePlannedMinutes } from '../../lib/plannedTime';
++import { formatStudyTime, type TeacherData } from '../../lib/teacherAnalytics';
++import { toDateKey } from '../../lib/date';
++import { Empty, SectionTitle } from '../Ui';
++
++const SUBJECTS = ['국어', '수학', '영어', '탐구'] as const;
++const dateAtSeoulNoon = (key: string) => new Date(`${key}T12:00:00+09:00`);
++const dateLabel = (key: string) => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' }).format(dateAtSeoulNoon(key));
++const monthLabel = (year: number, month: number) => `${year}년 ${month + 1}월`;
++const minutes = (seconds: number) => Math.round(seconds / 60);
++const compact = (seconds: number) => seconds >= 3600 ? `${Math.floor(seconds / 3600)}h ${Math.round(seconds % 3600 / 60)}m` : `${Math.round(seconds / 60)}m`;
++const weekStart = (key: string) => { const value = dateAtSeoulNoon(key); value.setUTCDate(value.getUTCDate() - ((value.getUTCDay() || 7) - 1)); return toDateKey(value); };
++
++function DayDetail({ data, date, onClose }: { data: TeacherData; date: string; onClose: () => void }) {
++  const view = useMemo(() => {
++    const plans = data.plans.filter(item => item.date === date);
++    const sessions = data.sessions.filter(item => item.date === date);
++    const day = data.calendarDays?.find(item => item.date === date);
++    const totalSeconds = sessions.reduce((sum, item) => sum + item.seconds, 0) || (day?.minutes ?? 0) * 60;
++    const plannedMinutes = plans.reduce((sum, item) => sum + parsePlannedMinutes(item.quantity), 0);
++    const bySubject = Object.fromEntries(SUBJECTS.map(subject => [subject, sessions.filter(item => item.subject === subject).reduce((sum, item) => sum + item.seconds, 0)]));
++    const drills = data.dailyDrills.filter(item => item.date === date);
++    const wrong = data.wrongAnswerDrills.filter(item => item.date === date);
++    const scores = data.scores.filter(item => item.date === date);
++    const start = weekStart(date);
++    const goals = data.weeklyCapabilityGoals.filter(item => item.weekStart === start);
++    const plaire = data.plaire?.find(item => item.date === date);
++    const trinity = data.trinity?.filter(item => item.date === date) ?? [];
++    const subjects = new Set([...plans.map(item => item.subject), ...sessions.map(item => item.subject), ...drills.map(item => item.subject)]);
++    return { plans, sessions, day, totalSeconds, plannedMinutes, bySubject, drills, wrong, scores, goals, plaire, trinity, subjects };
++  }, [data, date]);
++  const done = view.plans.filter(item => item.done).length;
++  const execution = view.plannedMinutes ? Math.round(minutes(view.totalSeconds) / view.plannedMinutes * 100) : undefined;
++  const hasData = view.plans.length || view.sessions.length || view.day || view.drills.length || view.wrong.length || view.scores.length;
++  return <aside className="daily-detail-drawer" role="dialog" aria-modal="true" aria-labelledby="daily-detail-title">
++    <header className="daily-detail-header"><div><p className="eyebrow">DAILY LEARNING DETAIL</p><h2 id="daily-detail-title">{dateLabel(date)}</h2></div><button className="icon-button" onClick={onClose} aria-label="일별 학습내역 닫기"><X /></button></header>
++    {!hasData ? <Empty title="이 날짜의 학습 기록이 없습니다." description="계획·타이머·Drill·실모 기록이 동기화되면 이곳에 연결됩니다." /> : <div className="daily-detail-content">
++      <section className="daily-summary-grid"><div><span>총 실제 학습</span><b>{formatStudyTime(view.totalSeconds)}</b></div><div><span>계획 학습시간</span><b>{view.plannedMinutes ? `${view.plannedMinutes}m` : '미기록'}</b></div><div><span>계획 대비 실행률</span><b>{execution === undefined ? '분석 불가' : `${execution}%`}</b></div><div><span>완료 과제</span><b>{done} / {view.plans.length}</b></div><div><span>학습 과목</span><b>{view.subjects.size}개</b></div><div><span>집중 세션</span><b>{view.sessions.length}회</b></div></section>
++
++      <section><SectionTitle title="계획 vs 실제 실행" meta="시간은 과목별 실제 타이머 기록 기준" />{view.plans.length ? <div className="daily-plan-list">{view.plans.map(plan => <article key={plan.id}><span className={`subject-badge ${plan.subject}`}>{plan.subject}</span><div><b>{plan.title}</b><small>계획 {plan.quantity || '목표량 미기록'} · 실제 {compact(view.bySubject[plan.subject as typeof SUBJECTS[number]] ?? 0)}</small></div><em className={plan.done ? 'is-done' : ''}>{plan.done ? '완료' : (view.bySubject[plan.subject as typeof SUBJECTS[number]] ?? 0) ? '일부 완료' : '미실행'}</em></article>)}</div> : <p className="teacher-panel-description">등록된 계획은 없고 실제 기록만 있을 수 있습니다.</p>}</section>
++
++      {view.sessions.length > 0 && <section><SectionTitle title="실제 학습 구성" /> <div className="daily-subject-breakdown">{SUBJECTS.filter(subject => view.bySubject[subject]).map(subject => <span key={subject}><i className={`subject-dot ${subject}`} />{subject}<b>{compact(view.bySubject[subject])}</b></span>)}</div></section>}
++      {(view.day?.study || view.day?.reflection || view.day?.event || view.day?.exam) && <section className="daily-note-card"><SectionTitle title="학생 실행 기록" />{view.day?.study && <p><b>실행</b>{view.day.study}</p>}{view.day?.exam && <p><b>시험·모의고사</b>{view.day.exam}</p>}{view.day?.event && <p><b>영향 사건</b>{view.day.event}</p>}{view.day?.condition && <p><b>컨디션</b>{view.day.condition} / 5</p>}{view.day?.reflection && <p><b>회고·다음 조정</b>{view.day.reflection}</p>}</section>}
++      {view.scores.length > 0 && <section><SectionTitle title="실모·성과 기록" />{view.scores.map(score => <article className="daily-evidence-row" key={score.id}><FileText size={16}/><div><b>{score.name}</b><small>국어 {score.korean ?? '—'} · 수학 {score.math ?? '—'} · 영어 {score.english ?? '—'}</small></div></article>)}</section>}
++      {(view.drills.length || view.wrong.length) > 0 && <section><SectionTitle title="오답 · Drill" />{view.drills.map(item => <article className="daily-evidence-row" key={item.id}><ClipboardCheck size={16}/><div><b>{item.subject} · {item.title}</b><small>{item.done ? '완료' : '미완료'} · {item.minutes}분 {item.reflection ? `· ${item.reflection}` : ''}</small></div></article>)}{view.wrong.map(item => <article className="daily-evidence-row" key={item.id}><Flag size={16}/><div><b>{item.subject} · {item.question || item.source}</b><small>병목 {item.bottleneck || '미분류'} · {item.missedCue || '놓친 단서 미기록'}</small></div></article>)}</section>}
++      {(view.goals.length > 0 || Boolean(view.plaire) || view.trinity.length > 0) && <section><SectionTitle title="학습 병목·다음 행동" />{view.goals.map(item => <article className="daily-evidence-row" key={item.id}><Target size={16}/><div><b>{item.subject} · {item.ability}</b><small>{item.done ? '완료' : '진행 중'} · {item.successCriterion}</small></div></article>)}{view.plaire && <article className="daily-evidence-row"><Clock3 size={16}/><div><b>오늘의 병목</b><small>{view.plaire.bottleneck || '미기록'}{view.plaire.nextAction ? ` · 다음 행동: ${view.plaire.nextAction}` : ''}</small></div></article>}{view.trinity.map(item => <article className="daily-evidence-row" key={item.id}><Target size={16}/><div><b>{item.subject} Trinity 분석</b><small>{Object.values(item.fields).filter(Boolean).slice(0, 2).join(' · ') || '분석 내용 미기록'}</small></div></article>)}</section>}
++    </div>}
++  </aside>;
++}
++
++export default function DailyLearningDetail({ data }: { data: TeacherData }) {
++  const today = toDateKey();
++  const [cursor, setCursor] = useState(() => dateAtSeoulNoon(today));
++  const [selected, setSelected] = useState<string>();
++  const year = cursor.getUTCFullYear(), month = cursor.getUTCMonth();
++  const cells = useMemo(() => { const first = new Date(Date.UTC(year, month, 1)); const count = new Date(Date.UTC(year, month + 1, 0)).getUTCDate(); return [...Array(first.getUTCDay()).fill(null), ...Array.from({ length: count }, (_, index) => index + 1)]; }, [year, month]);
++  const stateFor = (date: string) => { const sessions = data.sessions.filter(item => item.date === date); const plans = data.plans.filter(item => item.date === date); const drills = data.dailyDrills.filter(item => item.date === date); const scores = data.scores.filter(item => item.date === date); return { sessions, plans, drills, scores, seconds: sessions.reduce((sum, item) => sum + item.seconds, 0) || (data.calendarDays?.find(item => item.date === date)?.minutes ?? 0) * 60 }; };
++  return <section className="teacher-daily-detail"><SectionTitle title="Daily Learning Detail" meta="날짜를 선택해 계획 · 실행 · 성과 · 병목을 함께 확인" /><div className="teacher-calendar-card"><header><button className="icon-button" aria-label="이전 달" onClick={() => setCursor(new Date(Date.UTC(year, month - 1, 1)))}><ChevronLeft /></button><h3><CalendarDays size={17}/>{monthLabel(year, month)}</h3><button className="icon-button" aria-label="다음 달" onClick={() => setCursor(new Date(Date.UTC(year, month + 1, 1)))}><ChevronRight /></button></header><div className="teacher-calendar-weekdays">{['일','월','화','수','목','금','토'].map(item => <span key={item}>{item}</span>)}</div><div className="teacher-calendar-grid">{cells.map((day, index) => { if (!day) return <span key={`empty-${index}`} />; const date = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`, state = stateFor(date), subjects = [...new Set(state.sessions.map(item => item.subject))]; const done = state.plans.length > 0 && state.plans.every(item => item.done); return <button key={date} className={`${date === today ? 'is-today' : ''} ${selected === date ? 'is-selected' : ''}`} onClick={() => setSelected(date)}><b>{day}</b>{state.seconds > 0 && <small>{subjects.length ? `${subjects.slice(0, 3).join(' · ')} ` : ''}{compact(state.seconds)}</small>}<i className="teacher-calendar-markers">{state.plans.length > 0 && <em className={done ? 'complete' : 'partial'} />}{state.scores.length > 0 && <em className="score" />}{(state.drills.length > 0 || data.wrongAnswerDrills.some(item => item.date === date)) && <em className="drill" />}</i></button>; })}</div><p className="teacher-calendar-legend"><i className="complete" />계획 완료 <i className="partial" />일부 미완료 <i className="score" />실모 <i className="drill" />오답·Drill</p></div>{selected && <DayDetail data={data} date={selected} onClose={() => setSelected(undefined)} />}</section>;
++}
+diff --git a/src/components/teacher/LearningManagerDashboard.tsx b/src/components/teacher/LearningManagerDashboard.tsx
+index 28271a3..2505aee 100644
+--- a/src/components/teacher/LearningManagerDashboard.tsx
++++ b/src/components/teacher/LearningManagerDashboard.tsx
+@@ -8,7 +8,8 @@ import type { TeacherDashboardProps } from './types';
+ import { ResourcesPanel } from './MathPanels';
+ import ArenaReviewPanel from './ArenaReviewPanel';
+ import { EffortOutcomePanel, ExecutionPanel, SubjectStatus, WeeklyGoalsPanel } from './LearningPanels';
+-const tabs=['Overview','Execution','Subjects','Weekly Goals','Teacher Signals','Schedule / Load','Trends','Resources','ARENA','Feedback'] as const;
++import DailyLearningDetail from './DailyLearningDetail';
++const tabs=['Overview','Daily Detail','Execution','Subjects','Weekly Goals','Teacher Signals','Schedule / Load','Trends','Resources','ARENA','Feedback'] as const;
+ type Tab=typeof tabs[number];
+ export default function LearningManagerDashboard({data,range,feedback,busy,canFeedback,onFeedback,onSignalAction}:TeacherDashboardProps) {
+   const [tab,setTab]=useState<Tab>('Overview'),[request,setRequest]=useState<EvidenceTarget>(),[requestSubject,setRequestSubject]=useState<'국어'|'수학'|'영어'|'탐구'>('수학');
+@@ -25,7 +26,7 @@ export default function LearningManagerDashboard({data,range,feedback,busy,canFe
+   const refType=evidence?.split(':')[0],refId=evidence?.slice(evidence.indexOf(':')+1);
+   const wrong=refType==='wrong_answer'?data.wrongAnswerDrills.find(item=>item.id===refId):undefined;
+   const score=refType==='mock_exam'?data.scores.find(item=>item.id===refId):undefined;
+-  return <><nav><div className="teacher-nav-brand"><span className="brand-mark">T</span><div><strong>TRINITY OS</strong><small>Teacher Workspace</small></div></div><SegmentedControl label="Learning Control Center" options={tabs.map(id=>({id,label:id}))} value={tab} onChange={setTab} className="teacher-tabs"/></nav><div role="tabpanel" aria-label={tab}>{tab==='Overview'?overview:tab==='Execution'?<>{execution}{effort}</>:tab==='Subjects'?<>{statuses}{effort}</>:tab==='Weekly Goals'?goals:tab==='Teacher Signals'?signalCards:tab==='Schedule / Load'?<>{execution}<p>계획 건수와 명시된 시간으로 부하를 점검합니다. 자유 기록을 시간으로 추정하지 않습니다.</p></>:tab==='Trends'?effort:tab==='Resources'?<ResourcesPanel data={data}/>:tab==='ARENA'?<ArenaReviewPanel data={data} range={range}/>:<>{canFeedback&&<FeedbackComposer role="academic_manager" subject="수학" onSubmit={onFeedback} busy={busy}/>}<FeedbackHistory items={feedback}/></>}</div>
++  return <><nav><div className="teacher-nav-brand"><span className="brand-mark">T</span><div><strong>TRINITY OS</strong><small>Teacher Workspace</small></div></div><SegmentedControl label="Learning Control Center" options={tabs.map(id=>({id,label:id}))} value={tab} onChange={setTab} className="teacher-tabs"/></nav><div role="tabpanel" aria-label={tab}>{tab==='Overview'?overview:tab==='Daily Detail'?<DailyLearningDetail data={data}/>:tab==='Execution'?<>{execution}{effort}</>:tab==='Subjects'?<>{statuses}{effort}</>:tab==='Weekly Goals'?goals:tab==='Teacher Signals'?signalCards:tab==='Schedule / Load'?<>{execution}<p>계획 건수와 명시된 시간으로 부하를 점검합니다. 자유 기록을 시간으로 추정하지 않습니다.</p></>:tab==='Trends'?effort:tab==='Resources'?<ResourcesPanel data={data}/>:tab==='ARENA'?<ArenaReviewPanel data={data} range={range}/>:<>{canFeedback&&<FeedbackComposer role="academic_manager" subject="수학" onSubmit={onFeedback} busy={busy}/>}<FeedbackHistory items={feedback}/></>}</div>
+   {request&&<TeacherDialog title="과목 재진단 요청" onClose={()=>setRequest(undefined)}><FeedbackComposer role="academic_manager" subject={requestSubject} target={request} onSubmit={async draft=>{await onFeedback(draft);setRequest(undefined);}} busy={busy}/></TeacherDialog>}
+   {evidence&&<TeacherDialog title="Signal · 근거 기록" onClose={()=>setEvidence(undefined)}>{wrong?<><h3>{wrong.subject} · {wrong.question||wrong.source}</h3><small>{wrong.date}</small>{[['잘못된 판단',wrong.wrongJudgment],['놓친 단서',wrong.missedCue],['교정',wrong.correction],['Transfer',wrong.transfer]].map(([label,value])=><p key={label}><b>{label}</b><br/>{value||'미기록'}</p>)}</>:score?<><h3>{score.name}</h3><p>{score.date} · 국어 {score.korean??'미기록'} · 수학 {score.math??'미기록'} · 영어 {score.english??'미기록'}</p></>:<><p>연결된 개별 기록이 없거나 열람 권한이 없습니다. Signal의 관찰 내용과 실행 현황을 함께 확인하세요.</p><button className="button" onClick={()=>{setEvidence(undefined);setTab('Execution');}}>관련 실행 데이터 분석</button></>}</TeacherDialog>}</>;
+ }
+diff --git a/src/lib/date.ts b/src/lib/date.ts
+index 10bdf48..85cc85c 100644
+--- a/src/lib/date.ts
++++ b/src/lib/date.ts
+@@ -1,13 +1,13 @@
+-export const toDateKey = (date = new Date()) => {
+-  const offset = date.getTimezoneOffset();
+-  return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 10);
+-};
++/** Learning records are keyed to the student's Korean calendar day. */
++export const toDateKey = (date = new Date()) => new Intl.DateTimeFormat('sv-SE', {
++  timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
++}).format(date);
+ export const formatKoreanDate = (date = new Date()) => new Intl.DateTimeFormat('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(date);
+ export const formatMinutes = (minutes: number) => `${Math.floor(minutes / 60)}시간 ${Math.round(minutes % 60)}분`;
+ export const weekStartKey = (date = new Date()) => {
+-  const value = new Date(date);
+-  const day = value.getDay() || 7;
+-  value.setDate(value.getDate() - day + 1);
++  const value = new Date(`${toDateKey(date)}T12:00:00+09:00`);
++  const day = value.getUTCDay() || 7;
++  value.setUTCDate(value.getUTCDate() - day + 1);
+   return toDateKey(value);
+ };
+ export const uid = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+diff --git a/src/lib/teacherAnalytics.ts b/src/lib/teacherAnalytics.ts
+index 2008e7e..959fcaf 100644
+--- a/src/lib/teacherAnalytics.ts
++++ b/src/lib/teacherAnalytics.ts
+@@ -5,10 +5,12 @@ export type TeacherData = Pick<AppData, 'sessions' | 'wrongAnswerDrills' | 'week
+   scores: (Partial<AppData['scores'][number]> & { id: string; date: string; name: string; subject?: Subject; score?: number })[];
+   access?: { sessions:boolean; scores:boolean; wrongAnswers:boolean; weeklyGoals:boolean; drills:boolean; trinity:boolean };
+   plans: { id: string; date: string; subject: string; title: string; done: boolean; quantity?: string }[];
++  calendarDays?: { date:string; study?:string; minutes?:number; exam?:string; event?:string; condition?:number; reflection?:string }[];
++  plaire?: { date:string; bottleneck?:string; nextAction?:string }[];
+   trinity?: Pick<AppData['trinity'][number], 'id' | 'date' | 'subject' | 'fields'>[];
+ };
+ export type DateRange = { start: string; end: string };
+-export const localDate = (date = new Date()) => date.toLocaleDateString('sv-SE');
++export const localDate = (date = new Date()) => date.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
+ export function recentRange(days: number, now = new Date()): DateRange {
+   const start = new Date(now); start.setDate(start.getDate() - days + 1);
+   return { start: localDate(start), end: localDate(now) };
+diff --git a/src/teacher.css b/src/teacher.css
+index ab3e656..8bcfabe 100644
+--- a/src/teacher.css
++++ b/src/teacher.css
+@@ -65,3 +65,8 @@
+ @media(max-width:1023px){.teacher-page{padding:28px 24px 56px}.teacher-workspace{display:block}.teacher-workspace>nav{padding:0;background:transparent;border-radius:0;margin-bottom:24px}.teacher-nav-brand{display:none}.teacher-tabs.segmented-control{background:var(--surface-secondary);padding:5px;border:1px solid var(--separator);border-radius:12px;gap:3px}.teacher-tabs button{color:var(--text-secondary);min-height:38px;padding:9px 14px}.teacher-tabs button:hover{background:rgba(255,255,255,.5);color:var(--text-primary)}.teacher-tabs button.active{background:var(--surface);color:var(--text-primary);box-shadow:var(--shadow-1)}.teacher-tabs button.active:before{display:none}.teacher-workspace>[role=tabpanel]{display:grid;gap:22px}}
+ @media(max-width:600px){.teacher-page{padding:22px 16px 40px}.teacher-page-heading h1{font-size:27px}.teacher-page-heading>div>p:last-child{font-size:13px}.teacher-context{padding:18px;margin:20px 0}.teacher-insight{padding:22px 20px}.teacher-insight h2{font-size:25px}.teacher-workspace .card{padding:20px}.teacher-attention{padding:18px 20px}.teacher-quick-links button{padding:16px}.teacher-facts{gap:18px}.teacher-dialog,.teacher-inspector{border-radius:0}.teacher-dialog>header{top:-20px}}
+ @media(max-width:1023px) and (orientation:portrait){.teacher-inspector{border-radius:0}}
++
++/* Daily Learning Detail: leave the calendar visible while a date is inspected. */
++.teacher-daily-detail{position:relative}.teacher-calendar-card{border:1px solid var(--separator);border-radius:var(--radius-lg);background:var(--surface);padding:18px}.teacher-calendar-card>header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.teacher-calendar-card>header h3{display:flex;align-items:center;gap:8px;margin:0;font-size:17px}.teacher-calendar-weekdays,.teacher-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}.teacher-calendar-weekdays span{text-align:center;color:var(--text-secondary);font-size:11px;padding:5px}.teacher-calendar-grid>button{position:relative;min-height:84px;padding:9px 8px;border:1px solid transparent;border-radius:10px;background:var(--surface-secondary);color:var(--text-primary);text-align:left;cursor:pointer;font:inherit}.teacher-calendar-grid>button:hover,.teacher-calendar-grid>button.is-selected{border-color:var(--gold);background:var(--surface)}.teacher-calendar-grid>button.is-today>b{color:var(--gold)}.teacher-calendar-grid button>b{display:block;font-size:13px}.teacher-calendar-grid button>small{display:block;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--text-secondary)}.teacher-calendar-markers{position:absolute;right:8px;bottom:8px;display:flex;gap:4px}.teacher-calendar-markers em,.teacher-calendar-legend i{display:inline-block;width:6px;height:6px;border-radius:50%;background:#a8afb8}.teacher-calendar-markers .complete,.teacher-calendar-legend .complete{background:#708c72}.teacher-calendar-markers .partial,.teacher-calendar-legend .partial{background:#c49343}.teacher-calendar-markers .score,.teacher-calendar-legend .score{background:#687ca3}.teacher-calendar-markers .drill,.teacher-calendar-legend .drill{background:#a87878}.teacher-calendar-legend{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;margin:14px 0 0;color:var(--text-secondary);font-size:11px}.teacher-calendar-legend i{margin-right:-3px}.daily-detail-drawer{position:fixed;z-index:30;right:0;top:0;width:min(550px,46vw);height:100dvh;overflow:auto;box-sizing:border-box;padding:26px;background:var(--background);border-left:1px solid var(--separator);box-shadow:-18px 0 50px rgba(20,25,32,.12)}.daily-detail-header{position:sticky;top:-26px;z-index:1;display:flex;align-items:flex-start;justify-content:space-between;padding:26px 0 18px;background:var(--background);border-bottom:1px solid var(--separator)}.daily-detail-header h2{margin:5px 0 0;font-size:23px;letter-spacing:-.04em}.daily-detail-content{display:grid;gap:25px;padding:22px 0 40px}.daily-summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;border:1px solid var(--separator);border-radius:12px;overflow:hidden}.daily-summary-grid>div{min-height:72px;padding:12px;background:var(--surface-secondary)}.daily-summary-grid span{display:block;font-size:10px;color:var(--text-secondary)}.daily-summary-grid b{display:block;margin-top:8px;font-size:15px;letter-spacing:-.03em}.daily-plan-list{border-top:1px solid var(--separator)}.daily-plan-list article{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:13px 0;border-bottom:1px solid var(--separator)}.daily-plan-list b,.daily-evidence-row b{display:block;font-size:13px}.daily-plan-list small,.daily-evidence-row small{display:block;margin-top:4px;color:var(--text-secondary);font-size:11px;line-height:1.5}.daily-plan-list em{font-style:normal;font-size:11px;color:var(--text-secondary);white-space:nowrap}.daily-plan-list em.is-done{color:#4f7254}.daily-subject-breakdown{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.daily-subject-breakdown span{display:flex;align-items:center;gap:7px;padding:11px;border-radius:9px;background:var(--surface-secondary);font-size:12px}.daily-subject-breakdown b{margin-left:auto;font-size:12px}.daily-note-card{padding:16px;border-radius:12px;background:var(--surface-secondary)}.daily-note-card p{display:grid;grid-template-columns:100px minmax(0,1fr);gap:10px;white-space:pre-wrap;font-size:13px;line-height:1.65}.daily-note-card p b{color:var(--text-secondary);font-size:11px}.daily-evidence-row{display:flex;gap:10px;padding:12px 0;border-bottom:1px solid var(--separator)}.daily-evidence-row>svg{margin-top:2px;color:var(--text-secondary);flex:0 0 auto}
++@media(max-width:1023px){.daily-detail-drawer{width:min(680px,92vw)}}
++@media(max-width:600px){.teacher-calendar-card{padding:12px}.teacher-calendar-grid{gap:3px}.teacher-calendar-grid>button{min-height:62px;padding:6px}.teacher-calendar-grid button>small{font-size:9px;margin-top:5px}.teacher-calendar-markers{right:6px;bottom:6px}.daily-detail-drawer{inset:0;width:100%;padding:18px 16px;border-left:0}.daily-detail-header{top:-18px;padding:18px 0}.daily-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.daily-subject-breakdown{grid-template-columns:1fr}.daily-note-card p{grid-template-columns:1fr;gap:3px}}
+diff --git a/tsconfig.app.tsbuildinfo b/tsconfig.app.tsbuildinfo
+index 8942e26..43f0460 100644
+--- a/tsconfig.app.tsbuildinfo
++++ b/tsconfig.app.tsbuildinfo
+@@ -1 +1 @@
+-{"root":["./src/app.tsx","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/components/cloudflaresync.tsx","./src/components/coachchat.tsx","./src/components/dailycoachcard.tsx","./src/components/drivesync.tsx","./src/components/floatingcoachchat.tsx","./src/components/loginpage.tsx","./src/components/longpressreorder.tsx","./src/components/passwordchangedialog.tsx","./src/components/trinitylearningview.tsx","./src/components/ui.tsx","./src/components/insights/learningsignalcards.tsx","./src/components/motion/pagetransition.tsx","./src/components/motion/usedialogfocus.ts","./src/components/navigation/hublayout.tsx","./src/components/navigation/segmentedcontrol.tsx","./src/components/study-room/participanttile.tsx","./src/components/study-room/studygrid.tsx","./src/components/study-room/studyroomcontrols.tsx","./src/components/study-room/studyroomheader.tsx","./src/components/teacher/arenareviewpanel.tsx","./src/components/teacher/learningmanagerdashboard.tsx","./src/components/teacher/learningpanels.tsx","./src/components/teacher/mathpanels.tsx","./src/components/teacher/mathteacherdashboard.tsx","./src/components/teacher/shared.tsx","./src/components/teacher/types.ts","./src/data/config.ts","./src/hooks/usecamera.ts","./src/hooks/userealtimesfu.ts","./src/hooks/usestudyroom.ts","./src/lib/aicoach.ts","./src/lib/arenaapi.ts","./src/lib/arenabadges.ts","./src/lib/arenascore.ts","./src/lib/auth.ts","./src/lib/cloudflare.ts","./src/lib/date.ts","./src/lib/drive.ts","./src/lib/feedback.ts","./src/lib/feedbackdrafts.ts","./src/lib/learningsignals.ts","./src/lib/plannedtime.ts","./src/lib/storage.ts","./src/lib/studyroom.ts","./src/lib/studytotals.ts","./src/lib/teacheranalytics.ts","./src/lib/teacherentry.ts","./src/lib/teachersignals.ts","./src/lib/usestudyclock.ts","./src/lib/coach/analytics.ts","./src/lib/coach/context.ts","./src/lib/coach/localcoach.ts","./src/lib/coach/rules.ts","./src/lib/coach/types.ts","./src/pages/arena.tsx","./src/pages/calendarpage.tsx","./src/pages/coachpage.tsx","./src/pages/collaborativeportal.tsx","./src/pages/dailydrillpanel.tsx","./src/pages/dashboard.tsx","./src/pages/feedbackadmin.tsx","./src/pages/feedbackinbox.tsx","./src/pages/insightshub.tsx","./src/pages/journal.tsx","./src/pages/notionworkspace.tsx","./src/pages/plairereview.tsx","./src/pages/planhub.tsx","./src/pages/planningpage.tsx","./src/pages/resources.tsx","./src/pages/routine.tsx","./src/pages/scoretracker.tsx","./src/pages/statistics.tsx","./src/pages/studyrhythm.tsx","./src/pages/studyroom.tsx","./src/pages/studyroomlobby.tsx","./src/pages/supportportal.tsx","./src/pages/timerpage.tsx","./src/pages/trainhub.tsx","./src/pages/trinityanalysis.tsx","./src/pages/weeklydrill.tsx"],"version":"5.8.3"}
+\ No newline at end of file
++{"root":["./src/App.tsx","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/components/CloudflareSync.tsx","./src/components/CoachChat.tsx","./src/components/DailyCoachCard.tsx","./src/components/DriveSync.tsx","./src/components/FloatingCoachChat.tsx","./src/components/LoginPage.tsx","./src/components/LongPressReorder.tsx","./src/components/PasswordChangeDialog.tsx","./src/components/TrinityLearningView.tsx","./src/components/Ui.tsx","./src/components/insights/LearningSignalCards.tsx","./src/components/motion/PageTransition.tsx","./src/components/motion/useDialogFocus.ts","./src/components/navigation/HubLayout.tsx","./src/components/navigation/SegmentedControl.tsx","./src/components/study-room/ParticipantTile.tsx","./src/components/study-room/StudyGrid.tsx","./src/components/study-room/StudyRoomControls.tsx","./src/components/study-room/StudyRoomHeader.tsx","./src/components/teacher/ArenaReviewPanel.tsx","./src/components/teacher/DailyLearningDetail.tsx","./src/components/teacher/LearningManagerDashboard.tsx","./src/components/teacher/LearningPanels.tsx","./src/components/teacher/MathPanels.tsx","./src/components/teacher/MathTeacherDashboard.tsx","./src/components/teacher/shared.tsx","./src/components/teacher/types.ts","./src/data/config.ts","./src/hooks/useCamera.ts","./src/hooks/useRealtimeSFU.ts","./src/hooks/useStudyRoom.ts","./src/lib/aiCoach.ts","./src/lib/arenaApi.ts","./src/lib/arenaBadges.ts","./src/lib/arenaScore.ts","./src/lib/auth.ts","./src/lib/cloudflare.ts","./src/lib/date.ts","./src/lib/drive.ts","./src/lib/feedback.ts","./src/lib/feedbackDrafts.ts","./src/lib/learningSignals.ts","./src/lib/plannedTime.ts","./src/lib/storage.ts","./src/lib/studyRoom.ts","./src/lib/studyTotals.ts","./src/lib/teacherAnalytics.ts","./src/lib/teacherEntry.ts","./src/lib/teacherSignals.ts","./src/lib/useStudyClock.ts","./src/lib/coach/analytics.ts","./src/lib/coach/context.ts","./src/lib/coach/localCoach.ts","./src/lib/coach/rules.ts","./src/lib/coach/types.ts","./src/pages/Arena.tsx","./src/pages/CalendarPage.tsx","./src/pages/CoachPage.tsx","./src/pages/CollaborativePortal.tsx","./src/pages/DailyDrillPanel.tsx","./src/pages/Dashboard.tsx","./src/pages/FeedbackAdmin.tsx","./src/pages/FeedbackInbox.tsx","./src/pages/InsightsHub.tsx","./src/pages/Journal.tsx","./src/pages/NotionWorkspace.tsx","./src/pages/PlaireReview.tsx","./src/pages/PlanHub.tsx","./src/pages/PlanningPage.tsx","./src/pages/Resources.tsx","./src/pages/Routine.tsx","./src/pages/ScoreTracker.tsx","./src/pages/Statistics.tsx","./src/pages/StudyRhythm.tsx","./src/pages/StudyRoom.tsx","./src/pages/StudyRoomLobby.tsx","./src/pages/SupportPortal.tsx","./src/pages/TimerPage.tsx","./src/pages/TrainHub.tsx","./src/pages/TrinityAnalysis.tsx","./src/pages/WeeklyDrill.tsx"],"version":"5.8.3"}
+\ No newline at end of file
+diff --git a/worker/src/collaboration.ts b/worker/src/collaboration.ts
+index 0943e58..4f70d5d 100644
+--- a/worker/src/collaboration.ts
++++ b/worker/src/collaboration.ts
+@@ -25,17 +25,20 @@ export const outData = (data: AppData, assignment: Assignment) => {
+     : manager ? {id:score.id,date:score.date,name:score.name,subject:score.subject,korean:score.reviews?.국어?.score??score.korean,math:score.reviews?.수학?.score??score.math,english:score.reviews?.영어?.score??score.english,duration:score.duration,errorType:score.errorType} : {id:score.id,date:score.date,name:score.name,subject:subject,score:subject==='수학'?score.reviews?.수학?.score??score.math:subject==='국어'?score.reviews?.국어?.score??score.korean:subject==='영어'?score.reviews?.영어?.score??score.english:undefined,duration:score.subject===subject?score.duration:score.reviews?.[subject as '수학'|'국어'|'영어']?.duration,errorType:score.subject===subject?score.errorType:undefined})
+     .filter(score=>manager||parent||score.score!==undefined) : [];
+   const plans = allowed(assignment,'viewCalendar') ? Object.values(data.calendar??{}).flatMap(day=>(day.plans??[]).filter(isSubject).map(plan=>({id:plan.id,date:day.date,subject:plan.subject,title:plan.title,done:plan.done,quantity:plan.quantity}))) : [];
++  // Reuse the student's calendar entry; this is a permission-filtered view,
++  // not a parallel calendar data store.
++  const calendarDays = allowed(assignment,'viewCalendar') ? Object.values(data.calendar??{}).map(day=>({date:day.date,study:day.study,minutes:day.minutes,exam:day.exam,event:day.event,condition:day.condition,reflection:day.reflection})) : [];
+   const wrongAnswerDrills = allowed(assignment,'viewWrongAnswers') && !parent ? (data.wrongAnswerDrills??[]).filter(isSubject).map(({id,date,subject,source,question,bottleneck,wrongJudgment,missedCue,correction,transfer,scoreId,capabilityGoalId,retries})=>({id,date,subject,source,question,bottleneck,wrongJudgment,missedCue,correction,transfer,scoreId,capabilityGoalId,retries})) : [];
+   const weeklyCapabilityGoals = allowed(assignment,'viewWeeklyGoals') ? (data.weeklyCapabilityGoals??[]).filter(isSubject).map(({id,weekStart,subject,ability,successCriterion,drillDesign,evidence,feedbackId,done})=>({id,weekStart,subject,ability,successCriterion:parent?undefined:successCriterion,drillDesign:parent?undefined:drillDesign,evidence:parent?undefined:evidence,feedbackId,done})) : [];
+   const dailyDrills = allowed(assignment,'viewDrills') ? (data.dailyDrills??[]).filter(isSubject).map(({id,date,subject,title,action,successCriterion,capabilityGoalId,feedbackId,done,minutes})=>({id,date,subject,title,action:parent?undefined:action,successCriterion:parent?undefined:successCriterion,capabilityGoalId,feedbackId,done,minutes})) : [];
+   const resources = (data.resources??[]).filter(isSubject).map(({id,subject,name,total,done})=>({id,subject,name,total,done}));
+-  const plaire = !parent && manager ? Object.values(data.plaire??{}).slice(-7).map(({date,bottleneck,nextAction})=>({date,bottleneck,nextAction})) : [];
++  const plaire = !parent && manager ? Object.values(data.plaire??{}).map(({date,bottleneck,nextAction})=>({date,bottleneck,nextAction})) : [];
+   const trinity = !parent && allowed(assignment,'viewAcademicInsights') ? (data.trinity??[]).filter(isSubject).map(({id,date,subject,fields})=>({id,date,subject,fields})) : [];
+   const monthlyPlans=allowed(assignment,'viewWeeklyGoals')?(data.monthlyPlans??[]).filter(isSubject).map(({id,month,subject,title,objective,strategy,successCriterion,done})=>({id,month,subject,title,objective:parent?undefined:objective,strategy:parent?undefined:strategy,successCriterion:parent?undefined:successCriterion,done})):[];
+   const routine=allowed(assignment,'viewCalendar')?(data.routine??[]).filter(isSubject).map(({id,time,subject,title,detail})=>({id,time,subject,title,detail:parent?undefined:detail})):[];
+   const goals=allowed(assignment,'viewWeeklyGoals')?(data.goals??[]).filter(isSubject).map(({id,subject,text,done})=>({id,subject,text,done})):[];
+   const access={sessions:allowed(assignment,'viewSessions'),scores:allowed(assignment,'viewScores')||allowed(assignment,'viewMockExams'),wrongAnswers:!parent&&allowed(assignment,'viewWrongAnswers'),weeklyGoals:allowed(assignment,'viewWeeklyGoals'),drills:allowed(assignment,'viewDrills'),trinity:!parent&&allowed(assignment,'viewAcademicInsights')};
+-  return { access,sessions,scores,plans,wrongAnswerDrills,weeklyCapabilityGoals,dailyDrills,resources,plaire,trinity,monthlyPlans,routine,goals };
++  return { access,sessions,scores,plans,calendarDays,wrongAnswerDrills,weeklyCapabilityGoals,dailyDrills,resources,plaire,trinity,monthlyPlans,routine,goals };
+ };
+ 
+ export async function teacherArena(env: Env, studentUserId: number, role: string) {
+@@ -127,7 +130,7 @@ export async function collaboration(request: Request, env: Env, owner: boolean,
+     const access=await assignmentFor(env,account,match[1]); if(!access)return out({error:'No assignment for this student'},403); const {assignment,student}=access; const data=await state(env,student.id);
+     if(!match[2]&&method==='GET')return out({studentId:student.arena_public_id,assignment:{role:assignment.role,subject:assignment.subject,permissions:permissions(assignment.permissions_json)},summary:data?{totalSeconds:outData(data,assignment).sessions.reduce((sum,item)=>sum+item.seconds,0)}:null});
+     if(match[2]==='data'&&method==='GET'){
+-      if(!data)return out({studentId:student.arena_public_id,data:null,teacherView:null}); const view=outData(data,assignment); const arena=await teacherArena(env,student.id,assignment.role); const today=new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'}); const monday=new Date(today+'T12:00:00Z'); monday.setUTCDate(monday.getUTCDate()-((monday.getUTCDay()||7)-1)); const weekStart=monday.toISOString().slice(0,10); const weeklySessions=view.sessions.filter(item=>item.date>=weekStart&&item.date<=today); const weeklyPlans=view.plans.filter(item=>item.date>=weekStart&&item.date<=today); const teacherView={student:{id:student.arena_public_id,displayName:student.username},progress:{weeklyStudyMinutes:view.access.sessions?Math.round(weeklySessions.reduce((total,item)=>total+item.seconds,0)/60):null,executionRate:weeklyPlans.length?Math.round(weeklyPlans.filter(item=>item.done).length/weeklyPlans.length*100):null,subjectProgress:weeklySessions.reduce<Record<string,number>>((totals,item)=>{totals[item.subject]=(totals[item.subject]??0)+item.seconds;return totals;},{})},sessions:view.sessions,mockExams:view.scores,scores:view.scores,wrongAnswerDrills:view.wrongAnswerDrills,weeklyGoals:view.weeklyCapabilityGoals,dailyDrills:view.dailyDrills,resources:view.resources,academicInsights:view.plaire}; return out({studentId:student.arena_public_id,data:{sessions:view.sessions,scores:view.scores,wrongAnswerDrills:view.wrongAnswerDrills,weeklyCapabilityGoals:view.weeklyCapabilityGoals,dailyDrills:view.dailyDrills,resources:view.resources,plaire:view.plaire,plans:view.plans,trinity:view.trinity,access:view.access,arena},syncedAt:(await env.DB.prepare('SELECT updated_at FROM learning_state WHERE user_id=?').bind(student.id).first<{updated_at:string}>())?.updated_at,teacherView});
++      if(!data)return out({studentId:student.arena_public_id,data:null,teacherView:null}); const view=outData(data,assignment); const arena=await teacherArena(env,student.id,assignment.role); const today=new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'}); const monday=new Date(today+'T12:00:00Z'); monday.setUTCDate(monday.getUTCDate()-((monday.getUTCDay()||7)-1)); const weekStart=monday.toISOString().slice(0,10); const weeklySessions=view.sessions.filter(item=>item.date>=weekStart&&item.date<=today); const weeklyPlans=view.plans.filter(item=>item.date>=weekStart&&item.date<=today); const teacherView={student:{id:student.arena_public_id,displayName:student.username},progress:{weeklyStudyMinutes:view.access.sessions?Math.round(weeklySessions.reduce((total,item)=>total+item.seconds,0)/60):null,executionRate:weeklyPlans.length?Math.round(weeklyPlans.filter(item=>item.done).length/weeklyPlans.length*100):null,subjectProgress:weeklySessions.reduce<Record<string,number>>((totals,item)=>{totals[item.subject]=(totals[item.subject]??0)+item.seconds;return totals;},{})},sessions:view.sessions,mockExams:view.scores,scores:view.scores,wrongAnswerDrills:view.wrongAnswerDrills,weeklyGoals:view.weeklyCapabilityGoals,dailyDrills:view.dailyDrills,resources:view.resources,academicInsights:view.plaire}; return out({studentId:student.arena_public_id,data:{sessions:view.sessions,scores:view.scores,wrongAnswerDrills:view.wrongAnswerDrills,weeklyCapabilityGoals:view.weeklyCapabilityGoals,dailyDrills:view.dailyDrills,resources:view.resources,plaire:view.plaire,plans:view.plans,calendarDays:view.calendarDays,trinity:view.trinity,access:view.access,arena},syncedAt:(await env.DB.prepare('SELECT updated_at FROM learning_state WHERE user_id=?').bind(student.id).first<{updated_at:string}>())?.updated_at,teacherView});
+     }
+     if(match[2]==='feedback'&&method==='GET'){
+       const rows=await env.DB.prepare('SELECT f.*,a.username AS teacher_name,a.collaboration_role AS teacher_role FROM teacher_feedback f JOIN support_accounts a ON a.id=f.teacher_id WHERE f.student_user_id=? ORDER BY f.created_at DESC LIMIT 100').bind(student.id).all<Record<string,unknown>>(); return out({feedback:rows.results.filter(row=>assignment.role==='academic_manager'||assignment.role==='admin'||assignment.role==='parent'||row.subject===assignment.subject||readSignal(row.signal_json)?.subject===assignment.subject).map(feedbackRow)});
+-- 
+2.51.1
+
