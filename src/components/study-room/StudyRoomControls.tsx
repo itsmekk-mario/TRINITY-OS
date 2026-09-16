@@ -1,9 +1,41 @@
-import { Camera, CameraOff, LogOut, SwitchCamera } from 'lucide-react';
+import { Camera, CameraOff, LogOut, Mic, MicOff, SwitchCamera } from 'lucide-react';
 
-export default function StudyRoomControls({ cameraEnabled, cameraStarting, onCamera, onFlip, onLeave }: { cameraEnabled: boolean; cameraStarting: boolean; onCamera: () => void; onFlip: () => void; onLeave: () => void }) {
+type Props = {
+  cameraEnabled: boolean;
+  cameraStarting: boolean;
+  microphoneEnabled: boolean;
+  microphoneStarting: boolean;
+  onCamera: () => void;
+  onMicrophone: () => void;
+  onFlip: () => void;
+  onLeave: () => void;
+};
+
+export default function StudyRoomControls(props: Props) {
   return <div className="study-controls" role="toolbar" aria-label="Study Room 컨트롤">
-    <button className={cameraEnabled ? 'active' : ''} onClick={onCamera} disabled={cameraStarting} aria-label={cameraEnabled ? '카메라 끄기' : '카메라 켜기'}>{cameraEnabled ? <Camera /> : <CameraOff />}<span>{cameraStarting ? '시작 중' : cameraEnabled ? 'CAM ON' : 'CAM OFF'}</span></button>
-    <button onClick={onFlip} disabled={!cameraEnabled || cameraStarting} aria-label="전면 후면 카메라 전환"><SwitchCamera /><span>카메라 전환</span></button>
-    <button className="leave" onClick={onLeave} aria-label="Study Room 나가기"><LogOut /><span>나가기</span></button>
+    <button
+      className={props.cameraEnabled ? 'active' : ''}
+      onClick={props.onCamera}
+      disabled={props.cameraStarting}
+      aria-label={props.cameraEnabled ? '카메라 끄기' : '카메라 켜기'}
+    >
+      {props.cameraEnabled ? <Camera /> : <CameraOff />}
+      <span>{props.cameraStarting ? '시작 중' : props.cameraEnabled ? 'CAM ON' : 'CAM OFF'}</span>
+    </button>
+    <button
+      className={props.microphoneEnabled ? 'active' : ''}
+      onClick={props.onMicrophone}
+      disabled={props.microphoneStarting}
+      aria-label={props.microphoneEnabled ? '마이크 끄기' : '마이크 켜기'}
+    >
+      {props.microphoneEnabled ? <Mic /> : <MicOff />}
+      <span>{props.microphoneStarting ? '시작 중' : props.microphoneEnabled ? 'MIC ON' : 'MIC OFF'}</span>
+    </button>
+    <button onClick={props.onFlip} disabled={!props.cameraEnabled || props.cameraStarting} aria-label="전면·후면 카메라 전환">
+      <SwitchCamera /><span>카메라 전환</span>
+    </button>
+    <button className="leave" onClick={props.onLeave} aria-label="Study Room 나가기">
+      <LogOut /><span>나가기</span>
+    </button>
   </div>;
 }

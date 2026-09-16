@@ -17,7 +17,9 @@ export interface Env {
   ALLOWED_ORIGIN?: string; SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; SUPABASE_BUCKET?: string;
   SESSION_TTL_DAYS?: string;
   STUDY_ROOM: DurableObjectNamespace<StudyRoomDurableObject>;
-  CALLS_APP_ID?: string; CALLS_APP_SECRET?: string;
+  LIVEKIT_URL?: string;
+  LIVEKIT_API_KEY?: string;
+  LIVEKIT_API_SECRET?: string;
 }
 const json = (body: unknown, status = 200, origin = '', extra: HeadersInit = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', ...(origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}), 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Setup-Token', 'Access-Control-Allow-Methods': 'GET, PUT, POST, PATCH, DELETE, OPTIONS', 'Cache-Control': 'no-store', ...extra } });
 async function ensureTables(db: D1Database) { await db.batch([

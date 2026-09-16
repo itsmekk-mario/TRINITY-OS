@@ -41,3 +41,5 @@ LOCAL_AI_BASE_URL = "https://ai.trinityos.mcv.kr"
 LOCAL_AI_TIMEOUT_MS = "30000"
 LOCAL_AI_MODEL = "qwen3:8b"
 # Set AI_DEBUG = "true" only in the development Worker environment.
+LIVEKIT_URL = "wss://cam.trinityos.mcv.kr"
+# LIVEKIT_API_KEY and LIVEKIT_API_SECRET must be configured with `wrangler secret put`.

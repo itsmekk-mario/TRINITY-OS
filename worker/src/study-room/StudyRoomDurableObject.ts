@@ -3,7 +3,7 @@ import { DurableObject } from 'cloudflare:workers';
 type StudyStatus = 'studying' | 'break' | 'idle';
 type StudyState = { status: StudyStatus; subject?: string; active: boolean; startedAt?: string; elapsedSeconds: number; todayMinutes: number };
 type Ticket = { token: string; expiresAt: number; roomId: string; roomName: string; maxParticipants: number; userId: number; participantId: string; username: string; connectionId: string };
-type Attachment = { roomId: string; userId: number; participantId: string; username: string; connectionId: string; joinedAt: string; cameraEnabled: boolean; studyState: StudyState; realtimeSessionId?: string; realtimeSessionCreatedAt?: number; publishedTrackName?: string; messageWindowStartedAt: number; messageCount: number };
+type Attachment = { roomId: string; userId: number; participantId: string; username: string; connectionId: string; joinedAt: string; cameraEnabled: boolean; microphoneEnabled: boolean; studyState: StudyState; lastMediaTokenAt?: number; messageWindowStartedAt: number; messageCount: number };
 type EmptyRoom = { roomId: string; emptySince: number };
 
 export interface StudyRoomEnv { DB: D1Database }
@@ -39,40 +39,18 @@ export class StudyRoomDurableObject extends DurableObject<StudyRoomEnv> {
     if (next) await this.ctx.storage.setAlarm(next);
   }
 
-  async registerRealtimeSession(participantId: string, sessionId: string): Promise<boolean> {
-    const socket = this.participantSocket(participantId); if (!socket) return false;
+  async authorizeMediaToken(participantId: string, connectionId: string): Promise<{ allowed: boolean; rateLimited?: boolean }> {
+    const socket = this.participantSocket(participantId);
+    if (!socket || !connectionId) return { allowed: false };
     const attachment = socket.deserializeAttachment() as Attachment;
-    attachment.realtimeSessionId = sessionId; attachment.publishedTrackName = undefined; socket.serializeAttachment(attachment);
-    this.broadcast({ type: 'realtime-session', userId: participantId, sessionId });
-    return true;
-  }
-
-  async beginRealtimeSession(participantId: string): Promise<boolean> {
-    const socket = this.participantSocket(participantId); if (!socket) return false;
-    const attachment = socket.deserializeAttachment() as Attachment, now = Date.now();
-    if (attachment.realtimeSessionCreatedAt && now - attachment.realtimeSessionCreatedAt < 5_000) return false;
-    attachment.realtimeSessionCreatedAt = now; socket.serializeAttachment(attachment); return true;
-  }
-
-  async registerPublishedTrack(participantId: string, sessionId: string, trackName: string): Promise<boolean> {
-    const socket = this.participantSocket(participantId); if (!socket) return false;
-    const attachment = socket.deserializeAttachment() as Attachment;
-    if (attachment.realtimeSessionId !== sessionId) return false;
-    attachment.publishedTrackName = trackName; socket.serializeAttachment(attachment);
-    this.broadcast({ type: 'realtime-track', userId: participantId, sessionId, trackName });
-    return true;
-  }
-
-  async authorizeRealtimeSession(participantId: string, sessionId: string): Promise<boolean> {
-    const socket = this.participantSocket(participantId); if (!socket) return false;
-    return (socket.deserializeAttachment() as Attachment).realtimeSessionId === sessionId;
-  }
-
-  async subscriptionSource(requesterId: string, participantId: string): Promise<{ sessionId: string; trackName: string } | null> {
-    if (!this.participantSocket(requesterId)) return null;
-    const target = this.participantSocket(participantId); if (!target) return null;
-    const attachment = target.deserializeAttachment() as Attachment;
-    return attachment.realtimeSessionId && attachment.publishedTrackName ? { sessionId: attachment.realtimeSessionId, trackName: attachment.publishedTrackName } : null;
+    if (attachment.connectionId !== connectionId) return { allowed: false };
+    const now = Date.now();
+    if (attachment.lastMediaTokenAt && now - attachment.lastMediaTokenAt < 3_000) {
+      return { allowed: false, rateLimited: true };
+    }
+    attachment.lastMediaTokenAt = now;
+    socket.serializeAttachment(attachment);
+    return { allowed: true };
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -90,7 +68,7 @@ export class StudyRoomDurableObject extends DurableObject<StudyRoomEnv> {
 
     const pair = new WebSocketPair(), client = pair[0], server = pair[1];
     const joinedAt = new Date().toISOString();
-    const attachment: Attachment = { roomId: ticket.roomId, userId: ticket.userId, participantId: ticket.participantId, username: ticket.username, connectionId: ticket.connectionId, joinedAt, cameraEnabled: false, studyState: idleStudyState(), messageWindowStartedAt: Date.now(), messageCount: 0 };
+    const attachment: Attachment = { roomId: ticket.roomId, userId: ticket.userId, participantId: ticket.participantId, username: ticket.username, connectionId: ticket.connectionId, joinedAt, cameraEnabled: false, microphoneEnabled: false, studyState: idleStudyState(), messageWindowStartedAt: Date.now(), messageCount: 0 };
     server.serializeAttachment(attachment);
     this.ctx.acceptWebSocket(server, [`participant:${ticket.participantId}`]);
     await this.ctx.storage.delete('empty-room');
@@ -116,6 +94,12 @@ export class StudyRoomDurableObject extends DurableObject<StudyRoomEnv> {
       if (typeof value.enabled !== 'boolean') return;
       attachment.cameraEnabled = value.enabled; socket.serializeAttachment(attachment);
       this.broadcast({ type: 'camera-state', userId: attachment.participantId, enabled: value.enabled });
+      return;
+    }
+    if (value.type === 'microphone-state') {
+      if (typeof value.enabled !== 'boolean') return;
+      attachment.microphoneEnabled = value.enabled; socket.serializeAttachment(attachment);
+      this.broadcast({ type: 'microphone-state', userId: attachment.participantId, enabled: value.enabled });
       return;
     }
     if (value.type === 'study-state') {
@@ -148,7 +132,7 @@ export class StudyRoomDurableObject extends DurableObject<StudyRoomEnv> {
     for (const socket of this.ctx.getWebSockets()) { if (socket.readyState !== OPEN) continue; const value = socket.deserializeAttachment() as Attachment | null; if (value) byParticipant.set(value.participantId, value); }
     return [...byParticipant.values()];
   }
-  private toParticipant(value: Attachment) { return { id: value.participantId, name: value.username, cameraEnabled: value.cameraEnabled, connectionId: value.connectionId, studyState: value.studyState, realtimeSessionId: value.realtimeSessionId, publishedTrackName: value.publishedTrackName }; }
+  private toParticipant(value: Attachment) { return { id: value.participantId, name: value.username, cameraEnabled: value.cameraEnabled, microphoneEnabled: value.microphoneEnabled, connectionId: value.connectionId, studyState: value.studyState }; }
   private participantSocket(participantId: string) { return this.ctx.getWebSockets(`participant:${participantId}`).find((socket) => socket.readyState === OPEN); }
   private broadcast(payload: unknown, except?: WebSocket): void { for (const socket of this.ctx.getWebSockets()) if (socket !== except && socket.readyState === OPEN) this.send(socket, payload); }
   private send(socket: WebSocket, payload: unknown): void { try { socket.send(JSON.stringify(payload)); } catch { /* Close callback reconciles presence. */ } }
