@@ -79,7 +79,7 @@ test('participant join/leave, camera/microphone state, cleanup, and reconnect re
   assert.match(roomHook, /scheduleReconnect/);
   assert.match(livekit, /RoomEvent\.Reconnecting/);
   assert.match(livekit, /RoomEvent\.Reconnected/);
-  assert.match(livekit, /room\.disconnect\(true\)/);
+  assert.match(livekit, /room\.disconnect\(false\)/);
   assert.match(livekit, /track\.detach\(\)\.forEach/);
 });
 

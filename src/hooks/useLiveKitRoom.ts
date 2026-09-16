@@ -22,6 +22,7 @@ export function useLiveKitRoom(
   const [generation, setGeneration] = useState(0);
   const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
   const [error, setError] = useState('');
+  const [audioPlaybackBlocked, setAudioPlaybackBlocked] = useState(false);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(() => new Map());
   const roomRef = useRef<Room | undefined>(undefined);
   const publishedRef = useRef<Map<string, MediaStreamTrack>>(new Map());
@@ -33,6 +34,7 @@ export function useLiveKitRoom(
     for (const element of audioElementsRef.current.values()) element.remove();
     audioElementsRef.current.clear();
     setRemoteStreams(new Map());
+    setAudioPlaybackBlocked(false);
   }, []);
 
   const disconnect = useCallback(() => {
@@ -43,8 +45,22 @@ export function useLiveKitRoom(
     setReady(false);
     setConnectionState('offline');
     clearRemoteMedia();
-    if (room) void room.disconnect(true).catch(() => undefined);
+    // useCamera owns the MediaStreamTrack lifecycle. Never stop those tracks just
+    // because the LiveKit room is being recreated or explicitly left.
+    if (room) void room.disconnect(false).catch(() => undefined);
   }, [clearRemoteMedia]);
+
+  const startAudio = useCallback(async () => {
+    const room = roomRef.current;
+    if (!room) return;
+    try {
+      await room.startAudio();
+      setAudioPlaybackBlocked(!room.canPlaybackAudio);
+      setError('');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '오디오 재생을 시작하지 못했습니다.');
+    }
+  }, []);
 
   useEffect(() => {
     if (!code || !selfId || !presenceConnectionId) return;
@@ -69,6 +85,9 @@ export function useLiveKitRoom(
     });
     roomRef.current = room;
 
+    const syncAudioPlaybackState = () => {
+      setAudioPlaybackBlocked(audioElementsRef.current.size > 0 && !room.canPlaybackAudio);
+    };
     const removeVideo = (identity: string) => setRemoteStreams((current) => {
       if (!current.has(identity)) return current;
       const next = new Map(current);
@@ -78,6 +97,7 @@ export function useLiveKitRoom(
     const removeAudio = (identity: string) => {
       audioElementsRef.current.get(identity)?.remove();
       audioElementsRef.current.delete(identity);
+      syncAudioPlaybackState();
     };
     const onTrackSubscribed = (
       track: RemoteTrack,
@@ -97,6 +117,7 @@ export function useLiveKitRoom(
         element.dataset.livekitParticipant = participant.identity;
         document.body.appendChild(element);
         audioElementsRef.current.set(participant.identity, element);
+        syncAudioPlaybackState();
       }
     };
     const onTrackUnsubscribed = (
@@ -131,12 +152,14 @@ export function useLiveKitRoom(
     room.on(RoomEvent.TrackSubscribed, onTrackSubscribed);
     room.on(RoomEvent.TrackUnsubscribed, onTrackUnsubscribed);
     room.on(RoomEvent.ParticipantDisconnected, onParticipantDisconnected);
+    room.on(RoomEvent.AudioPlaybackStatusChanged, syncAudioPlaybackState);
     room.on(RoomEvent.Reconnecting, () => !disposed && setConnectionState('reconnecting'));
     room.on(RoomEvent.Reconnected, () => {
       if (disposed) return;
       retryCountRef.current = 0;
       setConnectionState('connected');
       setError('');
+      syncAudioPlaybackState();
     });
     room.on(RoomEvent.Disconnected, onDisconnected);
 
@@ -146,11 +169,12 @@ export function useLiveKitRoom(
         if (disposed) return;
         room.prepareConnection(access.url, access.token);
         await room.connect(access.url, access.token, { autoSubscribe: true });
-        if (disposed) return void room.disconnect(true);
+        if (disposed) return void room.disconnect(false);
         retryCountRef.current = 0;
         setReady(true);
         setConnectionState('connected');
         setError('');
+        syncAudioPlaybackState();
       } catch (cause) {
         if (disposed) return;
         setReady(false);
@@ -168,7 +192,8 @@ export function useLiveKitRoom(
       room.removeAllListeners();
       if (roomRef.current === room) roomRef.current = undefined;
       publishedRef.current.clear();
-      void room.disconnect(true).catch(() => undefined);
+      // Reconnects must not stop the browser-owned camera/microphone tracks.
+      void room.disconnect(false).catch(() => undefined);
       clearRemoteMedia();
     };
   }, [clearRemoteMedia, code, generation, presenceConnectionId, selfId]);
@@ -207,6 +232,7 @@ export function useLiveKitRoom(
           publishedRef.current.set(kind, track);
         }
       }
+      if (!cancelled) setError('');
     })().catch((cause) => {
       if (!cancelled) setError(cause instanceof Error ? cause.message : '카메라 또는 마이크를 LiveKit에 연결하지 못했습니다.');
     });
@@ -236,5 +262,12 @@ export function useLiveKitRoom(
     };
   }, [connectionState]);
 
-  return { remoteStreams, connectionState, error, disconnect };
+  return {
+    remoteStreams,
+    connectionState,
+    error,
+    audioPlaybackBlocked,
+    startAudio,
+    disconnect,
+  };
 }

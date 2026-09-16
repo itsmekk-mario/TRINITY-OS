@@ -25,6 +25,8 @@ export function useCamera() {
   const current = useRef<MediaStream>(new MediaStream());
   const cameraWanted = useRef(false);
   const microphoneWanted = useRef(false);
+  const cameraRequest = useRef(0);
+  const microphoneRequest = useRef(0);
 
   const publishSnapshot = useCallback(() => {
     const tracks = current.current.getTracks().filter((track) => track.readyState === 'live');
@@ -39,15 +41,23 @@ export function useCamera() {
   }, [publishSnapshot]);
   const stop = useCallback(() => {
     cameraWanted.current = false;
+    cameraRequest.current += 1;
+    setStarting(false);
     stopKind('video');
   }, [stopKind]);
   const stopMicrophone = useCallback(() => {
     microphoneWanted.current = false;
+    microphoneRequest.current += 1;
+    setMicrophoneStarting(false);
     stopKind('audio');
   }, [stopKind]);
   const stopAll = useCallback(() => {
     cameraWanted.current = false;
     microphoneWanted.current = false;
+    cameraRequest.current += 1;
+    microphoneRequest.current += 1;
+    setStarting(false);
+    setMicrophoneStarting(false);
     current.current.getTracks().forEach((track) => track.stop());
     current.current = new MediaStream();
     setStream(undefined);
@@ -58,16 +68,23 @@ export function useCamera() {
       setError('이 브라우저에서는 카메라를 사용할 수 없습니다.');
       return;
     }
+    const requestId = cameraRequest.current + 1;
+    cameraRequest.current = requestId;
     cameraWanted.current = true;
     setStarting(true);
     setError('');
     stopKind('video');
     try {
       const next = await navigator.mediaDevices.getUserMedia(videoConstraints(nextFacing));
+      if (cameraRequest.current !== requestId || !cameraWanted.current) {
+        next.getTracks().forEach((track) => track.stop());
+        return;
+      }
       for (const track of next.getVideoTracks()) current.current.addTrack(track);
       setFacingMode(nextFacing);
       publishSnapshot();
     } catch (cause) {
+      if (cameraRequest.current !== requestId) return;
       cameraWanted.current = false;
       const name = cause instanceof DOMException ? cause.name : '';
       setError(name === 'NotAllowedError'
@@ -76,7 +93,7 @@ export function useCamera() {
           ? '사용 가능한 카메라를 찾지 못했습니다.'
           : '카메라를 시작하지 못했습니다.');
     } finally {
-      setStarting(false);
+      if (cameraRequest.current === requestId) setStarting(false);
     }
   }, [facingMode, publishSnapshot, stopKind]);
 
@@ -85,15 +102,22 @@ export function useCamera() {
       setMicrophoneError('이 브라우저에서는 마이크를 사용할 수 없습니다.');
       return;
     }
+    const requestId = microphoneRequest.current + 1;
+    microphoneRequest.current = requestId;
     microphoneWanted.current = true;
     setMicrophoneStarting(true);
     setMicrophoneError('');
     stopKind('audio');
     try {
       const next = await navigator.mediaDevices.getUserMedia(audioConstraints);
+      if (microphoneRequest.current !== requestId || !microphoneWanted.current) {
+        next.getTracks().forEach((track) => track.stop());
+        return;
+      }
       for (const track of next.getAudioTracks()) current.current.addTrack(track);
       publishSnapshot();
     } catch (cause) {
+      if (microphoneRequest.current !== requestId) return;
       microphoneWanted.current = false;
       const name = cause instanceof DOMException ? cause.name : '';
       setMicrophoneError(name === 'NotAllowedError'
@@ -102,7 +126,7 @@ export function useCamera() {
           ? '사용 가능한 마이크를 찾지 못했습니다.'
           : '마이크를 시작하지 못했습니다.');
     } finally {
-      setMicrophoneStarting(false);
+      if (microphoneRequest.current === requestId) setMicrophoneStarting(false);
     }
   }, [publishSnapshot, stopKind]);
 

@@ -135,13 +135,24 @@ export function useStudyRoom(
         if (disposed) return;
         const socket = new WebSocket(studyRoomWebSocketUrl(ticket.websocketPath, ticket.ticket));
         socketRef.current = socket;
-        socket.onopen = () => { attempts = 0; connecting = false; setPresenceState('connected'); };
+        socket.onopen = () => {
+          attempts = 0;
+          connecting = false;
+          setPresenceError('');
+          setPresenceState('connected');
+        };
         socket.onmessage = handleMessage;
         socket.onerror = () => undefined;
         socket.onclose = (event) => {
           connecting = false;
           if (socketRef.current === socket) socketRef.current = undefined;
-          if (!disposed && !intentionalClose.current && event.code !== 4001) scheduleReconnect();
+          if (disposed || intentionalClose.current) return;
+          setPresenceState('offline');
+          if (event.code === 4001) {
+            setPresenceError('다른 탭 또는 기기에서 같은 계정으로 이 Study Room에 다시 연결했습니다.');
+            return;
+          }
+          scheduleReconnect();
         };
       } catch (cause) {
         connecting = false;
@@ -222,6 +233,8 @@ export function useStudyRoom(
     mediaConnectionState: media.connectionState,
     error: presenceError || media.error,
     mediaError: media.error,
+    audioPlaybackBlocked: media.audioPlaybackBlocked,
+    startAudio: media.startAudio,
     leave,
     reconnect: reconnectRef.current,
   };

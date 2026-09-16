@@ -29,6 +29,9 @@ function ActiveStudyRoom({ initialRoom, data, onExit }: { initialRoom: StudyRoom
     onExit();
   };
   const deviceError = media.error || media.microphoneError;
+  const remoteMicrophoneActive = session.participants.some(
+    (participant) => participant.id !== session.selfId && participant.microphoneEnabled,
+  );
   return <div className="study-room-active">
     <StudyRoomHeader room={session.room} participants={session.participants} connectionState={session.mediaConnectionState} />
     {(deviceError || session.mediaError || (session.error && session.presenceConnectionState !== 'connected')) &&
@@ -41,6 +44,12 @@ function ActiveStudyRoom({ initialRoom, data, onExit }: { initialRoom: StudyRoom
             : '학습방 연결을 자동으로 다시 시도하고 있습니다.'}</p>
         {media.error && <button className="button" onClick={() => void media.start()}>카메라 다시 허용</button>}
         {media.microphoneError && <button className="button" onClick={() => void media.startMicrophone()}>마이크 다시 허용</button>}
+      </div>}
+    {session.audioPlaybackBlocked && remoteMicrophoneActive &&
+      <div className="study-room-notice" role="status">
+        <b>오디오 재생 권한이 필요합니다.</b>
+        <p>브라우저의 자동재생 정책 때문에 다른 참가자의 마이크 소리가 일시 정지되어 있습니다.</p>
+        <button className="button" onClick={() => void session.startAudio()}>오디오 켜기</button>
       </div>}
     <StudyGrid participants={session.participants} selfId={session.selfId} />
     <StudyRoomControls
