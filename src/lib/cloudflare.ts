@@ -1,32 +1,44 @@
 import type { AppData } from '../types';
 import { initialData } from './storage';
+import { trustedWorkerUrl } from './runtimeConfig';
 
-const CONFIG_KEY = 'trinity-os:cloudflare-sync:v1';
-const AUTO_SYNC_KEY = 'trinity-os:cloudflare-auto-sync:v1';
-export const RECOVERY_KEY = 'trinity-os:cloudflare-recovery:v1';
-export type CloudflareConfig = { url: string; token: string; username?: string; mustChangePassword?: boolean };
+const CONFIG_KEY = 'trinity-os:cloudflare-sync:v2';
+const LEGACY_CONFIG_KEY = 'trinity-os:cloudflare-sync:v1';
+const AUTH_KEY = 'trinity-os:auth-session:v1';
+const keyForUser = (name: string, userId: number | string) => `trinity-os:${name}:${userId}:v1`;
+export type CloudflareConfig = { url: string; token: string; username?: string; userId?: number; mustChangePassword?: boolean };
 type RemotePayload = { data?: AppData | null; updatedAt?: string | null };
 type AutoSyncMetadata = { localSignature: string; remoteUpdatedAt: string | null };
 export type AutoSyncResult = { action: 'disabled' | 'uploaded' | 'downloaded' | 'unchanged'; data?: AppData; updatedAt?: string | null };
 
 export const loadCloudflareConfig = (): CloudflareConfig => {
-  try { return JSON.parse(localStorage.getItem(CONFIG_KEY) || '{"url":"","token":""}') as CloudflareConfig; }
-  catch { return { url: '', token: '', username: '' }; }
+  try {
+    // v1 contained the Bearer token in localStorage. Do not retain it after upgrade.
+    localStorage.removeItem(LEGACY_CONFIG_KEY);
+    const publicConfig = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}') as Omit<CloudflareConfig, 'token'>;
+    const privateConfig = JSON.parse(sessionStorage.getItem(AUTH_KEY) || '{}') as Pick<CloudflareConfig, 'token'>;
+    return { ...publicConfig, ...privateConfig, url: trustedWorkerUrl(publicConfig.url), token: privateConfig.token || '' };
+  } catch { return { url: trustedWorkerUrl(), token: '', username: '' }; }
 };
-export const saveCloudflareConfig = (config: CloudflareConfig) => localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+export const saveCloudflareConfig = (config: CloudflareConfig) => {
+  const url = trustedWorkerUrl(config.url);
+  localStorage.setItem(CONFIG_KEY, JSON.stringify({ url, username: config.username || '', userId: config.userId, mustChangePassword: Boolean(config.mustChangePassword) }));
+  if (config.token) sessionStorage.setItem(AUTH_KEY, JSON.stringify({ token: config.token }));
+  else sessionStorage.removeItem(AUTH_KEY);
+};
 
 const signature = (data: AppData) => JSON.stringify(data);
 const initialSignature = () => signature(initialData);
 
-function loadAutoSyncMetadata(): AutoSyncMetadata | null {
+function loadAutoSyncMetadata(userId: number | string): AutoSyncMetadata | null {
   try {
-    const value = localStorage.getItem(AUTO_SYNC_KEY);
+    const value = localStorage.getItem(keyForUser('cloudflare-auto-sync', userId));
     return value ? JSON.parse(value) as AutoSyncMetadata : null;
   } catch { return null; }
 }
 
-function saveAutoSyncMetadata(localSignature: string, remoteUpdatedAt: string | null) {
-  localStorage.setItem(AUTO_SYNC_KEY, JSON.stringify({ localSignature, remoteUpdatedAt } satisfies AutoSyncMetadata));
+function saveAutoSyncMetadata(userId: number | string, localSignature: string, remoteUpdatedAt: string | null) {
+  localStorage.setItem(keyForUser('cloudflare-auto-sync', userId), JSON.stringify({ localSignature, remoteUpdatedAt } satisfies AutoSyncMetadata));
 }
 
 function requestParts(config: CloudflareConfig) {
@@ -52,38 +64,43 @@ export async function uploadCloudflareData(data: AppData, config: CloudflareConf
 }
 
 /** Keeps browser data and D1 synchronized, preferring local changes on conflict. */
-export async function autoSyncCloudflareData(data: AppData): Promise<AutoSyncResult> {
+export async function autoSyncCloudflareData(data: AppData, userId: number | string): Promise<AutoSyncResult> {
   const config = loadCloudflareConfig();
-  if (!config.url || !config.token) return { action: 'disabled' };
+  if (!config.url || !config.token || config.userId !== Number(userId)) return { action: 'disabled' };
 
   const localSignature = signature(data);
-  const metadata = loadAutoSyncMetadata();
+  const metadata = loadAutoSyncMetadata(userId);
   const remote = await fetchCloudflareData(config);
   const remoteSignature = remote.data ? signature(remote.data) : null;
   const localChanged = !metadata || metadata.localSignature !== localSignature;
   const remoteChanged = Boolean(remote.updatedAt && remote.updatedAt !== metadata?.remoteUpdatedAt);
 
   if (remote.data && ((!metadata && localSignature === initialSignature()) || (!localChanged && remoteChanged))) {
-    saveAutoSyncMetadata(remoteSignature!, remote.updatedAt ?? null);
+    saveAutoSyncMetadata(userId, remoteSignature!, remote.updatedAt ?? null);
     return { action: 'downloaded', data: remote.data, updatedAt: remote.updatedAt };
   }
   if (remoteSignature === localSignature) {
-    saveAutoSyncMetadata(localSignature, remote.updatedAt ?? null);
+    saveAutoSyncMetadata(userId, localSignature, remote.updatedAt ?? null);
     return { action: 'unchanged', updatedAt: remote.updatedAt };
   }
 
   const saved = await uploadCloudflareData(data, config);
-  saveAutoSyncMetadata(localSignature, saved.updatedAt ?? null);
+  saveAutoSyncMetadata(userId, localSignature, saved.updatedAt ?? null);
   return { action: 'uploaded', updatedAt: saved.updatedAt ?? null };
 }
 
-export function saveRecoveryCopy(data: AppData) {
-  localStorage.setItem(RECOVERY_KEY, JSON.stringify({ savedAt: new Date().toISOString(), data }));
+export function saveRecoveryCopy(userId: number | string, data: AppData) {
+  localStorage.setItem(keyForUser('cloudflare-recovery', userId), JSON.stringify({ savedAt: new Date().toISOString(), data }));
 }
 
-export function loadRecoveryCopy(): { savedAt: string; data: AppData } | null {
+export function loadRecoveryCopy(userId: number | string): { savedAt: string; data: AppData } | null {
   try {
-    const value = localStorage.getItem(RECOVERY_KEY);
+    const value = localStorage.getItem(keyForUser('cloudflare-recovery', userId));
     return value ? JSON.parse(value) as { savedAt: string; data: AppData } : null;
   } catch { return null; }
+}
+
+export function clearUserSyncState(userId: number | string) {
+  localStorage.removeItem(keyForUser('cloudflare-auto-sync', userId));
+  localStorage.removeItem(keyForUser('cloudflare-recovery', userId));
 }

@@ -165,9 +165,8 @@ try{
 
  // Student confirms the same teacher drafts through the existing FeedbackInbox and Sync.
  const studentContext=await browser.newContext({viewport:{width:1024,height:900}});
- const storageSource=await readFile(new URL('../src/lib/storage.ts',import.meta.url),'utf8');
- const storageKey=storageSource.match(/const STORAGE_KEY = '([^']+)'/)[1];
- await studentContext.addInitScript(({data,key})=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify(data));localStorage.setItem('trinity-os:cloudflare-sync:v1',JSON.stringify({url:'http://127.0.0.1:8789',token:'fixture-student',username:'TEST 학생'}));},{data:fixture,key:storageKey});
+ const storageKey='trinity-os:data:1:v1';
+ await studentContext.addInitScript(({data,key})=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify(data));localStorage.setItem('trinity-os:cloudflare-sync:v2',JSON.stringify({url:'http://127.0.0.1:8789',username:'TEST 학생',userId:1}));sessionStorage.setItem('trinity-os:auth-session:v1',JSON.stringify({token:'fixture-student'}));},{data:fixture,key:storageKey});
  const pupil=await studentContext.newPage();pupil.on('pageerror',error=>errors.push(error.message));
  await pupil.goto('http://127.0.0.1:4173/feedback');
  const card=pupil.locator('.feedback-card').filter({has:pupil.getByRole('heading',{name:'TEST 조건 검증 진단',exact:true})});

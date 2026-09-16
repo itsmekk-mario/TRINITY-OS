@@ -6,7 +6,8 @@ import quotesSeed from '../data/quotes.json';
 import { EXAM_DATE } from '../data/config';
 import mockScheduleSeed from '../data/mockSchedule.json';
 
-export const STORAGE_KEY = 'trinity-os:data:v1';
+const LEGACY_STORAGE_KEY = 'trinity-os:data:v1';
+export const storageKeyForUser = (userId: number | string) => `trinity-os:data:${userId}:v1`;
 
 export const initialData: AppData = {
   calendar: {},
@@ -29,9 +30,9 @@ export const initialData: AppData = {
   trinity: [],
 };
 
-export function loadData(): AppData {
+export function loadData(userId: number | string): AppData {
   try {
-    const value = localStorage.getItem(STORAGE_KEY);
+    const value = localStorage.getItem(storageKeyForUser(userId));
     if (!value) return initialData;
     const parsed = JSON.parse(value) as Partial<AppData>;
     return { ...initialData, ...parsed, mockSchedule: Array.isArray(parsed.mockSchedule) ? parsed.mockSchedule : initialData.mockSchedule, resources: parsed.resources?.length ? parsed.resources : initialData.resources, goals: parsed.goals?.length ? parsed.goals : initialData.goals, routine: parsed.routine?.length ? parsed.routine : initialData.routine, weeklyCapabilityGoals: Array.isArray(parsed.weeklyCapabilityGoals) ? parsed.weeklyCapabilityGoals : [], wrongAnswerDrills: Array.isArray(parsed.wrongAnswerDrills) ? parsed.wrongAnswerDrills : [], dailyDrills: Array.isArray(parsed.dailyDrills) ? parsed.dailyDrills : [], monthlyPlans: Array.isArray(parsed.monthlyPlans) ? parsed.monthlyPlans : [], notionPages: Array.isArray(parsed.notionPages) ? parsed.notionPages : [] };
@@ -40,9 +41,14 @@ export function loadData(): AppData {
   }
 }
 
-export function saveData(data: AppData) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+export function saveData(userId: number | string, data: AppData) {
+  localStorage.setItem(storageKeyForUser(userId), JSON.stringify(data));
 }
+
+/** Legacy data is deliberately never migrated automatically: its owner cannot be proven. */
+export function hasLegacyData() { return Boolean(localStorage.getItem(LEGACY_STORAGE_KEY)); }
+
+export function clearUserData(userId: number | string) { localStorage.removeItem(storageKeyForUser(userId)); }
 
 export function downloadBackup(data: AppData) {
   const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), data }, null, 2)], { type: 'application/json' });

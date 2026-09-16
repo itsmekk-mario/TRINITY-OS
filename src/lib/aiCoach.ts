@@ -12,7 +12,8 @@ const AI_CACHE_TTL_MS = 30 * 60_000;
 const inFlight = new Map<string, Promise<unknown>>();
 
 function cacheKey(context: AIStudyCoachContext) {
-  return AI_CACHE_PREFIX + coachContextHash(context);
+  const userId = loadCloudflareConfig().userId;
+  return AI_CACHE_PREFIX + (userId === undefined ? 'anonymous' : userId) + ':' + coachContextHash(context);
 }
 
 export function loadAIAnalysisCache(context: AIStudyCoachContext): CoachReply | null {

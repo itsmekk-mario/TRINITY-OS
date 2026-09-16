@@ -51,7 +51,7 @@ async function authContext(request: Request, env: Env): Promise<AuthContext|null
   const pat=await env.DB.prepare("SELECT u.id,u.username,u.is_admin,u.must_change_password,u.arena_public_id,t.scopes FROM api_tokens t JOIN users u ON u.id=t.user_id WHERE t.token_hash=? AND t.revoked_at IS NULL AND u.active=1").bind(tokenHash).first<User&{scopes:string}>();
   return pat?{user:pat,authType:'api_token',tokenHash,scopes:(pat.scopes||'').split(',').map(value=>value.trim()).filter(Boolean)}:null;
 }
-async function createSession(env: Env, username: string, userId: number) { const token=randomHex(),hash=await sha256(token),expires=new Date(Date.now()+sessionTtlDays(env.SESSION_TTL_DAYS)*86400000).toISOString(); await env.DB.prepare("DELETE FROM sessions WHERE datetime(expires_at)<=datetime('now')").run(); await env.DB.prepare('INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)').bind(hash,userId,expires,new Date().toISOString()).run(); return {token,username,expiresAt:expires}; }
+async function createSession(env: Env, username: string, userId: number) { const token=randomHex(),hash=await sha256(token),expires=new Date(Date.now()+sessionTtlDays(env.SESSION_TTL_DAYS)*86400000).toISOString(); await env.DB.prepare("DELETE FROM sessions WHERE datetime(expires_at)<=datetime('now')").run(); await env.DB.prepare('INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)').bind(hash,userId,expires,new Date().toISOString()).run(); return {token,username,userId,expiresAt:expires}; }
 const tokenName = (value: unknown) => typeof value === 'string' ? value.trim().slice(0, 40) : '';
 const clientIp = (request: Request) => request.headers.get('CF-Connecting-IP') || 'local';
 async function rateKey(request: Request, username: string, windowMs = 900_000) { return sha256(`${clientIp(request)}:${username.toLowerCase()}:${Math.floor(Date.now()/windowMs)}`); }
@@ -192,7 +192,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
   if (arenaResponse) return arenaResponse;
   const studyRoomResponse = await handleStudyRoomApi(request, env, sessionUser, origin, json);
   if (studyRoomResponse) return studyRoomResponse;
-  if (url.pathname === '/api/auth/me' && request.method === 'GET') return user ? json({ ok: true, username: user.username, mustChangePassword: user.must_change_password === 1 }, 200, origin) : json({ error: 'Unauthorized' }, 401, origin);
+  if (url.pathname === '/api/auth/me' && request.method === 'GET') return user ? json({ ok: true, username: user.username, userId: user.id, mustChangePassword: user.must_change_password === 1 }, 200, origin) : json({ error: 'Unauthorized' }, 401, origin);
   if (url.pathname === '/api/auth/logout' && request.method === 'POST') {
     if(!auth||auth.authType!=='session')return json({error:'Unauthorized'},401,origin);
     await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(auth.tokenHash).run();

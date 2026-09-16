@@ -3,14 +3,14 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { BrainCircuit, CalendarRange, ChartNoAxesCombined, Menu, Download, Gauge, Home, MessageSquareText, NotebookTabs, Settings, ShieldCheck, Swords, Target, Upload, UserRound, Video, X } from 'lucide-react';
 import type { AppData } from './types';
-import { downloadBackup, loadData, parseBackup, saveData } from './lib/storage';
+import { downloadBackup, initialData, loadData, parseBackup, saveData } from './lib/storage';
 import { APP_VERSION } from './data/config';
 import Dashboard from './pages/Dashboard';
 import ScoreTracker from './pages/ScoreTracker';
 import NotionWorkspace from './pages/NotionWorkspace';
 import CloudflareSync from './components/CloudflareSync';
 import LoginPage from './components/LoginPage';
-import { logoutLocal, validateSession } from './lib/auth';
+import { logoutLocal, type SessionIdentity, validateSession } from './lib/auth';
 import { autoSyncCloudflareData, loadCloudflareConfig } from './lib/cloudflare';
 import SupportPortal, { ExamArchive, SupportOwner } from './pages/SupportPortal';
 import FeedbackInbox from './pages/FeedbackInbox';
@@ -61,17 +61,17 @@ function StudentApp() {
   const [planView, setPlanView] = useState<PlanView>(() => (['overview', 'calendar', 'weekly', 'routine'].includes(queryView() ?? '') ? queryView() as PlanView : 'overview'));
   const [trainView, setTrainView] = useState<TrainView>(() => (['timer', 'drill', 'wrong', 'resources'].includes(queryView() ?? '') ? queryView() as TrainView : 'timer'));
   const [insightsView, setInsightsView] = useState<InsightsView>(() => (['overview', 'performance', 'bottlenecks', 'review'].includes(queryView() ?? '') ? queryView() as InsightsView : 'overview'));
-  const [data, setData] = useState<AppData>(loadData); const [menu, setMenu] = useState(false); const [settings, setSettings] = useState(false); const [passwordDialog, setPasswordDialog] = useState(false); const [passwordRequired, setPasswordRequired] = useState(Boolean(loadCloudflareConfig().mustChangePassword)); const [toast, setToast] = useState(''); const fileRef = useRef<HTMLInputElement>(null); const [authenticated, setAuthenticated] = useState(Boolean(loadCloudflareConfig().token)); const syncing = useRef(false); const scrollPositions = useRef(new Map<string, number>());
+  const [data, setData] = useState<AppData>(initialData); const [menu, setMenu] = useState(false); const [settings, setSettings] = useState(false); const [passwordDialog, setPasswordDialog] = useState(false); const [passwordRequired, setPasswordRequired] = useState(Boolean(loadCloudflareConfig().mustChangePassword)); const [toast, setToast] = useState(''); const fileRef = useRef<HTMLInputElement>(null); const [authenticated, setAuthenticated] = useState(Boolean(loadCloudflareConfig().token)); const [identity, setIdentity] = useState<SessionIdentity | null>(null); const syncing = useRef(false); const scrollPositions = useRef(new Map<string, number>());
   const sidebarRef = useRef<HTMLElement>(null);
   useDialogFocus(menu, sidebarRef, () => setMenu(false));
   const settingsRef = useRef<HTMLElement>(null);
   useDialogFocus(settings, settingsRef, () => setSettings(false));
   const contextLabel = [...primaryNav, ...utilityNav].find((item) => item.id === page)?.label ?? 'Archive';
   const username = loadCloudflareConfig().username || '내 계정';
-  useEffect(() => saveData(data), [data]);
-  useEffect(() => { const retry = () => setData((value) => ({ ...value })); window.addEventListener('online', retry); return () => window.removeEventListener('online', retry); }, []);
-  useEffect(() => { if (!authenticated) return; const timer = window.setTimeout(async () => { if (syncing.current) return; syncing.current = true; try { const result = await autoSyncCloudflareData(data); if (result.action === 'downloaded' && result.data) { saveData(result.data); setData(result.data); } } catch { /* Local data remains authoritative until the next retry. */ } finally { syncing.current = false; } }, 1500); return () => window.clearTimeout(timer); }, [data, authenticated]);
-  useEffect(() => { if (authenticated) void validateSession().then((ok) => { if (!ok) { logoutLocal(); setAuthenticated(false); } }); }, [authenticated]);
+  useEffect(() => { if (identity) saveData(identity.userId, data); }, [data, identity]);
+  useEffect(() => { const retry = () => { if (identity) setData((value) => ({ ...value })); }; window.addEventListener('online', retry); return () => window.removeEventListener('online', retry); }, [identity]);
+  useEffect(() => { if (!authenticated) { setIdentity(null); return; } void validateSession().then((profile) => { if (!profile) { logoutLocal(); setAuthenticated(false); return; } setPasswordRequired(Boolean(profile.mustChangePassword)); setData(loadData(profile.userId)); setIdentity(profile); }); }, [authenticated]);
+  useEffect(() => { if (!identity) return; const timer = window.setTimeout(async () => { if (syncing.current) return; syncing.current = true; try { const result = await autoSyncCloudflareData(data, identity.userId); if (result.action === 'downloaded' && result.data) { saveData(identity.userId, result.data); setData(result.data); } } catch { /* Local data remains authoritative until the next retry. */ } finally { syncing.current = false; } }, 1500); return () => window.clearTimeout(timer); }, [data, identity]);
   useEffect(() => { const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') { setMenu(false); setSettings(false); } }; window.addEventListener('keydown', onKeyDown); return () => window.removeEventListener('keydown', onKeyDown); }, []);
   useEffect(() => {
     const previousRestoration = window.history.scrollRestoration;
@@ -107,6 +107,7 @@ function StudentApp() {
   const importData = async (file?: File) => { if (!file) return; try { setData(await parseBackup(file)); setToast('백업 데이터를 복원했습니다.'); setSettings(false); } catch (error) { setToast(error instanceof Error ? error.message : '가져오기에 실패했습니다.'); } finally { window.setTimeout(() => setToast(''), 2200); } };
   const screen = page === 'today' ? <Dashboard data={data} update={update} navigate={navigate} /> : page === 'plan' ? <PlanHub data={data} update={update} view={planView} onView={(view) => changeSubview('plan', view, setPlanView)} /> : page === 'train' ? <TrainHub data={data} update={update} view={trainView} onView={(view) => changeSubview('train', view, setTrainView)} /> : page === 'test' ? <ScoreTracker data={data} update={update} /> : page === 'insights' ? <InsightsHub data={data} update={update} view={insightsView} onView={(view) => changeSubview('insights', view, setInsightsView)} /> : page === 'study-room' ? <StudyRoom data={data} /> : page === 'coach' ? <CoachPage data={data} /> : page === 'feedback' ? <FeedbackInbox data={data} update={update} /> : page === 'workspace' ? <NotionWorkspace data={data} update={update} /> : page === 'profile' ? <Arena data={data} /> : <ExamArchive />;
   if (!authenticated) return <LoginPage onAuthenticated={() => { const config = loadCloudflareConfig(); setAuthenticated(true); setPasswordRequired(Boolean(config.mustChangePassword)); }} />;
+  if (!identity) return <main className="login-page" role="status">안전하게 계정을 확인하는 중…</main>;
   return <div className="app-shell learning-shell">
     <aside ref={sidebarRef} tabIndex={menu ? -1 : undefined} role={menu ? 'dialog' : undefined} aria-modal={menu || undefined} aria-label={menu ? '메뉴' : undefined} className={menu ? 'open' : ''}><div className="brand"><div className="brand-mark">T</div><div><strong>TRINITY OS</strong><span>Learning Operating System</span></div><button className="mobile-close" aria-label="메뉴 닫기" onClick={() => setMenu(false)}><X /></button></div><nav className="primary-nav" aria-label="핵심 메뉴">{primaryNav.map(({ id, label, icon: Icon }) => <button key={id} aria-current={page === id ? 'page' : undefined} className={page === id ? 'active' : ''} onClick={() => navigate(id)}><Icon size={19} /><span>{label}</span></button>)}</nav><div className="utility-nav"><span>UTILITY</span>{utilityNav.map(({ id, label, icon: Icon }) => <button key={id} aria-current={page === id ? 'page' : undefined} className={page === id ? 'active' : ''} onClick={() => navigate(id)}><Icon size={17} /><span>{label}</span></button>)}</div><div className="account-area"><button className="account-button" onClick={() => { setMenu(false); setSettings(true); }} aria-label={`${username} 계정 및 설정`}><span className="account-avatar"><UserRound size={19} /></span><span><b>{username}</b><small>Settings</small></span><Settings size={16} /></button></div></aside>
     {menu && <div className="nav-backdrop" onClick={() => setMenu(false)} />}<main><div className="mobile-bar"><button aria-label="메뉴 열기" aria-expanded={menu} onClick={() => setMenu(true)}><Menu /></button><div className="mobile-context"><strong>{contextLabel}</strong><small>{new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}</small></div><button aria-label="설정 열기" onClick={() => setSettings(true)}><Settings /></button></div><div className="page-wrap"><PageTransition transitionKey={currentKey()}>{screen}</PageTransition></div></main>
