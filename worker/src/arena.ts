@@ -27,7 +27,7 @@ const object = (value: unknown) => value && typeof value === 'object' && !Array.
 const string = (value: unknown, max = 80) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 const number = (value: unknown, min: number, max: number) => typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : min;
 const parse = <T>(value: string | null | undefined, fallback: T): T => { try { return value ? JSON.parse(value) as T : fallback; } catch { return fallback; } };
-const monday = (iso: string) => { const date = new Date(iso); const day = date.getUTCDay() || 7; date.setUTCDate(date.getUTCDate() - day + 1); return date.toISOString().slice(0, 10); };
+const monday = (iso: string) => { const date = new Date(`${getStudyDayKey(new Date(iso))}T12:00:00+09:00`); const day = date.getUTCDay() || 7; date.setUTCDate(date.getUTCDate() - day + 1); return getStudyDayKey(date); };
 
 type ProfileRow = { user_id: number; nickname: string; grade: string; target_university: string; target_department: string; target_admission_type: string; study_goal: string; achievement_level: string; profile_image: string | null };
 const profileDto = (row: ProfileRow) => ({ nickname: row.nickname, grade: row.grade, targetUniversity: row.target_university, targetDepartment: row.target_department, targetAdmissionType: row.target_admission_type, studyGoal: parse<string[]>(row.study_goal, []), achievementLevel: row.achievement_level, ...(row.profile_image ? { profileImage: row.profile_image } : {}) });
@@ -122,7 +122,7 @@ export async function arena(request: Request, env: ArenaEnv, user: ArenaUser | n
     if(!row)return tools.json({error:'Arena 점수를 계산할 학습 기록이 없습니다.'},409,origin);
     let data:AppData; try{data=JSON.parse(row.payload) as AppData;}catch{return tools.json({error:'학습 기록을 읽지 못했습니다.'},500,origin);}
     const review=await env.DB.prepare("SELECT COUNT(*) completed,SUM(CASE WHEN result='success' THEN 1 ELSE 0 END) successes,SUM(CASE WHEN scheduled_at IS NOT NULL AND reviewed_at IS NOT NULL AND ABS(julianday(reviewed_at)-julianday(scheduled_at))<=1 THEN 1 WHEN scheduled_at IS NOT NULL AND reviewed_at IS NOT NULL AND ABS(julianday(reviewed_at)-julianday(scheduled_at))<=3 THEN .5 ELSE 0 END) schedule_credit,SUM(CASE WHEN scheduled_at IS NOT NULL AND reviewed_at IS NOT NULL THEN 1 ELSE 0 END) schedule_completed FROM learning_reviews WHERE user_id=? AND result<>'pending'").bind(user.id).first<{completed:number;successes:number;schedule_credit:number;schedule_completed:number}>();
-    const calculatedAt=now,wrong=data.wrongAnswerDrills,cut=Date.parse(calculatedAt)-13*86400000,previousCut=cut-14*86400000,currentWrong=wrong.filter(v=>Date.parse(v.date)>=cut).length,previousWrong=wrong.filter(v=>Date.parse(v.date)>=previousCut&&Date.parse(v.date)<cut).length,retries=wrong.flatMap(v=>v.retries??[]),done=retries.filter(v=>v.completedDate).length;
+    const calculatedAt=now,wrong=data.wrongAnswerDrills,todayKey=getStudyDayKey(new Date(calculatedAt)),currentStart=getStudyDayKey(new Date(getStudyDayRange(todayKey).start.getTime()-13*86400000)),previousStart=getStudyDayKey(new Date(getStudyDayRange(todayKey).start.getTime()-27*86400000)),previousEnd=getStudyDayKey(new Date(getStudyDayRange(todayKey).start.getTime()-14*86400000)),currentWrong=wrong.filter(v=>v.date>=currentStart&&v.date<=todayKey).length,previousWrong=wrong.filter(v=>v.date>=previousStart&&v.date<=previousEnd).length,retries=wrong.flatMap(v=>v.retries??[]),done=retries.filter(v=>v.completedDate).length;
     const intelligence={reviewSuccesses:Number(review?.successes||0),reviewCompleted:Number(review?.completed||0),drillSuccesses:done,drillCompleted:retries.length,repeatedErrorsCurrent:currentWrong,repeatedErrorsPrevious:previousWrong,reviewScheduleCredits:Number(review?.schedule_credit||0),reviewScheduleCompleted:Number(review?.schedule_completed||0)};
     const score=calculateArenaScore(data,new Date(calculatedAt),intelligence),{breakdown,metrics}=score;
     const {execution,mastery,performance,consistency,growth}=breakdown,total=score.total,growthRate=metrics.growthRate;
@@ -171,3 +171,4 @@ export async function arena(request: Request, env: ArenaEnv, user: ArenaUser | n
 }
 import type { AppData } from '../../src/types';
 import { calculateArenaScore } from '../../src/lib/arenaScore.ts';
+import { getStudyDayKey, getStudyDayRange } from '../../src/lib/date.ts';

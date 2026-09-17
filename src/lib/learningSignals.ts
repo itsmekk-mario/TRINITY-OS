@@ -1,6 +1,7 @@
 import type { AppData, DrillRetry, ScoreEntry } from '../types.ts';
 import { parsePlannedMinutes } from './plannedTime.ts';
 import { toDateKey, weekStartKey } from './date.ts';
+import { studyTotals } from './studyTotals.ts';
 
 export type LearningSignal = {
   id: string;
@@ -59,7 +60,8 @@ export function deriveLearningSignals(data: AppData, now = new Date()): Learning
   const previousEnd = keyDaysAgo(now, 14);
   const todayPlans = data.calendar[today]?.plans ?? [];
   const todayDrills = data.dailyDrills.filter((item) => item.date === today);
-  const todayMinutes = Math.round(data.sessions.filter((item) => item.date === today).reduce((sum, item) => sum + Math.max(0, item.seconds), 0) / 60);
+  const todaySeconds = studyTotals(data.sessions)[today] ?? 0;
+  const todayMinutes = Math.round(todaySeconds / 60);
   const plannedMinutes = todayPlans.reduce((sum, item) => sum + parsePlannedMinutes(item.quantity), 0) + todayDrills.reduce((sum, item) => sum + Math.max(0, item.minutes), 0);
   const planItems = [...todayPlans, ...todayDrills];
   const planItemRate = planItems.length ? Math.round(planItems.filter((item) => item.done).length / planItems.length * 100) : null;
@@ -106,7 +108,7 @@ export function deriveLearningSignals(data: AppData, now = new Date()): Learning
     const done = capabilityGoals.filter((item) => item.done).length;
     signals.push({ id: 'capability-goal', type: 'capability', title: 'Capability Goal', value: `${done}/${capabilityGoals.length}`, interpretation: done === capabilityGoals.length ? 'positive' : 'neutral', action: capabilityGoals.find((item) => !item.done)?.successCriterion });
   }
-  if (data.sessions.some((item) => item.date === today)) signals.push({ id: 'time-today', type: 'time', title: '오늘 학습', value: `${Math.floor(todayMinutes / 60)}시간 ${todayMinutes % 60}분`, previousValue: plannedMinutes ? `계획 ${plannedMinutes}분` : undefined, interpretation: 'neutral' });
+  if (todaySeconds > 0) signals.push({ id: 'time-today', type: 'time', title: '오늘 학습', value: `${Math.floor(todayMinutes / 60)}시간 ${todayMinutes % 60}분`, previousValue: plannedMinutes ? `계획 ${plannedMinutes}분` : undefined, interpretation: 'neutral' });
 
   return { generatedAt: now.toISOString(), execution: { todayMinutes, plannedMinutes, completionRate, planItemRate }, signals, bottlenecks, recurrenceRate, retries, transfer, capabilityGoals, mockPerformance, currentBottleneck, recommendedAction };
 }

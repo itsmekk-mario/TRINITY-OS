@@ -68,7 +68,7 @@ assert.equal((await call('/api/support/data','GET',null,parent.token)).status,40
 console.log('PASS: additive migration, private-field filtering, role restrictions, comments, PDF access, revocation');
 const {studyTotals}=await import('../src/lib/studyTotals.ts');
 const totals=studyTotals([{id:'cross',date:'2026-09-07',subject:'수학',seconds:3600,segments:[{start:new Date('2026-09-07T14:30:00Z').toISOString(),end:new Date('2026-09-07T15:30:00Z').toISOString(),kind:'focus'},{start:new Date('2026-09-07T15:30:00Z').toISOString(),end:new Date('2026-09-07T15:40:00Z').toISOString(),kind:'break'}]},{id:'legacy',date:'2026-09-07',subject:'국어',seconds:600}]);
-assert.equal(totals['2026-09-07'],2400);
-assert.equal(totals['2026-09-08'],1800);
+assert.equal(totals['2026-09-07'],4200);
+assert.equal(totals['2026-09-08']??0,0);
 assert.equal(db.prepare('SELECT payload FROM learning_state').get().payload,JSON.stringify(data));
-console.log('PASS: midnight allocation, break exclusion, legacy duration retention, original student payload unchanged');
+console.log('PASS: Study Day allocation, break exclusion, legacy duration retention, original student payload unchanged');

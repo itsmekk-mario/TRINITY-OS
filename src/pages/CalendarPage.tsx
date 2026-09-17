@@ -4,6 +4,7 @@ import type { AppData, CalendarEntry, CalendarPlan, Subject } from '../types';
 import { SUBJECTS } from '../data/config';
 import { Card, Field, PageHeader, SaveButton, TextArea } from '../components/Ui';
 import { toDateKey, uid } from '../lib/date';
+import { studyTotalsBySubject } from '../lib/studyTotals';
 import { DailyLearningDetailSheet } from '../components/teacher/DailyLearningDetail';
 import { asTeacherData } from '../lib/teacherAnalytics';
 
@@ -15,7 +16,7 @@ export default function CalendarPage({ data, update }: { data: AppData; update: 
   const detailData = useMemo(() => asTeacherData(data), [data]);
   const year = cursor.getFullYear(), month = cursor.getMonth();
   const cells = useMemo(() => { const first = new Date(year, month, 1); const days = new Date(year, month + 1, 0).getDate(); return [...Array(first.getDay()).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)]; }, [year, month]);
-  const studyByDate = useMemo(() => data.sessions.reduce<Record<string, { total: number; subjects: Partial<Record<Subject, number>> }>>((result, session) => { const current = result[session.date] ?? { total: 0, subjects: {} }; current.total += session.seconds / 60; current.subjects[session.subject] = (current.subjects[session.subject] ?? 0) + session.seconds / 60; result[session.date] = current; return result; }, {}), [data.sessions]);
+  const studyByDate = useMemo(() => Object.fromEntries(Object.entries(studyTotalsBySubject(data.sessions)).map(([date, subjects]) => [date, { total: Object.values(subjects).reduce((sum, seconds) => sum + (seconds ?? 0), 0) / 60, subjects: Object.fromEntries(Object.entries(subjects).map(([subject, seconds]) => [subject, (seconds ?? 0) / 60])) }])), [data.sessions]);
   const selectedStudy = selected ? studyByDate[selected] : undefined;
   const editDay = (key: string) => { setTraceDate(null); setSelected(key); setDraft(data.calendar[key] ? { ...data.calendar[key], plans: data.calendar[key].plans ?? [] } : emptyEntry(key)); setPlanDraft(emptyPlan()); };
   const openDay = (day: number) => setTraceDate(`${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`);

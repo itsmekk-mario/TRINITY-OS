@@ -3,6 +3,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, Clock3, FileTe
 import { parsePlannedMinutes } from '../../lib/plannedTime';
 import { formatStudyTime, type TeacherData } from '../../lib/teacherAnalytics';
 import { toDateKey } from '../../lib/date';
+import { studyTotals, studyTotalsBySubject } from '../../lib/studyTotals';
 import { Empty, SectionTitle } from '../Ui';
 import type { Subject } from '../../types';
 
@@ -20,9 +21,11 @@ export function DailyLearningDetailSheet({ data, date, onClose, subject, onEditP
     const plans = visible(data.plans.filter(item => item.date === date));
     const sessions = visible(data.sessions.filter(item => item.date === date));
     const day = data.calendarDays?.find(item => item.date === date);
-    const totalSeconds = sessions.reduce((sum, item) => sum + item.seconds, 0) || (!subject ? (day?.minutes ?? 0) * 60 : 0);
+    const totals = subject ? studyTotals(data.sessions.filter(item => item.subject === subject)) : studyTotals(data.sessions);
+    const totalSeconds = (totals[date] ?? 0) || (!subject ? (day?.minutes ?? 0) * 60 : 0);
     const plannedMinutes = plans.reduce((sum, item) => sum + parsePlannedMinutes(item.quantity), 0);
-    const bySubject = Object.fromEntries(SUBJECTS.map(subject => [subject, sessions.filter(item => item.subject === subject).reduce((sum, item) => sum + item.seconds, 0)]));
+    const subjectTotals = studyTotalsBySubject(data.sessions)[date] ?? {};
+    const bySubject = Object.fromEntries(SUBJECTS.map(subject => [subject, subjectTotals[subject] ?? 0]));
     const drills = visible(data.dailyDrills.filter(item => item.date === date));
     const wrong = visible(data.wrongAnswerDrills.filter(item => item.date === date));
     const scores = data.scores.filter(item => item.date === date && (!subject || item.subject === subject || (subject !== '탐구' && item.reviews?.[subject])));
