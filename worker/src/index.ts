@@ -122,7 +122,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
   const cors=requestOrigin(request,env.ALLOWED_ORIGIN,env.ENVIRONMENT),origin=cors.responseOrigin;
   if(request.method==='OPTIONS')return cors.allowed?new Response(null,{status:204,headers:{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'Content-Type, Authorization, X-Setup-Token','Access-Control-Allow-Methods':'GET, PUT, POST, PATCH, DELETE, OPTIONS','Vary':'Origin'}}):json({error:'허용되지 않은 Origin입니다.'},403);
   if(!cors.allowed&&request.method!=='GET'&&request.method!=='HEAD')return json({error:'허용되지 않은 Origin입니다.'},403);
-  const url = new URL(request.url), declared=Number(request.headers.get('Content-Length')||0), limit=url.pathname==='/api/sync'?MAX_SYNC_BODY:MAX_JSON_BODY;
+  const url = new URL(request.url), declared=Number(request.headers.get('Content-Length')||0), limit=['/api/sync','/api/archive/import'].includes(url.pathname)?MAX_SYNC_BODY:MAX_JSON_BODY;
   if(declared>limit)return json({error:'요청 본문이 너무 큽니다.'},413,origin);
   await ensureTables(env.DB);
   if(request.method!=='GET'&&['/api/support/accounts','/api/collab/assignments'].includes(url.pathname)&&!await adminAllowed(request,env))return json({error:'요청이 너무 많습니다.'},429,origin,{'Retry-After':'60'});

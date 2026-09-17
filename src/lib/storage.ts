@@ -5,6 +5,10 @@ import routineSeed from '../data/routine.json';
 import quotesSeed from '../data/quotes.json';
 import { EXAM_DATE } from '../data/config';
 import mockScheduleSeed from '../data/mockSchedule.json';
+import { APP_VERSION } from '../data/config';
+import { archiveApi, type LearningArchiveBackup } from './archiveApi';
+import { parseBackupValue, type BackupV2, type ParsedBackup } from './backupFormat';
+export type {BackupV1,BackupV2,ParsedBackup} from './backupFormat';
 
 const LEGACY_STORAGE_KEY = 'trinity-os:data:v1';
 export const storageKeyForUser = (userId: number | string) => `trinity-os:data:${userId}:v1`;
@@ -50,8 +54,8 @@ export function hasLegacyData() { return Boolean(localStorage.getItem(LEGACY_STO
 
 export function clearUserData(userId: number | string) { localStorage.removeItem(storageKeyForUser(userId)); }
 
-export function downloadBackup(data: AppData) {
-  const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), data }, null, 2)], { type: 'application/json' });
+function saveBackupFile(payload:BackupV2) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -60,9 +64,21 @@ export function downloadBackup(data: AppData) {
   URL.revokeObjectURL(url);
 }
 
-export async function parseBackup(file: File): Promise<AppData> {
-  const parsed = JSON.parse(await file.text());
-  const candidate = parsed.data ?? parsed;
-  if (!candidate || !Array.isArray(candidate.sessions) || !Array.isArray(candidate.scores)) throw new Error('올바른 TRINITY OS 백업이 아닙니다.');
-  return { ...initialData, ...candidate };
+export async function downloadBackup(data: AppData) {
+  // Archive failure is intentionally fatal: silently producing a partial v1 file looks like a successful full backup.
+  const learningArchive=await archiveApi<LearningArchiveBackup>('/api/archive/export');
+  saveBackupFile({version:2,exportedAt:new Date().toISOString(),app:data,learningArchive,metadata:{appVersion:APP_VERSION,archiveSchemaVersion:1}});
+}
+
+export async function parseBackup(file: File): Promise<ParsedBackup> {
+  return parseBackupValue(JSON.parse(await file.text()),initialData);
+}
+
+export async function restoreBackup(backup:ParsedBackup){
+  if(backup.version===2&&backup.learningArchive){
+    // Persist AppData first so imported Wrong Answer links are validated against the restored drills.
+    await archiveApi<{ok:boolean}>('/api/sync','PUT',{data:backup.app});
+    await archiveApi<{ok:boolean;warnings:string[]}>('/api/archive/import','POST',backup.learningArchive);
+  }
+  return backup.app;
 }
