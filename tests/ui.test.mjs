@@ -36,7 +36,7 @@ const { default: Dashboard } = await load('../src/pages/Dashboard.tsx');
 const { Empty, PageHeader } = await load('../src/components/Ui.tsx');
 const { default: HubLayout } = await load('../src/components/navigation/HubLayout.tsx');
 const { default: SegmentedControl } = await load('../src/components/navigation/SegmentedControl.tsx');
-const today = new Date().toLocaleDateString('sv-SE');
+const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
 const data = () => ({ calendar: {}, sessions: [], scores: [], wrongAnswerDrills: [], dailyDrills: [], weeklyCapabilityGoals: [], plaire: {}, trinity: [], examDate: '2028-11-16' });
 const renderToday = (value) => renderToStaticMarkup(createElement(Dashboard, { data: value, update() {}, navigate() {} }));
 

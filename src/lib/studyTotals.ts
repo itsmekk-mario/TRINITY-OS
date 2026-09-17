@@ -9,8 +9,10 @@ export function studyTotals(sessions: TimerSession[]): Record<string, number> {
    let start=Date.parse(part.start);const end=Date.parse(part.end);
    if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start)continue;
    while(start<end){
-    const date=toDateKey(new Date(start));const midnight=new Date(start);midnight.setHours(24,0,0,0);
-    const until=Math.min(+midnight,end);
+    const date=toDateKey(new Date(start));
+    const seoulNoon=new Date(`${date}T12:00:00+09:00`); seoulNoon.setUTCDate(seoulNoon.getUTCDate()+1);
+    const nextDate=toDateKey(seoulNoon); const midnight=Date.parse(`${nextDate}T00:00:00+09:00`);
+    const until=Math.min(midnight,end);
     totals[date]=(totals[date]??0)+(until-start)/1000;start=until;
    }
   }

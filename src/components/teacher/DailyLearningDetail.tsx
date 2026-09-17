@@ -14,7 +14,7 @@ const minutes = (seconds: number) => Math.round(seconds / 60);
 const compact = (seconds: number) => seconds >= 3600 ? `${Math.floor(seconds / 3600)}h ${Math.round(seconds % 3600 / 60)}m` : `${Math.round(seconds / 60)}m`;
 const weekStart = (key: string) => { const value = dateAtSeoulNoon(key); value.setUTCDate(value.getUTCDate() - ((value.getUTCDay() || 7) - 1)); return toDateKey(value); };
 
-export function DailyLearningDetailSheet({ data, date, onClose, subject }: { data: TeacherData; date: string; onClose: () => void; subject?: Subject }) {
+export function DailyLearningDetailSheet({ data, date, onClose, subject, onEditPlan }: { data: TeacherData; date: string; onClose: () => void; subject?: Subject; onEditPlan?: () => void }) {
   const view = useMemo(() => {
     const visible = <T extends { subject?: string }>(items: T[]) => subject ? items.filter(item => item.subject === subject) : items;
     const plans = visible(data.plans.filter(item => item.date === date));
@@ -44,7 +44,7 @@ export function DailyLearningDetailSheet({ data, date, onClose, subject }: { dat
   const execution = view.plannedMinutes ? Math.round(minutes(view.totalSeconds) / view.plannedMinutes * 100) : undefined;
   const hasData = view.plans.length || view.sessions.length || view.day || view.drills.length || view.wrong.length || view.scores.length;
   return <aside className="daily-detail-drawer" role="dialog" aria-modal="true" aria-labelledby="daily-detail-title">
-    <header className="daily-detail-header"><div><p className="eyebrow">DAILY LEARNING DETAIL</p><h2 id="daily-detail-title">{dateLabel(date)}</h2></div><button className="icon-button" onClick={onClose} aria-label="일별 학습내역 닫기"><X /></button></header>
+    <header className="daily-detail-header"><div><p className="eyebrow">DAILY LEARNING DETAIL</p><h2 id="daily-detail-title">{dateLabel(date)}</h2></div><div className="teacher-actions">{onEditPlan && <button className="button" onClick={onEditPlan}>일정 편집</button>}<button className="icon-button" onClick={onClose} aria-label="일별 학습내역 닫기"><X /></button></div></header>
     {!hasData ? <Empty title="이 날짜의 학습 기록이 없습니다." description="계획·타이머·Drill·실모 기록이 동기화되면 이곳에 연결됩니다." /> : <div className="daily-detail-content">
       <section className="daily-summary-grid"><div><span>총 실제 학습</span><b>{formatStudyTime(view.totalSeconds)}</b></div><div><span>계획 학습시간</span><b>{view.plannedMinutes ? `${view.plannedMinutes}m` : '미기록'}</b></div><div><span>계획 대비 실행률</span><b>{execution === undefined ? '분석 불가' : `${execution}%`}</b></div><div><span>완료 과제</span><b>{done} / {view.plans.length}</b></div><div><span>학습 과목</span><b>{view.subjects.size}개</b></div><div><span>집중 세션</span><b>{view.sessions.length}회</b></div></section>
 

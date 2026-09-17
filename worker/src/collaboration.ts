@@ -126,6 +126,18 @@ export async function collaboration(request: Request, env: Env, owner: boolean, 
       const previous=await env.DB.prepare('SELECT * FROM teacher_feedback WHERE id=? AND teacher_id=?').bind(edit[1],account.id).first<Record<string,unknown>>(); if(!previous)return out({error:'Only the author can edit this feedback'},403); const authorAccess=await assignmentFor(env,account,String(previous.student_id)); if(!authorAccess||!allowed(authorAccess.assignment,'createFeedback'))return out({error:'Feedback permission required'},403);
       const body=await h.boundedJson<Record<string,unknown>>(request),now=new Date().toISOString(),context=feedbackContext(body); await env.DB.prepare('INSERT INTO teacher_feedback_audit(id,feedback_id,editor_id,snapshot_json,edited_at) VALUES(?,?,?,?,?)').bind(h.randomHex(16),edit[1],account.id,JSON.stringify(previous),now).run(); await env.DB.prepare('UPDATE teacher_feedback SET title=?,categories_json=?,status=?,progress=?,bottleneck=?,observation=?,action=?,success_criterion=?,comment=?,context_type=?,context_target_id=?,updated_at=? WHERE id=? AND teacher_id=?').bind(clean(body.title,160),JSON.stringify(asArray(body.categories)),['needs_improvement','normal','stable'].includes(String(body.status))?String(body.status):String(previous.status),['active','achieved','replaced','archived'].includes(String(body.progress))?String(body.progress):String(previous.progress),clean(body.bottleneck),clean(body.observation,2000),clean(body.action,1200),clean(body.successCriterion,1200),clean(body.comment,2000),context.type,context.targetId,now,edit[1],account.id).run(); return out({ok:true,updatedAt:now});
     }
+    const dailyRoute=path.match(/^\/api\/collab\/students\/([^/]+)\/daily\/([0-9]{4}-[0-9]{2}-[0-9]{2})$/);
+    if(dailyRoute&&method==='GET'){
+      const access=await assignmentFor(env,account,dailyRoute[1]); if(!access)return out({error:'No assignment for this student'},403);
+      const date=dailyRoute[2];
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(`${date}T12:00:00Z`)))return out({error:'Invalid date'},400);
+      const data=await state(env,access.student.id); if(!data)return out({studentId:access.student.arena_public_id,date,data:null});
+      const view=outData(data,access.assignment);
+      const noon=new Date(`${date}T12:00:00Z`); noon.setUTCDate(noon.getUTCDate()-((noon.getUTCDay()||7)-1)); const weekStart=noon.toISOString().slice(0,10);
+      return out({studentId:access.student.arena_public_id,date,data:{
+        sessions:view.sessions.filter(item=>item.date===date),scores:view.scores.filter(item=>item.date===date),wrongAnswerDrills:view.wrongAnswerDrills.filter(item=>item.date===date),dailyDrills:view.dailyDrills.filter(item=>item.date===date),plans:view.plans.filter(item=>item.date===date),calendarDays:view.calendarDays.filter(item=>item.date===date),plaire:view.plaire.filter(item=>item.date===date),trinity:view.trinity.filter(item=>item.date===date),weeklyCapabilityGoals:view.weeklyCapabilityGoals.filter(item=>item.weekStart===weekStart),resources:[],access:view.access
+      }});
+    }
     const match=path.match(/^\/api\/collab\/students\/([^/]+)(?:\/(data|feedback))?$/); if(!match)return out({error:'Not found'},404);
     const access=await assignmentFor(env,account,match[1]); if(!access)return out({error:'No assignment for this student'},403); const {assignment,student}=access; const data=await state(env,student.id);
     if(!match[2]&&method==='GET')return out({studentId:student.arena_public_id,assignment:{role:assignment.role,subject:assignment.subject,permissions:permissions(assignment.permissions_json)},summary:data?{totalSeconds:outData(data,assignment).sessions.reduce((sum,item)=>sum+item.seconds,0)}:null});
