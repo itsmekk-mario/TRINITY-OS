@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { toDateKey } from '../src/lib/date.ts';
 
 // Render actual TSX primitives without introducing a test framework or browser dependency.
 const modules = new Map();
@@ -36,7 +37,7 @@ const { default: Dashboard } = await load('../src/pages/Dashboard.tsx');
 const { Empty, PageHeader } = await load('../src/components/Ui.tsx');
 const { default: HubLayout } = await load('../src/components/navigation/HubLayout.tsx');
 const { default: SegmentedControl } = await load('../src/components/navigation/SegmentedControl.tsx');
-const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
+const today = toDateKey();
 const data = () => ({ calendar: {}, sessions: [], scores: [], wrongAnswerDrills: [], dailyDrills: [], weeklyCapabilityGoals: [], plaire: {}, trinity: [], examDate: '2028-11-16' });
 const renderToday = (value) => renderToStaticMarkup(createElement(Dashboard, { data: value, update() {}, navigate() {} }));
 

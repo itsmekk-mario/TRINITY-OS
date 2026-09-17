@@ -12,6 +12,8 @@ type CamStudySession = {
   session: ReturnType<typeof useStudyRoom>;
   enterRoom: (room: StudyRoomInfo) => void;
   leaveRoom: () => void;
+  focusedParticipantId?: string;
+  setFocusedParticipantId: (id?: string) => void;
 };
 const CamStudyContext = createContext<CamStudySession | undefined>(undefined);
 
@@ -41,11 +43,12 @@ function MiniCam({ onOpen }: { onOpen: () => void }) {
 
 export function CamStudyProvider({ children, data, active, onOpen }: { children: ReactNode; data: AppData; active: boolean; onOpen: () => void }) {
   const [room, setRoom] = useState<StudyRoomInfo>();
+  const [focusedParticipantId, setFocusedParticipantId] = useState<string>();
   const camera = useCamera();
-  const session = useStudyRoom(room?.code ?? '', room ?? IDLE_ROOM, data, camera.stream, camera.enabled, camera.microphoneEnabled);
-  const enterRoom = useCallback((next: StudyRoomInfo) => setRoom(next), []);
-  const leaveRoom = useCallback(() => { session.leave(); camera.stopAll(); setRoom(undefined); }, [camera.stopAll, session.leave]);
-  return <CamStudyContext.Provider value={{ room, camera, session, enterRoom, leaveRoom }}>
+  const session = useStudyRoom(room?.code ?? '', room ?? IDLE_ROOM, data, camera.stream, camera.enabled, camera.microphoneEnabled, focusedParticipantId, active);
+  const enterRoom = useCallback((next: StudyRoomInfo) => { setFocusedParticipantId(undefined); setRoom(next); }, []);
+  const leaveRoom = useCallback(() => { session.leave(); camera.stopAll(); setFocusedParticipantId(undefined); setRoom(undefined); }, [camera.stopAll, session.leave]);
+  return <CamStudyContext.Provider value={{ room, camera, session, enterRoom, leaveRoom, focusedParticipantId, setFocusedParticipantId }}>
     {children}
     {!active && room && <MiniCam onOpen={onOpen} />}
   </CamStudyContext.Provider>;

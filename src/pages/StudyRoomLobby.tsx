@@ -6,7 +6,7 @@ import { createStudyRoom, getMediaServerStatus, joinStudyRoom, type MediaServerS
 export default function StudyRoomLobby({ onEnter }: { onEnter: (room: StudyRoomInfo) => void }) {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('함께 집중하는 방');
-  const [maxParticipants, setMaxParticipants] = useState(6);
+  const [maxParticipants, setMaxParticipants] = useState(10);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -48,7 +48,7 @@ export default function StudyRoomLobby({ onEnter }: { onEnter: (room: StudyRoomI
               <Field label="방 이름"><input value={name} maxLength={40} onChange={(event) => setName(event.target.value)} /></Field>
               <Field label="최대 인원">
                 <div className="study-capacity" role="group" aria-label="최대 인원">
-                  {[2, 4, 6].map((value) => <button key={value} className={maxParticipants === value ? 'active' : ''} onClick={() => setMaxParticipants(value)}>{value}명</button>)}
+                  {[2, 4, 6, 10].map((value) => <button key={value} className={maxParticipants === value ? 'active' : ''} onClick={() => setMaxParticipants(value)}>{value}명</button>)}
                 </div>
               </Field>
               <div>

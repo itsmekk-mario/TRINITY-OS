@@ -2,17 +2,24 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 type FacingMode = 'user' | 'environment';
 type CaptureProfile = { width: number; height: number };
+export type CaptureDiagnostics = {
+  width?: number;
+  height?: number;
+  frameRate?: number;
+  deviceId?: string;
+};
 const captureProfiles: CaptureProfile[] = [
   { width: 1920, height: 1080 },
   { width: 1280, height: 720 },
   { width: 854, height: 480 },
+  { width: 640, height: 360 },
 ];
 const videoConstraints = (facingMode: FacingMode, profile: CaptureProfile): MediaStreamConstraints => ({
   audio: false,
   video: {
     facingMode: { ideal: facingMode },
-    width: { ideal: profile.width },
-    height: { ideal: profile.height },
+    width: { ideal: profile.width, max: profile.width },
+    height: { ideal: profile.height, max: profile.height },
     frameRate: { ideal: 30, max: 30 },
   },
 });
@@ -28,6 +35,7 @@ export function useCamera() {
   const [microphoneError, setMicrophoneError] = useState('');
   const [starting, setStarting] = useState(false);
   const [microphoneStarting, setMicrophoneStarting] = useState(false);
+  const [capture, setCapture] = useState<CaptureDiagnostics>();
   const current = useRef<MediaStream>(new MediaStream());
   const cameraWanted = useRef(false);
   const microphoneWanted = useRef(false);
@@ -44,6 +52,7 @@ export function useCamera() {
       current.current.removeTrack(track);
     }
     publishSnapshot();
+    if (kind === 'video') setCapture(undefined);
   }, [publishSnapshot]);
   const stop = useCallback(() => {
     cameraWanted.current = false;
@@ -67,6 +76,7 @@ export function useCamera() {
     current.current.getTracks().forEach((track) => track.stop());
     current.current = new MediaStream();
     setStream(undefined);
+    setCapture(undefined);
   }, []);
 
   const start = useCallback(async (nextFacing: FacingMode = facingMode) => {
@@ -97,6 +107,13 @@ export function useCamera() {
         return;
       }
       for (const track of next.getVideoTracks()) current.current.addTrack(track);
+      const settings = next.getVideoTracks()[0]?.getSettings();
+      setCapture(settings ? {
+        width: settings.width,
+        height: settings.height,
+        frameRate: settings.frameRate,
+        deviceId: settings.deviceId,
+      } : undefined);
       setFacingMode(nextFacing);
       publishSnapshot();
     } catch (cause) {
@@ -165,6 +182,7 @@ export function useCamera() {
     microphoneError,
     starting,
     microphoneStarting,
+    capture,
     start,
     stop,
     startMicrophone,

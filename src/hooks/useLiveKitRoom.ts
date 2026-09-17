@@ -3,6 +3,7 @@ import {
   Room,
   RoomEvent,
   Track,
+  VideoQuality,
   type RemoteParticipant,
   type RemoteTrack,
   type RemoteTrackPublication,
@@ -11,12 +12,62 @@ import { createLiveKitAccess, type ConnectionState, type StudyParticipant } from
 
 const RETRY_DELAYS = [3_000, 5_000, 10_000, 20_000];
 
+export type VideoDiagnostics = {
+  outbound?: MediaStats;
+  inbound?: MediaStats;
+};
+type MediaStats = {
+  width?: number;
+  height?: number;
+  fps?: number;
+  bitrateKbps?: number;
+  codec?: string;
+  packetsLost?: number;
+  roundTripTime?: number;
+  jitter?: number;
+};
+type RtpEndpoint = { getStats?: () => Promise<RTCStatsReport> };
+type StatsCursor = { bytes: number; timestamp: number };
+
+async function readVideoStats(endpoint: RtpEndpoint | undefined, direction: 'outbound-rtp' | 'inbound-rtp', previous?: StatsCursor) {
+  const report = await endpoint?.getStats?.();
+  if (!report) return { stats: undefined, cursor: undefined };
+  let rtp: Record<string, unknown> | undefined;
+  const codecs = new Map<string, Record<string, unknown>>();
+  report.forEach((item) => {
+    const value = item as unknown as Record<string, unknown>;
+    if (value.type === direction && value.kind === 'video') rtp = value;
+    if (value.type === 'codec') codecs.set(String(value.id), value);
+  });
+  if (!rtp) return { stats: undefined, cursor: undefined };
+  const bytes = Number(direction === 'outbound-rtp' ? rtp.bytesSent : rtp.bytesReceived) || 0;
+  const timestamp = Number(rtp.timestamp) || 0;
+  const elapsed = previous ? Math.max(0, timestamp - previous.timestamp) : 0;
+  const bitrateKbps = previous && elapsed > 0 ? Math.round(((bytes - previous.bytes) * 8) / elapsed) : undefined;
+  const codec = codecs.get(String(rtp.codecId));
+  return {
+    stats: {
+      width: Number(rtp.frameWidth) || undefined,
+      height: Number(rtp.frameHeight) || undefined,
+      fps: Number(rtp.framesPerSecond) || undefined,
+      bitrateKbps,
+      codec: typeof codec?.mimeType === 'string' ? codec.mimeType.replace('video/', '').toUpperCase() : undefined,
+      packetsLost: Number(rtp.packetsLost) || undefined,
+      roundTripTime: Number(rtp.roundTripTime) || undefined,
+      jitter: Number(rtp.jitter) || undefined,
+    } satisfies MediaStats,
+    cursor: { bytes, timestamp },
+  };
+}
+
 export function useLiveKitRoom(
   code: string,
   selfId: string,
   presenceConnectionId: string,
   participants: StudyParticipant[],
   localStream?: MediaStream,
+  focusedParticipantId?: string,
+  roomVisible = true,
 ) {
   const [ready, setReady] = useState(false);
   const [generation, setGeneration] = useState(0);
@@ -24,11 +75,13 @@ export function useLiveKitRoom(
   const [error, setError] = useState('');
   const [audioPlaybackBlocked, setAudioPlaybackBlocked] = useState(false);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(() => new Map());
+  const [diagnostics, setDiagnostics] = useState<VideoDiagnostics>();
   const roomRef = useRef<Room | undefined>(undefined);
   const publishedRef = useRef<Map<string, MediaStreamTrack>>(new Map());
   const audioElementsRef = useRef<Map<string, HTMLMediaElement>>(new Map());
   const manualDisconnectRef = useRef(false);
   const retryCountRef = useRef(0);
+  const statsCursorRef = useRef<{ outbound?: StatsCursor; inbound?: StatsCursor }>({});
 
   const clearRemoteMedia = useCallback(() => {
     for (const element of audioElementsRef.current.values()) element.remove();
@@ -252,6 +305,46 @@ export function useLiveKitRoom(
   }, [participants]);
 
   useEffect(() => {
+    const room = roomRef.current;
+    if (!ready || !room) return;
+    for (const [identity, participant] of room.remoteParticipants) {
+      const publication = participant.getTrackPublication(Track.Source.Camera);
+      if (!publication) continue;
+      publication.setVideoQuality(!roomVisible
+        ? VideoQuality.LOW
+        : identity === focusedParticipantId
+          ? VideoQuality.HIGH
+          : VideoQuality.MEDIUM);
+    }
+  }, [focusedParticipantId, participants, ready, remoteStreams, roomVisible]);
+
+  useEffect(() => {
+    if (!ready || !roomRef.current || !import.meta.env.DEV) {
+      setDiagnostics(undefined);
+      return;
+    }
+    let disposed = false;
+    const collect = async () => {
+      const room = roomRef.current;
+      if (!room || disposed) return;
+      const localPublication = room.localParticipant.getTrackPublication(Track.Source.Camera);
+      const remotePublication = focusedParticipantId
+        ? room.remoteParticipants.get(focusedParticipantId)?.getTrackPublication(Track.Source.Camera)
+        : undefined;
+      const [outbound, inbound] = await Promise.all([
+        readVideoStats((localPublication?.track as unknown as { sender?: RtpEndpoint } | undefined)?.sender, 'outbound-rtp', statsCursorRef.current.outbound),
+        readVideoStats((remotePublication?.track as unknown as { receiver?: RtpEndpoint } | undefined)?.receiver, 'inbound-rtp', statsCursorRef.current.inbound),
+      ]);
+      if (disposed) return;
+      statsCursorRef.current = { outbound: outbound.cursor, inbound: inbound.cursor };
+      setDiagnostics({ outbound: outbound.stats, inbound: inbound.stats });
+    };
+    void collect();
+    const timer = window.setInterval(() => void collect(), 2_000);
+    return () => { disposed = true; window.clearInterval(timer); };
+  }, [focusedParticipantId, ready]);
+
+  useEffect(() => {
     const recover = () => {
       if (document.visibilityState === 'visible' && connectionState === 'offline' && !manualDisconnectRef.current) {
         setGeneration((value) => value + 1);
@@ -272,5 +365,6 @@ export function useLiveKitRoom(
     audioPlaybackBlocked,
     startAudio,
     disconnect,
+    diagnostics,
   };
 }

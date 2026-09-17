@@ -63,11 +63,16 @@ test('camera prefers 1080p30 with compatible fallbacks and LiveKit keeps adaptiv
   assert.match(media, /width: 1920, height: 1080/);
   assert.match(media, /width: 1280, height: 720/);
   assert.match(media, /width: 854, height: 480/);
+  assert.match(media, /width: 640, height: 360/);
+  assert.match(media, /width: \{ ideal: profile\.width, max: profile\.width \}/);
+  assert.match(media, /getSettings\(\)/);
   assert.match(media, /frameRate:\s*\{ ideal: 30, max: 30 \}/);
   assert.match(media, /echoCancellation:\s*true/);
   assert.match(livekit, /maxBitrate:\s*3_500_000/);
   assert.match(livekit, /adaptiveStream:\s*true/);
   assert.match(livekit, /dynacast:\s*true/);
+  assert.match(livekit, /VideoQuality\.HIGH/);
+  assert.match(livekit, /getStats/);
 });
 
 test('participant join/leave, camera/microphone state, cleanup, and reconnect remain implemented', () => {

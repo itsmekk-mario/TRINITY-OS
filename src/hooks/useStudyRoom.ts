@@ -47,6 +47,8 @@ export function useStudyRoom(
   localStream?: MediaStream,
   cameraEnabled = false,
   microphoneEnabled = false,
+  focusedParticipantId?: string,
+  roomVisible = true,
 ) {
   const [presenceParticipants, setPresenceParticipants] = useState<StudyParticipant[]>([]);
   const [room, setRoom] = useState(initialRoom);
@@ -69,7 +71,7 @@ export function useStudyRoom(
     setPresenceParticipants((current) => current.map((item) => item.id === id ? { ...item, ...update } : item));
   }, []);
   const selfConnectionId = presenceParticipants.find((participant) => participant.id === selfId)?.connectionId ?? '';
-  const media = useLiveKitRoom(code, selfId, selfConnectionId, presenceParticipants, localStream);
+  const media = useLiveKitRoom(code, selfId, selfConnectionId, presenceParticipants, localStream, focusedParticipantId, roomVisible);
 
   useEffect(() => {
     setRoom(initialRoom);
@@ -248,6 +250,7 @@ export function useStudyRoom(
     mediaError: media.error,
     audioPlaybackBlocked: media.audioPlaybackBlocked,
     startAudio: media.startAudio,
+    diagnostics: media.diagnostics,
     leave,
     reconnect: reconnectRef.current,
   };

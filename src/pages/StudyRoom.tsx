@@ -7,7 +7,7 @@ import StudyRoomHeader from '../components/study-room/StudyRoomHeader';
 import StudyRoomControls from '../components/study-room/StudyRoomControls';
 
 function ActiveStudyRoom() {
-  const { camera, leaveRoom, session } = useCamStudy();
+  const { camera, leaveRoom, session, focusedParticipantId, setFocusedParticipantId } = useCamStudy();
   useEffect(() => {
     const recover = () => { if (document.visibilityState === 'visible') camera.recover(); };
     document.addEventListener('visibilitychange', recover);
@@ -16,7 +16,7 @@ function ActiveStudyRoom() {
   const deviceError = camera.error || camera.microphoneError;
   const remoteMicrophoneActive = session.participants.some((participant) => participant.id !== session.selfId && participant.microphoneEnabled);
   return <div className="study-room-active">
-    <StudyRoomHeader room={session.room} participants={session.participants} connectionState={session.mediaConnectionState} />
+    <StudyRoomHeader room={session.room} participants={session.participants} connectionState={session.mediaConnectionState} capture={camera.capture} diagnostics={session.diagnostics} />
     {(deviceError || session.mediaError || (session.error && session.presenceConnectionState !== 'connected')) &&
       <div className="study-room-notice" role="status">
         <b>{deviceError ? '카메라 또는 마이크를 확인해 주세요.' : session.mediaError ? '미디어 서버 연결을 복구하는 중입니다.' : session.error}</b>
@@ -25,7 +25,7 @@ function ActiveStudyRoom() {
         {camera.microphoneError && <button className="button" onClick={() => void camera.startMicrophone()}>마이크 다시 연결</button>}
       </div>}
     {session.audioPlaybackBlocked && remoteMicrophoneActive && <div className="study-room-notice" role="status"><b>오디오 재생 권한이 필요합니다.</b><button className="button" onClick={() => void session.startAudio()}>오디오 켜기</button></div>}
-    <StudyGrid participants={session.participants} selfId={session.selfId} />
+    <StudyGrid participants={session.participants} selfId={session.selfId} focusedId={focusedParticipantId} onFocus={setFocusedParticipantId} />
     <StudyRoomControls
       cameraEnabled={camera.enabled}
       cameraStarting={camera.starting}
