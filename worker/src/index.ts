@@ -6,6 +6,7 @@ import { arena } from './arena.ts';
 import { boundedJson, MAX_JSON_BODY, MAX_SYNC_BODY, PASSWORD_HASH_ITERATIONS, passwordHash, randomHex, requestOrigin, RequestError, secretMatches, sessionTtlDays, sha256, validateAppData } from './security.ts';
 import { StudyRoomDurableObject } from './study-room/StudyRoomDurableObject.ts';
 import { connectStudyRoomWebSocket, handleStudyRoomApi } from './study-room/routes.ts';
+import { archive } from './archive.ts';
 
 export { StudyRoomDurableObject };
 
@@ -194,6 +195,8 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
   if (arenaResponse) return arenaResponse;
   const studyRoomResponse = await handleStudyRoomApi(request, env, sessionUser, origin, json);
   if (studyRoomResponse) return studyRoomResponse;
+  const archiveResponse = await archive(request, env, sessionUser, origin, { json, randomHex, boundedJson });
+  if (archiveResponse) return archiveResponse;
   if (url.pathname === '/api/auth/me' && request.method === 'GET') return user ? json({ ok: true, username: user.username, userId: user.id, mustChangePassword: user.must_change_password === 1 }, 200, origin) : json({ error: 'Unauthorized' }, 401, origin);
   if (url.pathname === '/api/auth/logout' && request.method === 'POST') {
     if(!auth||auth.authType!=='session')return json({error:'Unauthorized'},401,origin);

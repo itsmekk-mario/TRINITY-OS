@@ -89,6 +89,16 @@ export async function collaboration(request: Request, env: Env, owner: boolean, 
       return out({ok:true});
     }
     if (!account) return out({error:'Support session required'},403);
+    const archiveRoute = path.match(/^\/api\/collab\/students\/([^/]+)\/archive$/);
+    if (archiveRoute && method === 'GET') {
+      const access=await assignmentFor(env,account,archiveRoute[1]);
+      if(!access || access.assignment.role==='parent' || (!allowed(access.assignment,'viewWrongAnswers')&&!allowed(access.assignment,'viewAcademicInsights')))return out({error:'Archive permission required'},403);
+      const subject=access.assignment.role==='subject_teacher'&&access.assignment.subject ? access.assignment.subject==='국어'?'korean':access.assignment.subject==='수학'?'math':access.assignment.subject==='영어'?'english':'__none__' : null;
+      const entries=await env.DB.prepare(`SELECT e.id,e.subject,e.year,e.month,e.institution,e.exam_name examName,e.source_name sourceName,e.question_number questionNumber,e.category,e.subcategory,e.title,e.studied_at studiedAt,e.mastery_status masteryStatus,e.memo,e.review_enabled reviewEnabled FROM archive_entries e WHERE e.user_id=? ${subject?'AND e.subject=?':''} ORDER BY e.studied_at DESC LIMIT 300`).bind(access.student.id,...(subject?[subject]:[])).all<Record<string,unknown>>();
+      const ids=entries.results.map(item=>String(item.id));if(!ids.length)return out({entries:[]});const marks=ids.map(()=>'?').join(',');
+      const [annotations,rules]=await Promise.all([env.DB.prepare(`SELECT archive_entry_id entryId,color,type,text,sort_order sortOrder FROM archive_annotations WHERE archive_entry_id IN (${marks}) ORDER BY sort_order`).bind(...ids).all<Record<string,unknown>>(),env.DB.prepare(`SELECT l.archive_entry_id entryId,r.id,r.title,r.content,r.tags_json tagsJson,r.mastery_status masteryStatus FROM archive_entry_core_rules l JOIN core_rules r ON r.id=l.core_rule_id WHERE l.archive_entry_id IN (${marks}) AND r.user_id=?`).bind(...ids,access.student.id).all<Record<string,unknown>>()]);
+      return out({entries:entries.results.map(entry=>({...entry,reviewEnabled:Boolean(entry.reviewEnabled),annotations:annotations.results.filter(v=>v.entryId===entry.id),coreRules:rules.results.filter(v=>v.entryId===entry.id).map(v=>({...v,tags:(()=>{try{return JSON.parse(String(v.tagsJson))}catch{return[]}})()}))}))});
+    }
     if (path === '/api/collab/assignments' && method === 'GET') {
       if (!owner && account.role !== 'admin') return out({error:'Admin required'},403);
       const [assignments,students]=await Promise.all([env.DB.prepare('SELECT x.*,a.username teacher_name,u.username student_name,u.arena_public_id student_id FROM student_support_assignments x JOIN support_accounts a ON a.id=x.support_account_id JOIN users u ON u.id=x.student_user_id ORDER BY x.created_at DESC').all(),env.DB.prepare('SELECT username,arena_public_id student_id FROM users WHERE active=1 ORDER BY username').all()]); return out({assignments:assignments.results,students:students.results});

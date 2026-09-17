@@ -1,7 +1,7 @@
 import './team.css';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { BrainCircuit, CalendarRange, ChartNoAxesCombined, Menu, Download, Gauge, Home, MessageSquareText, NotebookTabs, Settings, ShieldCheck, Swords, Target, Upload, UserRound, Video, X } from 'lucide-react';
+import { BookMarked, BrainCircuit, CalendarRange, ChartNoAxesCombined, Menu, Download, Gauge, Home, MessageSquareText, NotebookTabs, Settings, ShieldCheck, Swords, Target, Upload, UserRound, Video, X } from 'lucide-react';
 import type { AppData } from './types';
 import { downloadBackup, initialData, loadData, parseBackup, saveData } from './lib/storage';
 import { APP_VERSION } from './data/config';
@@ -25,6 +25,7 @@ import CoachPage from './pages/CoachPage';
 import PageTransition from './components/motion/PageTransition';
 import { useDialogFocus } from './components/motion/useDialogFocus';
 import StudyRoom from './pages/StudyRoom';
+import LearningArchive from './pages/LearningArchive';
 
 const CollaborativePortal = lazy(() => import('./pages/CollaborativePortal'));
 
@@ -45,7 +46,7 @@ const primaryNav = [
   { id: 'today', label: 'Today', icon: Home }, { id: 'plan', label: 'Plan', icon: CalendarRange }, { id: 'train', label: 'Train', icon: Target }, { id: 'test', label: 'Test', icon: Gauge }, { id: 'insights', label: 'Insights', icon: ChartNoAxesCombined },
 ] as const;
 const utilityNav = [
-  { id: 'study-room', label: 'Study Room', icon: Video }, { id: 'coach', label: 'AI Coach', icon: BrainCircuit }, { id: 'feedback', label: 'Teacher Feedback', icon: MessageSquareText }, { id: 'profile', label: 'Arena', icon: Swords }, { id: 'workspace', label: 'Workspace', icon: NotebookTabs },
+  { id: 'archive', label: 'Learning Archive', icon: BookMarked }, { id: 'study-room', label: 'Study Room', icon: Video }, { id: 'coach', label: 'AI Coach', icon: BrainCircuit }, { id: 'feedback', label: 'Teacher Feedback', icon: MessageSquareText }, { id: 'profile', label: 'Arena', icon: Swords }, { id: 'workspace', label: 'Workspace', icon: NotebookTabs },
 ] as const;
 const paths: Record<Page, string> = { today: '/today', plan: '/plan', train: '/train', test: '/test', insights: '/insights', 'study-room': '/study-room', coach: '/coach', feedback: '/feedback', workspace: '/workspace', profile: '/arena', archive: '/archive' };
 const pageFromLocation = (): Page => {
@@ -105,7 +106,7 @@ function StudentApp() {
   };
   const changeSubview = <T extends string>(target: Page, view: T, setter: (value: T) => void) => { scrollPositions.current.set(currentKey(), window.scrollY); setter(view); window.history.pushState({}, '', `${paths[target]}?view=${encodeURIComponent(view)}`); window.requestAnimationFrame(() => window.scrollTo({ top: scrollPositions.current.get(`${target}:${view}`) ?? 0, behavior: 'auto' })); };
   const importData = async (file?: File) => { if (!file) return; try { setData(await parseBackup(file)); setToast('백업 데이터를 복원했습니다.'); setSettings(false); } catch (error) { setToast(error instanceof Error ? error.message : '가져오기에 실패했습니다.'); } finally { window.setTimeout(() => setToast(''), 2200); } };
-  const screen = page === 'today' ? <Dashboard data={data} update={update} navigate={navigate} /> : page === 'plan' ? <PlanHub data={data} update={update} view={planView} onView={(view) => changeSubview('plan', view, setPlanView)} /> : page === 'train' ? <TrainHub data={data} update={update} view={trainView} onView={(view) => changeSubview('train', view, setTrainView)} /> : page === 'test' ? <ScoreTracker data={data} update={update} /> : page === 'insights' ? <InsightsHub data={data} update={update} view={insightsView} onView={(view) => changeSubview('insights', view, setInsightsView)} /> : page === 'study-room' ? <StudyRoom data={data} /> : page === 'coach' ? <CoachPage data={data} /> : page === 'feedback' ? <FeedbackInbox data={data} update={update} /> : page === 'workspace' ? <NotionWorkspace data={data} update={update} /> : page === 'profile' ? <Arena data={data} /> : <ExamArchive />;
+  const screen = page === 'today' ? <Dashboard data={data} update={update} navigate={navigate} /> : page === 'plan' ? <PlanHub data={data} update={update} view={planView} onView={(view) => changeSubview('plan', view, setPlanView)} /> : page === 'train' ? <TrainHub data={data} update={update} view={trainView} onView={(view) => changeSubview('train', view, setTrainView)} /> : page === 'test' ? <ScoreTracker data={data} update={update} /> : page === 'insights' ? <InsightsHub data={data} update={update} view={insightsView} onView={(view) => changeSubview('insights', view, setInsightsView)} /> : page === 'archive' ? <LearningArchive data={data} update={update} /> : page === 'study-room' ? <StudyRoom data={data} /> : page === 'coach' ? <CoachPage data={data} /> : page === 'feedback' ? <FeedbackInbox data={data} update={update} /> : page === 'workspace' ? <NotionWorkspace data={data} update={update} /> : page === 'profile' ? <Arena data={data} /> : <ExamArchive />;
   if (!authenticated) return <LoginPage onAuthenticated={() => { const config = loadCloudflareConfig(); setAuthenticated(true); setPasswordRequired(Boolean(config.mustChangePassword)); }} />;
   if (!identity) return <main className="login-page" role="status">안전하게 계정을 확인하는 중…</main>;
   return <div className="app-shell learning-shell">
