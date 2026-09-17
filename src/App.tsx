@@ -120,6 +120,7 @@ function StudentApp() {
 export default function App() {
   const portal = new URLSearchParams(window.location.search).get('portal');
   if (portal === 'teacher' || portal === 'tutor') return <Suspense fallback={<main className="team-page" role="status">교사 포털을 불러오는 중…</main>}><CollaborativePortal role="subject_teacher" /></Suspense>;
+  if (portal === 'english-teacher') return <Suspense fallback={<main className="team-page" role="status">교사 포털을 불러오는 중…</main>}><CollaborativePortal role="subject_teacher" subjectHint="영어" /></Suspense>;
   if (portal === 'manager') return <Suspense fallback={<main className="team-page" role="status">교사 포털을 불러오는 중…</main>}><CollaborativePortal role="academic_manager" /></Suspense>;
   if (portal === 'admin' || portal === 'owner') return <FeedbackAdmin />;
   if (portal === 'legacy-owner') return <SupportOwner />;

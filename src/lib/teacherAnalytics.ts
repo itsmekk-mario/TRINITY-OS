@@ -9,6 +9,17 @@ export type TeacherData = Pick<AppData, 'sessions' | 'wrongAnswerDrills' | 'week
   plaire?: { date:string; bottleneck?:string; nextAction?:string }[];
   trinity?: Pick<AppData['trinity'][number], 'id' | 'date' | 'subject' | 'fields'>[];
 };
+
+/** Shared read model for student-owned and server-projected teacher records. */
+export function asTeacherData(data: AppData): TeacherData {
+  return {
+    sessions: data.sessions, scores: data.scores, wrongAnswerDrills: data.wrongAnswerDrills,
+    weeklyCapabilityGoals: data.weeklyCapabilityGoals, dailyDrills: data.dailyDrills, resources: data.resources,
+    plans: Object.values(data.calendar).flatMap(day => (day.plans ?? []).map(plan => ({ id: plan.id, date: day.date, subject: plan.subject, title: plan.title, done: plan.done, quantity: plan.quantity }))),
+    calendarDays: Object.values(data.calendar).map(({ date, study, minutes, exam, event, condition, reflection }) => ({ date, study, minutes, exam, event, condition, reflection })),
+    plaire: Object.values(data.plaire), trinity: data.trinity,
+  };
+}
 export type DateRange = { start: string; end: string };
 export const localDate = (date = new Date()) => date.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
 export function recentRange(days: number, now = new Date()): DateRange {
