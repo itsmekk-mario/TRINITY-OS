@@ -6,12 +6,12 @@ export type ArchiveBrowseMode = 'recent' | 'exam' | 'subject';
 const colors = ['black', 'blue', 'green', 'red'] as const;
 const colorNames: Record<string, string> = { black: '검정', blue: '파랑', green: '초록', red: '빨강' };
 const subjectNames: Record<string, string> = { korean: '국어', math: '수학', english: '영어' };
-const koreanArea = (entry: ArchiveEntry) => {
+const koreanPriorityArea = (entry: ArchiveEntry) => {
   const text = `${entry.category} ${entry.subcategory}`.replace(/\s+/g, ' ').trim();
   if (/비문학|독서/.test(text)) return '비문학';
   if (/문학/.test(text)) return '문학';
   if (/화법|작문|화작/.test(text)) return '화법과 작문';
-  return text;
+  return undefined;
 };
 
 type Counts = Record<string, number>;
@@ -44,6 +44,23 @@ const groupBy = (entries: ArchiveEntry[], key: (entry: ArchiveEntry) => { id: st
   entries.forEach(entry => { const value = key(entry), group = map.get(value.id) || { id: value.id, label: value.label, entries: [] }; group.entries.push(entry); map.set(value.id, group); });
   return [...map.values()];
 };
+const categoryGroups = (entries: ArchiveEntry[], parentId: string): Group[] => groupBy(entries, entry => {
+  const category = entry.category.trim();
+  return { id: `${parentId}:category:${category || 'uncategorized'}`, label: category || '기타 기록' };
+}).map(group => {
+  const direct = group.entries.filter(entry => !entry.subcategory.trim());
+  const details = groupBy(group.entries.filter(entry => entry.subcategory.trim()), entry => ({
+    id: `${group.id}:subcategory:${entry.subcategory.trim()}`,
+    label: entry.subcategory.trim(),
+  }));
+  if (!details.length) return group;
+  return {
+    ...group,
+    children: direct.length
+      ? [{ id: `${group.id}:direct`, label: '기타 기록', entries: direct }, ...details]
+      : details,
+  };
+});
 
 function CountLine({ entries }: { entries: ArchiveEntry[] }) {
   const counts = annotations(entries);
@@ -75,10 +92,22 @@ export default function ArchiveExplorer({ entries, mode, onEntry }: { entries: A
     if (mode === 'recent') return groupBy(entries, entry => ({ id: `date:${entry.studiedAt.slice(0, 10)}`, label: entry.studiedAt.slice(0, 10) }));
     if (mode === 'exam') return groupBy(entries, entry => ({ id: `exam:${exam(entry).key}`, label: exam(entry).label })).map(group => ({ ...group, children: groupBy(group.entries, entry => ({ id: `${group.id}:subject:${entry.subject}`, label: subjectNames[entry.subject] })) }));
     return groupBy(entries, entry => ({ id: `subject:${entry.subject}`, label: subjectNames[entry.subject] })).map(group => {
-      const area = (entry: ArchiveEntry) => entry.subject === 'korean' ? koreanArea(entry) : entry.subcategory.trim();
-      const direct = group.entries.filter(entry => !area(entry));
-      const children = groupBy(group.entries.filter(entry => area(entry)), entry => ({ id: `${group.id}:subcategory:${area(entry)}`, label: area(entry) }));
-      return children.length ? { ...group, children: direct.length ? [{ id: `${group.id}:direct`, label: '기타 기록', entries: direct }, ...children] : children } : group;
+      if (group.id !== 'subject:korean') {
+        const direct = group.entries.filter(entry => !entry.subcategory.trim());
+        const children = groupBy(group.entries.filter(entry => entry.subcategory.trim()), entry => ({ id: `${group.id}:subcategory:${entry.subcategory.trim()}`, label: entry.subcategory.trim() }));
+        return children.length ? { ...group, children: direct.length ? [{ id: `${group.id}:direct`, label: '기타 기록', entries: direct }, ...children] : children } : group;
+      }
+
+      const priorityOrder = ['비문학', '문학', '화법과 작문'];
+      const priority = groupBy(group.entries.filter(koreanPriorityArea), entry => {
+        const label = koreanPriorityArea(entry)!;
+        return { id: `${group.id}:priority:${label}`, label };
+      }).sort((left, right) => priorityOrder.indexOf(left.label) - priorityOrder.indexOf(right.label));
+      const other = group.entries.filter(entry => !koreanPriorityArea(entry));
+      const otherGroups = categoryGroups(other, group.id);
+      return priority.length || otherGroups.length
+        ? { ...group, children: [...priority, ...otherGroups] }
+        : group;
     });
   }, [entries, mode]);
   const [openGroups, setOpenGroups] = useState(() => new Set<string>()), [openEntry, setOpenEntry] = useState<string>();
