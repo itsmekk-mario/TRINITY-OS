@@ -30,13 +30,14 @@ const reviewLabel = (entry: ArchiveEntry) => {
   const days = Math.max(0, Math.ceil((new Date(`${entry.nextReviewAt}T00:00:00`).getTime() - new Date(`${today}T00:00:00`).getTime()) / 86400000));
   return `Review D+${days}`;
 };
+const examMonth = (entry: ArchiveEntry) => /수능/.test(`${entry.examName} ${entry.sourceName}`) ? 11 : entry.month;
 const exam = (entry: ArchiveEntry) => {
   const text = entry.examName.trim() || entry.sourceName.trim();
   const organization = entry.institutionCustomName || ({ KICE: '평가원', education_office: '교육청', EBS: 'EBS', private: '사설', textbook: '교재', custom: '기타' }[entry.institution] || entry.institution);
   const year = entry.year ? `${entry.year}학년도` : '';
   const month = entry.month ? `${entry.month}월` : '';
   const label = text || [year, month, organization].filter(Boolean).join(' ') || '시험 미지정';
-  return { key: `${entry.year}-${String(entry.month).padStart(2, '0')}-${entry.institution}-${text || label}`, label };
+  return { key: `${entry.year}-${String(examMonth(entry)).padStart(2, '0')}-${entry.institution}-${text || label}`, label };
 };
 const groupBy = (entries: ArchiveEntry[], key: (entry: ArchiveEntry) => { id: string; label: string }) => {
   const map = new Map<string, Group>();
