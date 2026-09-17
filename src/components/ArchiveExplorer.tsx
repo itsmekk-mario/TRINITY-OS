@@ -31,13 +31,9 @@ const reviewLabel = (entry: ArchiveEntry) => {
   return `Review D+${days}`;
 };
 const exam = (entry: ArchiveEntry) => {
-  const text = entry.examName.trim() || entry.sourceName.trim();
-  const organization = entry.institutionCustomName || ({ KICE: '평가원', education_office: '교육청', EBS: 'EBS', private: '사설', textbook: '교재', custom: '기타' }[entry.institution] || entry.institution);
-  const year = entry.year ? `${entry.year}학년도` : '';
-  const month = entry.month ? `${entry.month}월` : '';
-  // The tuple is stable for old free-text data too; display text remains untouched.
-  const key = `${entry.year}-${String(entry.month).padStart(2, '0')}-${entry.institution}`;
-  return { key, label: text || [year, month, organization].filter(Boolean).join(' ') || '시험 미지정' };
+  const key = `${entry.year || 'unknown'}-${String(entry.month || 0).padStart(2, '0')}`;
+  const label = entry.year && entry.month ? `${entry.year}학년도 ${entry.month}월` : '연도·월 미지정';
+  return { key, label };
 };
 const groupBy = (entries: ArchiveEntry[], key: (entry: ArchiveEntry) => { id: string; label: string }) => {
   const map = new Map<string, Group>();
