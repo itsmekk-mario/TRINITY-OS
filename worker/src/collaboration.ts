@@ -45,8 +45,10 @@ export async function teacherArena(env: Env, studentUserId: number, role: string
   if (role !== 'academic_manager' && role !== 'admin') return undefined;
   const tables = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('arena_score_snapshots','arena_seasons','arena_achievements','arena_groups','arena_group_members')").all<{name:string}>();
   if (tables.results.length !== 5) return {snapshots:[],achievements:[],groups:[]};
+  const columns=await env.DB.prepare('PRAGMA table_info(arena_score_snapshots)').all<{name:string}>(),v2=columns.results.some(v=>v.name==='score_version');
+  const snapshotSql=v2?'SELECT s.id,s.week_start,s.score,s.execution,s.mastery,s.performance,s.consistency,s.growth,s.score_version,s.calculated_at,t.name season FROM arena_score_snapshots s JOIN arena_seasons t ON t.id=s.season_id WHERE s.user_id=? AND s.score_version=2 ORDER BY s.week_start DESC,s.calculated_at DESC LIMIT 104':'SELECT s.id,s.week_start,s.score,s.execution,0 mastery,s.problem_solving performance,s.consistency,s.growth,1 score_version,s.calculated_at,t.name season FROM arena_score_snapshots s JOIN arena_seasons t ON t.id=s.season_id WHERE s.user_id=? ORDER BY s.week_start DESC,s.calculated_at DESC LIMIT 104';
   const [snapshots,achievements,groups] = await Promise.all([
-    env.DB.prepare('SELECT s.id,s.week_start,s.score,s.execution,s.problem_solving,s.consistency,s.growth,s.calculated_at,t.name season FROM arena_score_snapshots s JOIN arena_seasons t ON t.id=s.season_id WHERE s.user_id=? ORDER BY s.week_start DESC,s.calculated_at DESC LIMIT 104').bind(studentUserId).all(),
+    env.DB.prepare(snapshotSql).bind(studentUserId).all(),
     env.DB.prepare('SELECT id,title,description,awarded_at FROM arena_achievements WHERE user_id=? ORDER BY awarded_at DESC').bind(studentUserId).all(),
     env.DB.prepare('SELECT g.id,g.name,g.type FROM arena_groups g JOIN arena_group_members m ON m.group_id=g.id WHERE m.user_id=? ORDER BY g.name').bind(studentUserId).all()
   ]);

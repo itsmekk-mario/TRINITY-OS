@@ -3,20 +3,24 @@ type ArenaEnv = { DB: D1Database };
 type JsonResponder = (body: unknown, status?: number, origin?: string, extra?: HeadersInit) => Response;
 type ArenaTools = { json: JsonResponder; randomHex: (size?: number) => string; boundedJson:<T>(request:Request,maxBytes?:number)=>Promise<T> };
 
-function ensureArenaTables(db: D1Database) {
-  return db.batch([
+async function ensureArenaTables(db: D1Database) {
+  await db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS arena_profiles (user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,nickname TEXT NOT NULL UNIQUE,grade TEXT NOT NULL DEFAULT '',target_university TEXT NOT NULL DEFAULT '',target_department TEXT NOT NULL DEFAULT '',target_admission_type TEXT NOT NULL DEFAULT '',study_goal TEXT NOT NULL DEFAULT '[]',achievement_level TEXT NOT NULL DEFAULT '',profile_image TEXT,updated_at TEXT NOT NULL)"),
     db.prepare("CREATE TABLE IF NOT EXISTS arena_groups (id TEXT PRIMARY KEY,owner_user_id INTEGER NOT NULL REFERENCES users(id),name TEXT NOT NULL,type TEXT NOT NULL CHECK(type IN ('university','department','custom')),target_university TEXT NOT NULL DEFAULT '',target_department TEXT NOT NULL DEFAULT '',visibility TEXT NOT NULL CHECK(visibility IN ('public','private')),invite_code TEXT NOT NULL UNIQUE,created_at TEXT NOT NULL)"),
     db.prepare("CREATE TABLE IF NOT EXISTS arena_group_members (group_id TEXT NOT NULL REFERENCES arena_groups(id) ON DELETE CASCADE,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,role TEXT NOT NULL DEFAULT 'member',joined_at TEXT NOT NULL,PRIMARY KEY(group_id,user_id))"),
     db.prepare('CREATE TABLE IF NOT EXISTS arena_seasons (id TEXT PRIMARY KEY,name TEXT NOT NULL,starts_at TEXT NOT NULL,ends_at TEXT NOT NULL)'),
     db.prepare('CREATE TABLE IF NOT EXISTS arena_season_preferences (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,season_id TEXT NOT NULL REFERENCES arena_seasons(id) ON DELETE CASCADE,custom_name TEXT NOT NULL,updated_at TEXT NOT NULL,PRIMARY KEY(user_id,season_id))'),
-    db.prepare("CREATE TABLE IF NOT EXISTS arena_score_snapshots (id TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,season_id TEXT NOT NULL REFERENCES arena_seasons(id),week_start TEXT NOT NULL,score INTEGER NOT NULL,execution INTEGER NOT NULL,problem_solving INTEGER NOT NULL,consistency INTEGER NOT NULL,growth INTEGER NOT NULL,growth_rate REAL NOT NULL DEFAULT 0,metrics TEXT NOT NULL DEFAULT '{}',calculated_at TEXT NOT NULL,UNIQUE(user_id,season_id,week_start))"),
+    db.prepare("CREATE TABLE IF NOT EXISTS arena_score_snapshots (id TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,season_id TEXT NOT NULL REFERENCES arena_seasons(id),week_start TEXT NOT NULL,score INTEGER NOT NULL,execution INTEGER NOT NULL,problem_solving INTEGER NOT NULL DEFAULT 0,mastery INTEGER NOT NULL DEFAULT 0,performance INTEGER NOT NULL DEFAULT 0,consistency INTEGER NOT NULL,growth INTEGER NOT NULL,growth_rate REAL NOT NULL DEFAULT 0,score_version INTEGER NOT NULL DEFAULT 1,metrics TEXT NOT NULL DEFAULT '{}',calculated_at TEXT NOT NULL,UNIQUE(user_id,season_id,week_start))"),
     db.prepare('CREATE TABLE IF NOT EXISTS arena_rivals (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,rival_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,created_at TEXT NOT NULL,PRIMARY KEY(user_id,rival_user_id),CHECK(user_id <> rival_user_id))'),
     db.prepare('CREATE TABLE IF NOT EXISTS arena_achievements (id TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,code TEXT NOT NULL,title TEXT NOT NULL,description TEXT NOT NULL,awarded_at TEXT NOT NULL,UNIQUE(user_id,code))'),
-  ]).then(() => db.batch([
+  ]);
+  const columns=await db.prepare('PRAGMA table_info(arena_score_snapshots)').all<{name:string}>(),names=new Set(columns.results.map(v=>v.name));
+  for(const [name,sql] of [['mastery','ALTER TABLE arena_score_snapshots ADD COLUMN mastery INTEGER NOT NULL DEFAULT 0'],['performance','ALTER TABLE arena_score_snapshots ADD COLUMN performance INTEGER NOT NULL DEFAULT 0'],['score_version','ALTER TABLE arena_score_snapshots ADD COLUMN score_version INTEGER NOT NULL DEFAULT 1']] as const)if(!names.has(name))await db.prepare(sql).run();
+  await db.batch([
     db.prepare('CREATE INDEX IF NOT EXISTS arena_scores_season_score ON arena_score_snapshots(season_id,score DESC)'),
     db.prepare("INSERT OR IGNORE INTO arena_seasons(id,name,starts_at,ends_at) VALUES('suneung-2028-fall','2028 수능 시즌','2026-09-01','2026-12-31')"),
-  ])).then(() => undefined);
+    db.prepare("CREATE TABLE IF NOT EXISTS learning_reviews(id TEXT PRIMARY KEY,user_id INTEGER NOT NULL,target_type TEXT NOT NULL,target_id TEXT NOT NULL,review_type TEXT NOT NULL DEFAULT 'retry',scheduled_at TEXT,reviewed_at TEXT,result TEXT NOT NULL DEFAULT 'pending',notes TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL,updated_at TEXT NOT NULL)"),
+  ]);
 }
 
 const object = (value: unknown) => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -46,13 +50,13 @@ async function season(db: D1Database, userId: number) {
 type RankingRow = { user_id: number; public_id: string; nickname: string; target_university: string; target_department: string; score: number; growth_rate: number };
 async function ranking(db: D1Database, userId: number, seasonId: string, groupId = '') {
   const membership = groupId ? 'AND EXISTS (SELECT 1 FROM arena_group_members gm WHERE gm.user_id=p.user_id AND gm.group_id=?)' : '';
-  const statement = db.prepare(`SELECT p.user_id,u.arena_public_id public_id,p.nickname,p.target_university,p.target_department,s.score,s.growth_rate FROM arena_profiles p JOIN users u ON u.id=p.user_id JOIN arena_score_snapshots s ON s.user_id=p.user_id WHERE s.season_id=? AND s.calculated_at=(SELECT MAX(s2.calculated_at) FROM arena_score_snapshots s2 WHERE s2.user_id=s.user_id AND s2.season_id=s.season_id) ${membership} ORDER BY s.score DESC,s.growth_rate DESC,s.calculated_at ASC LIMIT 100`);
+  const statement = db.prepare(`SELECT p.user_id,u.arena_public_id public_id,p.nickname,p.target_university,p.target_department,s.score,s.growth_rate FROM arena_profiles p JOIN users u ON u.id=p.user_id JOIN arena_score_snapshots s ON s.user_id=p.user_id WHERE s.season_id=? AND s.score_version=2 AND s.calculated_at=(SELECT MAX(s2.calculated_at) FROM arena_score_snapshots s2 WHERE s2.user_id=s.user_id AND s2.season_id=s.season_id AND s2.score_version=2) ${membership} ORDER BY s.score DESC,s.mastery DESC,s.performance DESC,s.growth DESC,s.calculated_at ASC LIMIT 100`);
   const result = groupId ? await statement.bind(seasonId, groupId).all<RankingRow>() : await statement.bind(seasonId).all<RankingRow>();
   return result.results.map((row, index) => ({ rank: index + 1, userId: row.public_id, nickname: row.nickname, score: row.score, growthRate: row.growth_rate, targetUniversity: row.target_university, targetDepartment: row.target_department, isMe: row.user_id === userId }));
 }
 
-type ScoreRow = { score: number; execution: number; problem_solving: number; consistency: number; growth: number; metrics: string; calculated_at: string };
-const scoreDto = (row: ScoreRow) => ({ total: row.score, breakdown: { execution: row.execution, problemSolving: row.problem_solving, consistency: row.consistency, growth: row.growth }, metrics: parse<Record<string, unknown>>(row.metrics, {}), calculatedAt: row.calculated_at });
+type ScoreRow = { score: number; execution: number; mastery: number; performance: number; consistency: number; growth: number; score_version:number; metrics: string; calculated_at: string };
+const scoreDto = (row: ScoreRow) => ({ total: row.score, scoreVersion:row.score_version, breakdown: { execution: row.execution, mastery:row.mastery, performance:row.performance, consistency: row.consistency, growth: row.growth }, metrics: parse<Record<string, unknown>>(row.metrics, {}), calculatedAt: row.calculated_at });
 
 async function achievements(db: D1Database, userId: number) {
   const rows = await db.prepare('SELECT id,code,title,description,awarded_at FROM arena_achievements WHERE user_id=? ORDER BY awarded_at DESC').bind(userId).all<{ id: string; code: string; title: string; description: string; awarded_at: string }>();
@@ -68,9 +72,9 @@ async function rivals(db: D1Database, userId: number, seasonId: string) {
   const mine = await db.prepare('SELECT score,growth_rate,metrics FROM arena_score_snapshots WHERE user_id=? AND season_id=? ORDER BY calculated_at DESC LIMIT 1').bind(userId, seasonId).first<{ score: number; growth_rate: number; metrics: string }>();
   const myMetrics = parse<Record<string, number>>(mine?.metrics, {});
   return rows.results.map((row, index) => { const their = parse<Record<string, number>>(row.metrics, {}); const comparison = [
-    { label: '이번 주 공부', mine: Math.round((myMetrics.currentWeekSeconds || 0) / 360) / 10, rival: Math.round((their.currentWeekSeconds || 0) / 360) / 10, unit: 'h' },
-    { label: '문제 해결력', mine: Math.round(myMetrics.weaknessImprovementRate || 0), rival: Math.round(their.weaknessImprovementRate || 0), unit: '%' },
-    { label: '오답 개선', mine: Math.round(myMetrics.drillCompletionRate || 0), rival: Math.round(their.drillCompletionRate || 0), unit: '%' },
+    { label: '계획 실행률', mine: Math.round(myMetrics.planExecutionRate || 0), rival: Math.round(their.planExecutionRate || 0), unit: '%' },
+    { label: 'Review 성공률', mine: Math.round(myMetrics.reviewSuccessRate || 0), rival: Math.round(their.reviewSuccessRate || 0), unit: '%' },
+    { label: '반복 오답 감소', mine: Math.round(myMetrics.repeatedErrorReduction || 0), rival: Math.round(their.repeatedErrorReduction || 0), unit: '%' },
   ]; const gap = comparison.map(item => ({ ...item, delta: item.mine - item.rival })).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0]; return { rank: index + 1, userId: row.public_id, nickname: row.nickname, score: row.score || 0, growthRate: row.growth_rate || 0, targetUniversity: row.target_university, targetDepartment: row.target_department, comparison, insight: gap ? `${gap.label}에서 ${Math.abs(gap.delta).toFixed(1)}${gap.unit} 차이가 가장 큽니다. 승패보다 다음 주 변화 폭을 확인하세요.` : '비교할 학습 기록이 아직 부족합니다.' }; });
 }
 
@@ -86,7 +90,7 @@ export async function arena(request: Request, env: ArenaEnv, user: ArenaUser | n
       env.DB.prepare('SELECT * FROM arena_profiles WHERE user_id=?').bind(user.id).first<ProfileRow>(),
       env.DB.prepare(`SELECT g.*,COUNT(gm.user_id) member_count,MAX(CASE WHEN gm.user_id=? THEN 1 ELSE 0 END) joined FROM arena_groups g LEFT JOIN arena_group_members gm ON gm.group_id=g.id GROUP BY g.id HAVING g.visibility='public' OR joined=1 ORDER BY joined DESC,member_count DESC,g.created_at DESC`).bind(user.id).all<GroupRow>(),
       ranking(env.DB, user.id, currentSeason.id),
-      env.DB.prepare('SELECT score,execution,problem_solving,consistency,growth,metrics,calculated_at FROM arena_score_snapshots WHERE user_id=? AND season_id=? ORDER BY calculated_at DESC LIMIT 1').bind(user.id, currentSeason.id).first<ScoreRow>(),
+      env.DB.prepare('SELECT score,execution,mastery,performance,consistency,growth,score_version,metrics,calculated_at FROM arena_score_snapshots WHERE user_id=? AND season_id=? AND score_version=2 ORDER BY calculated_at DESC LIMIT 1').bind(user.id, currentSeason.id).first<ScoreRow>(),
       rivals(env.DB, user.id, currentSeason.id),
       achievements(env.DB, user.id),
     ]);
@@ -116,9 +120,12 @@ export async function arena(request: Request, env: ArenaEnv, user: ArenaUser | n
     const row=await env.DB.prepare('SELECT payload FROM learning_state WHERE user_id=?').bind(user.id).first<{payload:string}>();
     if(!row)return tools.json({error:'Arena 점수를 계산할 학습 기록이 없습니다.'},409,origin);
     let data:AppData; try{data=JSON.parse(row.payload) as AppData;}catch{return tools.json({error:'학습 기록을 읽지 못했습니다.'},500,origin);}
-    const calculatedAt=now,score=calculateArenaScore(data,new Date(calculatedAt)),{breakdown,metrics}=score;
-    const execution=breakdown.execution,problem=breakdown.problemSolving,consistency=breakdown.consistency,growth=breakdown.growth,total=score.total,growthRate=metrics.growthRate;
-    await env.DB.prepare(`INSERT INTO arena_score_snapshots(id,user_id,season_id,week_start,score,execution,problem_solving,consistency,growth,growth_rate,metrics,calculated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id,season_id,week_start) DO UPDATE SET score=excluded.score,execution=excluded.execution,problem_solving=excluded.problem_solving,consistency=excluded.consistency,growth=excluded.growth,growth_rate=excluded.growth_rate,metrics=excluded.metrics,calculated_at=excluded.calculated_at`).bind(`score_${tools.randomHex(12)}`, user.id, currentSeason.id, monday(calculatedAt), total, execution, problem, consistency, growth, growthRate, JSON.stringify(metrics).slice(0, 8000), calculatedAt).run();
+    const review=await env.DB.prepare("SELECT COUNT(*) completed,SUM(CASE WHEN result='success' THEN 1 ELSE 0 END) successes,SUM(CASE WHEN scheduled_at IS NOT NULL AND reviewed_at IS NOT NULL AND ABS(julianday(reviewed_at)-julianday(scheduled_at))<=1 THEN 1 WHEN scheduled_at IS NOT NULL AND reviewed_at IS NOT NULL AND ABS(julianday(reviewed_at)-julianday(scheduled_at))<=3 THEN .5 ELSE 0 END) schedule_credit,SUM(CASE WHEN scheduled_at IS NOT NULL AND reviewed_at IS NOT NULL THEN 1 ELSE 0 END) schedule_completed FROM learning_reviews WHERE user_id=? AND result<>'pending'").bind(user.id).first<{completed:number;successes:number;schedule_credit:number;schedule_completed:number}>();
+    const calculatedAt=now,wrong=data.wrongAnswerDrills,cut=Date.parse(calculatedAt)-13*86400000,previousCut=cut-14*86400000,currentWrong=wrong.filter(v=>Date.parse(v.date)>=cut).length,previousWrong=wrong.filter(v=>Date.parse(v.date)>=previousCut&&Date.parse(v.date)<cut).length,retries=wrong.flatMap(v=>v.retries??[]),done=retries.filter(v=>v.completedDate).length;
+    const intelligence={reviewSuccesses:Number(review?.successes||0),reviewCompleted:Number(review?.completed||0),drillSuccesses:done,drillCompleted:retries.length,repeatedErrorsCurrent:currentWrong,repeatedErrorsPrevious:previousWrong,reviewScheduleCredits:Number(review?.schedule_credit||0),reviewScheduleCompleted:Number(review?.schedule_completed||0)};
+    const score=calculateArenaScore(data,new Date(calculatedAt),intelligence),{breakdown,metrics}=score;
+    const {execution,mastery,performance,consistency,growth}=breakdown,total=score.total,growthRate=metrics.growthRate;
+    await env.DB.prepare(`INSERT INTO arena_score_snapshots(id,user_id,season_id,week_start,score,execution,problem_solving,mastery,performance,consistency,growth,growth_rate,score_version,metrics,calculated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,2,?,?) ON CONFLICT(user_id,season_id,week_start) DO UPDATE SET score=excluded.score,execution=excluded.execution,mastery=excluded.mastery,performance=excluded.performance,consistency=excluded.consistency,growth=excluded.growth,growth_rate=excluded.growth_rate,score_version=2,metrics=excluded.metrics,calculated_at=excluded.calculated_at`).bind(`score_${tools.randomHex(12)}`, user.id, currentSeason.id, monday(calculatedAt), total, execution, 0, mastery, performance, consistency, growth, growthRate, JSON.stringify(metrics).slice(0, 8000), calculatedAt).run();
     const profile = await env.DB.prepare('SELECT target_university,achievement_level FROM arena_profiles WHERE user_id=?').bind(user.id).first<{ target_university: string; achievement_level: string }>();
     if (profile?.target_university.includes('서울대') && number(metrics.streakDays, 0, 10000) >= 30) await award(env.DB, user.id, 'snu-challenger', '서울대 도전자', '서울대학교 목표 설정 후 30일 연속 학습', now, tools.randomHex);
     if (profile?.achievement_level.includes('1등급')) await award(env.DB, user.id, 'grade-one', '1등급 진입', '프로필 성취 수준에 1등급 기록', now, tools.randomHex);

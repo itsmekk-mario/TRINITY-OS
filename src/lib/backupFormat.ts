@@ -2,7 +2,7 @@ import type {AppData} from '../types';
 import type {LearningArchiveBackup} from './archiveApi';
 
 export type BackupV1={version:1;exportedAt?:string;data:AppData};
-export type BackupV2={version:2;exportedAt:string;app:AppData;learningArchive:LearningArchiveBackup;metadata:{appVersion:string;archiveSchemaVersion:1}};
+export type BackupV2={version:2;exportedAt:string;app:AppData;learningArchive:LearningArchiveBackup;metadata:{appVersion:string;archiveSchemaVersion:1|2}};
 export type ParsedBackup={version:1|2;app:AppData;learningArchive?:LearningArchiveBackup};
 
 export function parseBackupValue(parsed:unknown,defaults:AppData):ParsedBackup{

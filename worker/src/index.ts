@@ -7,6 +7,7 @@ import { boundedJson, MAX_JSON_BODY, MAX_SYNC_BODY, PASSWORD_HASH_ITERATIONS, pa
 import { StudyRoomDurableObject } from './study-room/StudyRoomDurableObject.ts';
 import { connectStudyRoomWebSocket, handleStudyRoomApi } from './study-room/routes.ts';
 import { archive } from './archive.ts';
+import { learningIntelligence } from './learning-intelligence.ts';
 
 export { StudyRoomDurableObject };
 
@@ -197,6 +198,8 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
   if (studyRoomResponse) return studyRoomResponse;
   const archiveResponse = await archive(request, env, sessionUser, origin, { json, randomHex, boundedJson });
   if (archiveResponse) return archiveResponse;
+  const intelligenceResponse = await learningIntelligence(request, env, sessionUser, origin, { json, randomHex, boundedJson });
+  if (intelligenceResponse) return intelligenceResponse;
   if (url.pathname === '/api/auth/me' && request.method === 'GET') return user ? json({ ok: true, username: user.username, userId: user.id, mustChangePassword: user.must_change_password === 1 }, 200, origin) : json({ error: 'Unauthorized' }, 401, origin);
   if (url.pathname === '/api/auth/logout' && request.method === 'POST') {
     if(!auth||auth.authType!=='session')return json({error:'Unauthorized'},401,origin);

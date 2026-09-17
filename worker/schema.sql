@@ -116,9 +116,12 @@ CREATE TABLE IF NOT EXISTS arena_score_snapshots (
   score INTEGER NOT NULL,
   execution INTEGER NOT NULL,
   problem_solving INTEGER NOT NULL,
+  mastery INTEGER NOT NULL DEFAULT 0,
+  performance INTEGER NOT NULL DEFAULT 0,
   consistency INTEGER NOT NULL,
   growth INTEGER NOT NULL,
   growth_rate REAL NOT NULL DEFAULT 0,
+  score_version INTEGER NOT NULL DEFAULT 1,
   metrics TEXT NOT NULL DEFAULT '{}',
   calculated_at TEXT NOT NULL,
   UNIQUE(user_id, season_id, week_start)
@@ -161,3 +164,18 @@ CREATE TABLE IF NOT EXISTS arena_achievements (
   UNIQUE(user_id, code)
 );
 INSERT OR IGNORE INTO arena_seasons(id,name,starts_at,ends_at) VALUES('suneung-2028-fall','2028 수능 시즌','2026-09-01','2026-12-31');
+
+CREATE TABLE IF NOT EXISTS core_rule_drill_links (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  core_rule_id TEXT NOT NULL REFERENCES core_rules(id) ON DELETE CASCADE,
+  drill_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY(core_rule_id,drill_id)
+);
+CREATE TABLE IF NOT EXISTS learning_reviews (
+  id TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_type TEXT NOT NULL,target_id TEXT NOT NULL,review_type TEXT NOT NULL DEFAULT 'retry',
+  scheduled_at TEXT,reviewed_at TEXT,result TEXT NOT NULL DEFAULT 'pending',notes TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS learning_reviews_user_target ON learning_reviews(user_id,target_type,target_id);

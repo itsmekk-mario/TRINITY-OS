@@ -67,7 +67,7 @@ function saveBackupFile(payload:BackupV2) {
 export async function downloadBackup(data: AppData) {
   // Archive failure is intentionally fatal: silently producing a partial v1 file looks like a successful full backup.
   const learningArchive=await archiveApi<LearningArchiveBackup>('/api/archive/export');
-  saveBackupFile({version:2,exportedAt:new Date().toISOString(),app:data,learningArchive,metadata:{appVersion:APP_VERSION,archiveSchemaVersion:1}});
+  saveBackupFile({version:2,exportedAt:new Date().toISOString(),app:data,learningArchive,metadata:{appVersion:APP_VERSION,archiveSchemaVersion:2}});
 }
 
 export async function parseBackup(file: File): Promise<ParsedBackup> {

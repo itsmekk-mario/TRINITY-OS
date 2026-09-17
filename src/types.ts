@@ -47,7 +47,8 @@ export type ArenaGroup = {
 };
 export type ArenaScoreBreakdown = {
   execution: number;
-  problemSolving: number;
+  mastery: number;
+  performance: number;
   consistency: number;
   growth: number;
 };
@@ -55,9 +56,17 @@ export type ArenaScoreMetrics = {
   currentWeekSeconds: number;
   previousWeekSeconds: number;
   planExecutionRate: number;
+  studyGoalRate: number | null;
   activeDays: number;
+  availableDays: number;
   streakDays: number;
-  scoreChange: number;
+  reviewSuccessRate: number | null;
+  drillSuccessRate: number | null;
+  repeatedErrorReduction: number | null;
+  coreRuleMasteryGrowth: number | null;
+  performanceChange: number | null;
+  capabilityGoalRate: number | null;
+  reviewScheduleRate: number | null;
   drillCompletionRate: number;
   completedTripleDrills: number;
   weaknessImprovementRate: number;
@@ -67,6 +76,7 @@ export type ArenaScoreMetrics = {
 };
 export type ArenaScore = {
   total: number;
+  scoreVersion: 2;
   breakdown: ArenaScoreBreakdown;
   metrics: ArenaScoreMetrics;
   calculatedAt: string;
