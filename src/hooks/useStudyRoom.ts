@@ -72,6 +72,19 @@ export function useStudyRoom(
   const media = useLiveKitRoom(code, selfId, selfConnectionId, presenceParticipants, localStream);
 
   useEffect(() => {
+    setRoom(initialRoom);
+    setPresenceParticipants([]);
+    setSelfId('');
+    selfIdRef.current = '';
+  }, [code, initialRoom]);
+
+  useEffect(() => {
+    if (!code) {
+      setPresenceState('offline');
+      setPresenceError('');
+      return;
+    }
+    intentionalClose.current = false;
     let disposed = false;
     let connecting = false;
     let reconnectTimer = 0;

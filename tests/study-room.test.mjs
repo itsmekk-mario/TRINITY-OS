@@ -57,14 +57,15 @@ test('Cloudflare Realtime SFU credentials and session APIs are removed', () => {
   assert.match(client, /createLiveKitAccess/);
 });
 
-test('camera and microphone acquisition are independently controlled and video is bandwidth-limited', () => {
+test('camera prefers 1080p30 with compatible fallbacks and LiveKit keeps adaptive simulcast enabled', () => {
   const media = read('src/hooks/useCamera.ts');
   const livekit = read('src/hooks/useLiveKitRoom.ts');
-  assert.match(media, /width:\s*\{ ideal: 640, max: 640 \}/);
-  assert.match(media, /height:\s*\{ ideal: 360, max: 360 \}/);
-  assert.match(media, /frameRate:\s*\{ ideal: 15, max: 15 \}/);
+  assert.match(media, /width: 1920, height: 1080/);
+  assert.match(media, /width: 1280, height: 720/);
+  assert.match(media, /width: 854, height: 480/);
+  assert.match(media, /frameRate:\s*\{ ideal: 30, max: 30 \}/);
   assert.match(media, /echoCancellation:\s*true/);
-  assert.match(livekit, /maxBitrate:\s*450_000/);
+  assert.match(livekit, /maxBitrate:\s*3_500_000/);
   assert.match(livekit, /adaptiveStream:\s*true/);
   assert.match(livekit, /dynacast:\s*true/);
 });

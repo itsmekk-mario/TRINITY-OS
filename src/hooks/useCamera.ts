@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 type FacingMode = 'user' | 'environment';
-const videoConstraints = (facingMode: FacingMode): MediaStreamConstraints => ({
+type CaptureProfile = { width: number; height: number };
+const captureProfiles: CaptureProfile[] = [
+  { width: 1920, height: 1080 },
+  { width: 1280, height: 720 },
+  { width: 854, height: 480 },
+];
+const videoConstraints = (facingMode: FacingMode, profile: CaptureProfile): MediaStreamConstraints => ({
   audio: false,
   video: {
     facingMode: { ideal: facingMode },
-    width: { ideal: 640, max: 640 },
-    height: { ideal: 360, max: 360 },
-    frameRate: { ideal: 15, max: 15 },
+    width: { ideal: profile.width },
+    height: { ideal: profile.height },
+    frameRate: { ideal: 30, max: 30 },
   },
 });
 const audioConstraints: MediaStreamConstraints = {
@@ -75,7 +81,17 @@ export function useCamera() {
     setError('');
     stopKind('video');
     try {
-      const next = await navigator.mediaDevices.getUserMedia(videoConstraints(nextFacing));
+      let next: MediaStream | undefined;
+      let lastError: unknown;
+      for (const profile of captureProfiles) {
+        try {
+          next = await navigator.mediaDevices.getUserMedia(videoConstraints(nextFacing, profile));
+          break;
+        } catch (cause) {
+          lastError = cause;
+        }
+      }
+      if (!next) throw lastError instanceof Error ? lastError : new Error('Camera unavailable');
       if (cameraRequest.current !== requestId || !cameraWanted.current) {
         next.getTracks().forEach((track) => track.stop());
         return;

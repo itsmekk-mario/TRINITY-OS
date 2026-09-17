@@ -33,3 +33,15 @@ test('duplicate presence connection is surfaced instead of pretending to remain 
   assert.match(room, /setPresenceState\('offline'\)/);
   assert.match(room, /다른 탭 또는 기기/);
 });
+
+test('Cam Study lifecycle is mounted above page transitions and exposes a persistent Mini Cam', () => {
+  const app = read('src/App.tsx');
+  const provider = read('src/components/study-room/CamStudyProvider.tsx');
+  const page = read('src/pages/StudyRoom.tsx');
+  assert.match(app, /<CamStudyProvider data=\{data\}/);
+  assert.match(provider, /useCamera\(\)/);
+  assert.match(provider, /useStudyRoom\(room\?\.code/);
+  assert.match(provider, /cam-mini/);
+  assert.match(page, /useCamStudy\(\)/);
+  assert.doesNotMatch(page, /useCamera\(\)|useStudyRoom\(/);
+});

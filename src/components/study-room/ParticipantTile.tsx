@@ -11,7 +11,7 @@ const formatToday = (minutes: number) => minutes >= 60
   ? `${Math.floor(minutes / 60)}h ${Math.round(minutes % 60)}m`
   : `${Math.round(minutes)}m`;
 
-export default function ParticipantTile({ participant, isSelf }: { participant: StudyParticipant; isSelf: boolean }) {
+export default function ParticipantTile({ participant, isSelf, focused, onFocus }: { participant: StudyParticipant; isSelf: boolean; focused: boolean; onFocus: () => void }) {
   const video = useRef<HTMLVideoElement>(null);
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -32,7 +32,7 @@ export default function ParticipantTile({ participant, isSelf }: { participant: 
       : participant.connectionState === 'offline'
         ? '캠 서버 오프라인'
         : '';
-  return <article className={`study-participant ${participant.cameraEnabled ? 'camera-on' : 'camera-off'}`}>
+  return <article className={`study-participant ${participant.cameraEnabled ? 'camera-on' : 'camera-off'} ${focused ? 'focused' : ''}`} tabIndex={0} onClick={onFocus} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onFocus(); } }} aria-label={`${participant.name} 영상 ${focused ? '확대됨' : '확대하기'}`}>
     <div className="study-video-frame">
       {participant.cameraEnabled && participant.stream
         ? <video ref={video} autoPlay playsInline muted={isSelf} aria-label={`${participant.name} 카메라`} />

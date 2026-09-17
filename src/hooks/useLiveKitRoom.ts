@@ -78,7 +78,10 @@ export function useLiveKitRoom(
       singlePeerConnection: true,
       publishDefaults: {
         simulcast: true,
-        videoEncoding: { maxBitrate: 450_000, maxFramerate: 15 },
+        // LiveKit keeps its default 180p/360p simulcast layers and publishes the
+        // 1080p capture as the high layer. Adaptive stream + dynacast select the
+        // smallest useful layer for grid tiles and suspend unused layers.
+        videoEncoding: { maxBitrate: 3_500_000, maxFramerate: 30 },
         dtx: true,
         red: true,
       },
@@ -219,7 +222,7 @@ export function useLiveKitRoom(
           name: `camera-${selfId}`,
           source: Track.Source.Camera,
           simulcast: true,
-          videoEncoding: { maxBitrate: 450_000, maxFramerate: 15 },
+          videoEncoding: { maxBitrate: 3_500_000, maxFramerate: 30 },
         } : {
           name: `microphone-${selfId}`,
           source: Track.Source.Microphone,

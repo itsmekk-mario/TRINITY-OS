@@ -1,8 +1,8 @@
 # TRINITY OS Worker
 
-## CAM Study Room / Cloudflare Realtime SFU
+## CAM Study Room / self-hosted LiveKit SFU
 
-CAM Study Room uses one Cloudflare Realtime SFU session (one
+CAM Study Room uses one self-hosted LiveKit SFU session (one
 `RTCPeerConnection`) per logged-in participant. Each participant publishes at
 most one video track and subscribes to the other room members through that same
 SFU session. The Durable Object WebSocket carries presence, camera state, study
@@ -20,8 +20,8 @@ browser code, D1, or source control:
     npx wrangler deploy --config wrangler.toml
 
 The D1 migration stores room metadata and joined/left timestamps only. Camera
-media is encrypted WebRTC traffic between the browser and Cloudflare Realtime
-SFU; TRINITY OS does not record it or write it to D1/R2/Worker storage.
+media is encrypted WebRTC traffic between the browser and the self-hosted
+LiveKit SFU; TRINITY OS does not record it or write it to D1/R2/Worker storage.
 
 The browser never calls NVIDIA NIM and never contains an NVIDIA API key. Its AI
 entry points are authenticated Worker routes:
