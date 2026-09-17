@@ -55,12 +55,13 @@ function RankingTable({ rows, rivals, onRival }: { rows: ArenaRankingEntry[]; ri
 }
 
 export default function Arena({ data }: { data: AppData }) {
-  const score = useMemo(() => calculateArenaScore(data), [data]);
+  const previewScore = useMemo(() => calculateArenaScore(data), [data]);
   const [view, setView] = useState<View>('home'); const [arenaState, setArena] = useState<ArenaBootstrap | null>(null); const [profile, setProfile] = useState<ArenaProfile>(EMPTY_PROFILE); const [ranking, setRanking] = useState<ArenaRankingEntry[]>([]); const [selectedGroup, setSelectedGroup] = useState('');
   const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [coach, setCoach] = useState(''); const [coachLoading, setCoachLoading] = useState(false); const [joinCode, setJoinCode] = useState('');
   const [badgeCategory, setBadgeCategory] = useState<'all' | ArenaBadgeCategory>('all'); const [secretMode, setSecretMode] = useState(false); const scoreTap = useRef({ count: 0, last: 0 }); const secretKeys = useRef('');
   const [groupForm, setGroupForm] = useState<{ name: string; type: ArenaGroupType; targetUniversity: string; targetDepartment: string; visibility: ArenaVisibility }>({ name: '', type: 'university', targetUniversity: '', targetDepartment: '', visibility: 'public' });
   const arena = arenaState ?? { profile: null, groups: [], ranking: [], rivals: [], achievements: [], season: { id: '', name: '', startsAt: '', endsAt: '', status: 'upcoming' as const }, latestScore: null };
+  const score = arena.latestScore ?? previewScore;
 
   const publishArenaScore = async () => {
     try {

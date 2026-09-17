@@ -68,13 +68,14 @@ async function award(db: D1Database, userId: number, code: string, title: string
 }
 
 async function rivals(db: D1Database, userId: number, seasonId: string) {
-  const rows = await db.prepare(`SELECT p.user_id,u.arena_public_id public_id,p.nickname,p.target_university,p.target_department,s.score,s.growth_rate,s.metrics FROM arena_rivals r JOIN arena_profiles p ON p.user_id=r.rival_user_id JOIN users u ON u.id=p.user_id LEFT JOIN arena_score_snapshots s ON s.user_id=p.user_id AND s.season_id=? AND s.calculated_at=(SELECT MAX(s2.calculated_at) FROM arena_score_snapshots s2 WHERE s2.user_id=p.user_id AND s2.season_id=?) WHERE r.user_id=? ORDER BY r.created_at DESC`).bind(seasonId, seasonId, userId).all<RankingRow & { metrics: string | null }>();
-  const mine = await db.prepare('SELECT score,growth_rate,metrics FROM arena_score_snapshots WHERE user_id=? AND season_id=? ORDER BY calculated_at DESC LIMIT 1').bind(userId, seasonId).first<{ score: number; growth_rate: number; metrics: string }>();
-  const myMetrics = parse<Record<string, number>>(mine?.metrics, {});
-  return rows.results.map((row, index) => { const their = parse<Record<string, number>>(row.metrics, {}); const comparison = [
-    { label: '계획 실행률', mine: Math.round(myMetrics.planExecutionRate || 0), rival: Math.round(their.planExecutionRate || 0), unit: '%' },
-    { label: 'Review 성공률', mine: Math.round(myMetrics.reviewSuccessRate || 0), rival: Math.round(their.reviewSuccessRate || 0), unit: '%' },
-    { label: '반복 오답 감소', mine: Math.round(myMetrics.repeatedErrorReduction || 0), rival: Math.round(their.repeatedErrorReduction || 0), unit: '%' },
+  const rows = await db.prepare(`SELECT p.user_id,u.arena_public_id public_id,p.nickname,p.target_university,p.target_department,s.score,s.growth_rate,s.execution,s.mastery,s.performance,s.consistency,s.growth,s.metrics FROM arena_rivals r JOIN arena_profiles p ON p.user_id=r.rival_user_id JOIN users u ON u.id=p.user_id LEFT JOIN arena_score_snapshots s ON s.user_id=p.user_id AND s.season_id=? AND s.score_version=2 AND s.calculated_at=(SELECT MAX(s2.calculated_at) FROM arena_score_snapshots s2 WHERE s2.user_id=p.user_id AND s2.season_id=? AND s2.score_version=2) WHERE r.user_id=? ORDER BY r.created_at DESC`).bind(seasonId, seasonId, userId).all<RankingRow & { execution:number;mastery:number;performance:number;consistency:number;growth:number;metrics: string | null }>();
+  const mine = await db.prepare('SELECT score,growth_rate,execution,mastery,performance,consistency,growth,metrics FROM arena_score_snapshots WHERE user_id=? AND season_id=? AND score_version=2 ORDER BY calculated_at DESC LIMIT 1').bind(userId, seasonId).first<{ score: number; growth_rate: number;execution:number;mastery:number;performance:number;consistency:number;growth:number;metrics: string }>();
+  return rows.results.map((row, index) => { const comparison = [
+    { label: '실행', mine: Math.round(mine?.execution||0), rival: Math.round(row.execution||0), unit: '' },
+    { label: '체화', mine: Math.round(mine?.mastery||0), rival: Math.round(row.mastery||0), unit: '' },
+    { label: '성과', mine: Math.round(mine?.performance||0), rival: Math.round(row.performance||0), unit: '' },
+    { label: '꾸준함', mine: Math.round(mine?.consistency||0), rival: Math.round(row.consistency||0), unit: '' },
+    { label: '성장', mine: Math.round(mine?.growth||0), rival: Math.round(row.growth||0), unit: '' },
   ]; const gap = comparison.map(item => ({ ...item, delta: item.mine - item.rival })).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0]; return { rank: index + 1, userId: row.public_id, nickname: row.nickname, score: row.score || 0, growthRate: row.growth_rate || 0, targetUniversity: row.target_university, targetDepartment: row.target_department, comparison, insight: gap ? `${gap.label}에서 ${Math.abs(gap.delta).toFixed(1)}${gap.unit} 차이가 가장 큽니다. 승패보다 다음 주 변화 폭을 확인하세요.` : '비교할 학습 기록이 아직 부족합니다.' }; });
 }
 

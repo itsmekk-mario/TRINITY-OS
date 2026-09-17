@@ -1,6 +1,8 @@
--- Learning Intelligence + Arena Score v2 (additive; no existing learning data is rewritten).
-ALTER TABLE archive_entry_core_rules ADD COLUMN relation_type TEXT NOT NULL DEFAULT 'derived'
-  CHECK(relation_type IN ('derived','applied','failed','reinforced'));
+-- Learning Intelligence + Arena Score v2 ledger reconciliation.
+-- Production already has relation_type/mastery/performance/score_version. Do not repeat
+-- ALTER TABLE here: D1 SQLite has no portable ADD COLUMN IF NOT EXISTS and duplicate
+-- ALTERs prevent Wrangler from recording this migration. Runtime schema guards add the
+-- same columns for legacy/local databases, while schema.sql covers fresh databases.
 
 CREATE TABLE IF NOT EXISTS core_rule_drill_links (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -27,8 +29,5 @@ CREATE TABLE IF NOT EXISTS learning_reviews (
 CREATE INDEX IF NOT EXISTS learning_reviews_user_target ON learning_reviews(user_id,target_type,target_id);
 CREATE INDEX IF NOT EXISTS learning_reviews_user_schedule ON learning_reviews(user_id,result,scheduled_at);
 
-ALTER TABLE arena_score_snapshots ADD COLUMN mastery INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE arena_score_snapshots ADD COLUMN performance INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE arena_score_snapshots ADD COLUMN score_version INTEGER NOT NULL DEFAULT 1;
 CREATE INDEX IF NOT EXISTS arena_scores_v2_ranking
   ON arena_score_snapshots(season_id,score_version,score DESC,mastery DESC,performance DESC,growth DESC,calculated_at ASC);
