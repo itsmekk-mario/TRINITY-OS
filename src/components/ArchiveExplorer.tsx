@@ -6,6 +6,13 @@ export type ArchiveBrowseMode = 'recent' | 'exam' | 'subject';
 const colors = ['black', 'blue', 'green', 'red'] as const;
 const colorNames: Record<string, string> = { black: '검정', blue: '파랑', green: '초록', red: '빨강' };
 const subjectNames: Record<string, string> = { korean: '국어', math: '수학', english: '영어' };
+const koreanArea = (entry: ArchiveEntry) => {
+  const text = `${entry.category} ${entry.subcategory}`.replace(/\s+/g, ' ').trim();
+  if (/비문학|독서/.test(text)) return '비문학';
+  if (/문학/.test(text)) return '문학';
+  if (/화법|작문|화작/.test(text)) return '화법과 작문';
+  return text;
+};
 
 type Counts = Record<string, number>;
 type Group = { id: string; label: string; entries: ArchiveEntry[]; children?: Group[] };
@@ -68,8 +75,9 @@ export default function ArchiveExplorer({ entries, mode, onEntry }: { entries: A
     if (mode === 'recent') return groupBy(entries, entry => ({ id: `date:${entry.studiedAt.slice(0, 10)}`, label: entry.studiedAt.slice(0, 10) }));
     if (mode === 'exam') return groupBy(entries, entry => ({ id: `exam:${exam(entry).key}`, label: exam(entry).label })).map(group => ({ ...group, children: groupBy(group.entries, entry => ({ id: `${group.id}:subject:${entry.subject}`, label: subjectNames[entry.subject] })) }));
     return groupBy(entries, entry => ({ id: `subject:${entry.subject}`, label: subjectNames[entry.subject] })).map(group => {
-      const direct = group.entries.filter(entry => !entry.subcategory.trim());
-      const children = groupBy(group.entries.filter(entry => entry.subcategory.trim()), entry => ({ id: `${group.id}:subcategory:${entry.subcategory}`, label: entry.subcategory }));
+      const area = (entry: ArchiveEntry) => entry.subject === 'korean' ? koreanArea(entry) : entry.subcategory.trim();
+      const direct = group.entries.filter(entry => !area(entry));
+      const children = groupBy(group.entries.filter(entry => area(entry)), entry => ({ id: `${group.id}:subcategory:${area(entry)}`, label: area(entry) }));
       return children.length ? { ...group, children: direct.length ? [{ id: `${group.id}:direct`, label: '기타 기록', entries: direct }, ...children] : children } : group;
     });
   }, [entries, mode]);
