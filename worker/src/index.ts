@@ -8,6 +8,7 @@ import { StudyRoomDurableObject } from './study-room/StudyRoomDurableObject.ts';
 import { connectStudyRoomWebSocket, handleStudyRoomApi } from './study-room/routes.ts';
 import { archive } from './archive.ts';
 import { learningIntelligence } from './learning-intelligence.ts';
+import { syncLearningProjection } from './learning-graph.ts';
 
 export { StudyRoomDurableObject };
 
@@ -268,6 +269,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
   const now = new Date().toISOString(); const previous = await env.DB.prepare('SELECT payload FROM learning_state WHERE user_id=?').bind(user.id).first<{ payload: string }>();
   if (previous) await env.DB.prepare('INSERT INTO learning_state_history(user_id,payload,saved_at) VALUES(?,?,?)').bind(user.id, previous.payload, now).run();
   await env.DB.prepare('INSERT INTO learning_state(user_id,payload,updated_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at').bind(user.id, JSON.stringify(body.data), now).run();
+  await syncLearningProjection(env.DB,user.id,body.data,now);
   await env.DB.prepare('DELETE FROM learning_state_history WHERE user_id=? AND id NOT IN (SELECT id FROM learning_state_history WHERE user_id=? ORDER BY id DESC LIMIT 20)').bind(user.id, user.id).run();
   return json({ ok: true, updatedAt: now }, 200, origin);
  } catch(cause) {

@@ -20,7 +20,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Run tests
+        run: npm test
       - run: npm run build
+      - name: Install Worker dependencies
+        working-directory: worker
+        run: npm ci
+      - name: Bundle Worker (dry run)
+        working-directory: worker
+        run: npx wrangler deploy --dry-run --config wrangler.toml --outdir ../.worker-dist
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
