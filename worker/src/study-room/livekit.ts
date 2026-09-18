@@ -1,4 +1,4 @@
-export type LiveKitTokenInput = {
+﻿export type LiveKitTokenInput = {
   apiKey: string;
   apiSecret: string;
   serverUrl: string;
@@ -57,7 +57,7 @@ export async function createLiveKitToken(input: LiveKitTokenInput) {
       canPublish: true,
       canSubscribe: true,
       canPublishData: false,
-      canPublishSources: ['camera', 'microphone'],
+      canPublishSources: ['camera', 'microphone', 'screen_share', 'screen_share_audio'],
     },
   };
 
@@ -78,3 +78,4 @@ export async function createLiveKitToken(input: LiveKitTokenInput) {
     expiresAt: expiresAt * 1000,
   };
 }
+
