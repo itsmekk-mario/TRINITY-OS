@@ -224,15 +224,20 @@ export function useStudyRoom(
     };
   }, [data, send, updateParticipant]);
 
-  const participants = presenceParticipants.map((participant) => participant.id === selfId
-    ? { ...participant, stream: localStream, connectionState: 'connected' as const }
-    : {
-        ...participant,
-        stream: media.remoteStreams.get(participant.id),
-        connectionState: (media.remoteStreams.has(participant.id) || !participant.cameraEnabled
-          ? 'connected'
-          : media.connectionState) as ConnectionState,
-      });
+  const participants = presenceParticipants.map((participant) => {
+    if (participant.id === selfId) {
+      return { ...participant, stream: localStream, connectionState: 'connected' as const };
+    }
+    const screenStream = media.remoteScreenStreams.get(participant.id);
+    return {
+      ...participant,
+      stream: screenStream ?? media.remoteStreams.get(participant.id),
+      cameraEnabled: participant.cameraEnabled || Boolean(screenStream),
+      connectionState: (screenStream || media.remoteStreams.has(participant.id) || !participant.cameraEnabled
+        ? 'connected'
+        : media.connectionState) as ConnectionState,
+    };
+  });
   const leave = useCallback(() => {
     intentionalClose.current = true;
     socketRef.current?.close(1000, 'Leaving');
@@ -250,6 +255,12 @@ export function useStudyRoom(
     mediaError: media.error,
     audioPlaybackBlocked: media.audioPlaybackBlocked,
     startAudio: media.startAudio,
+    screenShareSupported: media.screenShareSupported,
+    screenShareEnabled: media.screenShareEnabled,
+    screenShareStarting: media.screenShareStarting,
+    screenShareError: media.screenShareError,
+    startScreenShare: media.startScreenShare,
+    stopScreenShare: media.stopScreenShare,
     diagnostics: media.diagnostics,
     leave,
     reconnect: reconnectRef.current,

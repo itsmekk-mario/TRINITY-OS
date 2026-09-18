@@ -75,6 +75,10 @@ export function useLiveKitRoom(
   const [error, setError] = useState('');
   const [audioPlaybackBlocked, setAudioPlaybackBlocked] = useState(false);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(() => new Map());
+  const [remoteScreenStreams, setRemoteScreenStreams] = useState<Map<string, MediaStream>>(() => new Map());
+  const [screenShareEnabled, setScreenShareEnabled] = useState(false);
+  const [screenShareStarting, setScreenShareStarting] = useState(false);
+  const [screenShareError, setScreenShareError] = useState('');
   const [diagnostics, setDiagnostics] = useState<VideoDiagnostics>();
   const roomRef = useRef<Room | undefined>(undefined);
   const publishedRef = useRef<Map<string, MediaStreamTrack>>(new Map());
@@ -87,6 +91,9 @@ export function useLiveKitRoom(
     for (const element of audioElementsRef.current.values()) element.remove();
     audioElementsRef.current.clear();
     setRemoteStreams(new Map());
+    setRemoteScreenStreams(new Map());
+    setScreenShareEnabled(false);
+    setScreenShareStarting(false);
     setAudioPlaybackBlocked(false);
   }, []);
 
@@ -144,49 +151,58 @@ export function useLiveKitRoom(
     const syncAudioPlaybackState = () => {
       setAudioPlaybackBlocked(audioElementsRef.current.size > 0 && !room.canPlaybackAudio);
     };
-    const removeVideo = (identity: string) => setRemoteStreams((current) => {
-      if (!current.has(identity)) return current;
-      const next = new Map(current);
-      next.delete(identity);
-      return next;
-    });
-    const removeAudio = (identity: string) => {
-      audioElementsRef.current.get(identity)?.remove();
-      audioElementsRef.current.delete(identity);
+    const removeVideo = (identity: string, source: Track.Source) => {
+      const setter = source === Track.Source.ScreenShare ? setRemoteScreenStreams : setRemoteStreams;
+      setter((current) => {
+        if (!current.has(identity)) return current;
+        const next = new Map(current);
+        next.delete(identity);
+        return next;
+      });
+    };
+    const removeAudio = (identity: string, source?: Track.Source) => {
+      for (const [key, element] of audioElementsRef.current) {
+        if ((!source && key.startsWith(`${identity}:`)) || key === `${identity}:${source}`) {
+          element.remove();
+          audioElementsRef.current.delete(key);
+        }
+      }
       syncAudioPlaybackState();
     };
     const onTrackSubscribed = (
       track: RemoteTrack,
-      _publication: RemoteTrackPublication,
+      publication: RemoteTrackPublication,
       participant: RemoteParticipant,
     ) => {
       if (track.kind === Track.Kind.Video) {
-        setRemoteStreams((current) => new Map(current).set(
+        const setter = publication.source === Track.Source.ScreenShare ? setRemoteScreenStreams : setRemoteStreams;
+        setter((current) => new Map(current).set(
           participant.identity,
           new MediaStream([track.mediaStreamTrack]),
         ));
       } else if (track.kind === Track.Kind.Audio) {
-        removeAudio(participant.identity);
+        removeAudio(participant.identity, publication.source);
         const element = track.attach();
         element.autoplay = true;
         element.style.display = 'none';
         element.dataset.livekitParticipant = participant.identity;
         document.body.appendChild(element);
-        audioElementsRef.current.set(participant.identity, element);
+        audioElementsRef.current.set(`${participant.identity}:${publication.source}`, element);
         syncAudioPlaybackState();
       }
     };
     const onTrackUnsubscribed = (
       track: RemoteTrack,
-      _publication: RemoteTrackPublication,
+      publication: RemoteTrackPublication,
       participant: RemoteParticipant,
     ) => {
       track.detach().forEach((element) => element.remove());
-      if (track.kind === Track.Kind.Video) removeVideo(participant.identity);
-      if (track.kind === Track.Kind.Audio) removeAudio(participant.identity);
+      if (track.kind === Track.Kind.Video) removeVideo(participant.identity, publication.source);
+      if (track.kind === Track.Kind.Audio) removeAudio(participant.identity, publication.source);
     };
     const onParticipantDisconnected = (participant: RemoteParticipant) => {
-      removeVideo(participant.identity);
+      removeVideo(participant.identity, Track.Source.Camera);
+      removeVideo(participant.identity, Track.Source.ScreenShare);
       removeAudio(participant.identity);
     };
     const scheduleRetry = () => {
@@ -209,6 +225,19 @@ export function useLiveKitRoom(
     room.on(RoomEvent.TrackUnsubscribed, onTrackUnsubscribed);
     room.on(RoomEvent.ParticipantDisconnected, onParticipantDisconnected);
     room.on(RoomEvent.AudioPlaybackStatusChanged, syncAudioPlaybackState);
+    room.on(RoomEvent.LocalTrackPublished, (publication) => {
+      if (publication.source === Track.Source.ScreenShare) {
+        setScreenShareEnabled(true);
+        setScreenShareStarting(false);
+        setScreenShareError('');
+      }
+    });
+    room.on(RoomEvent.LocalTrackUnpublished, (publication) => {
+      if (publication.source === Track.Source.ScreenShare) {
+        setScreenShareEnabled(false);
+        setScreenShareStarting(false);
+      }
+    });
     room.on(RoomEvent.Reconnecting, () => !disposed && setConnectionState('reconnecting'));
     room.on(RoomEvent.Reconnected, () => {
       if (disposed) return;
@@ -297,11 +326,13 @@ export function useLiveKitRoom(
 
   useEffect(() => {
     const active = new Set(participants.map((participant) => participant.id));
-    setRemoteStreams((current) => {
+    const prune = (current: Map<string, MediaStream>) => {
       const next = new Map(current);
       for (const id of next.keys()) if (!active.has(id)) next.delete(id);
       return next.size === current.size ? current : next;
-    });
+    };
+    setRemoteStreams(prune);
+    setRemoteScreenStreams(prune);
   }, [participants]);
 
   useEffect(() => {
@@ -309,14 +340,16 @@ export function useLiveKitRoom(
     if (!ready || !room) return;
     for (const [identity, participant] of room.remoteParticipants) {
       const publication = participant.getTrackPublication(Track.Source.Camera);
-      if (!publication) continue;
-      publication.setVideoQuality(!roomVisible
+      publication?.setVideoQuality(!roomVisible
         ? VideoQuality.LOW
         : identity === focusedParticipantId
           ? VideoQuality.HIGH
           : VideoQuality.MEDIUM);
+      participant.getTrackPublication(Track.Source.ScreenShare)?.setVideoQuality(
+        roomVisible ? VideoQuality.HIGH : VideoQuality.LOW,
+      );
     }
-  }, [focusedParticipantId, participants, ready, remoteStreams, roomVisible]);
+  }, [focusedParticipantId, participants, ready, remoteScreenStreams, remoteStreams, roomVisible]);
 
   useEffect(() => {
     if (!ready || !roomRef.current || !import.meta.env.DEV) {
@@ -358,8 +391,60 @@ export function useLiveKitRoom(
     };
   }, [connectionState]);
 
+  const screenShareSupported = typeof navigator !== 'undefined'
+    && Boolean(navigator.mediaDevices?.getDisplayMedia);
+
+  const startScreenShare = useCallback(async () => {
+    const room = roomRef.current;
+    if (!screenShareSupported) {
+      setScreenShareError('이 브라우저에서는 화면 공유를 지원하지 않습니다. PC Chrome 또는 Edge를 사용해 주세요.');
+      return;
+    }
+    if (!room || connectionState !== 'connected') {
+      setScreenShareError('미디어 서버에 연결된 뒤 화면 공유를 시작할 수 있습니다.');
+      return;
+    }
+    setScreenShareStarting(true);
+    setScreenShareError('');
+    try {
+      await room.localParticipant.setScreenShareEnabled(true, { audio: true });
+      setScreenShareEnabled(true);
+    } catch (cause) {
+      const name = cause instanceof DOMException ? cause.name : '';
+      if (name !== 'NotAllowedError') {
+        setScreenShareError(cause instanceof Error ? cause.message : '화면 공유를 시작하지 못했습니다.');
+      }
+      setScreenShareEnabled(false);
+    } finally {
+      setScreenShareStarting(false);
+    }
+  }, [connectionState, screenShareSupported]);
+
+  const stopScreenShare = useCallback(async () => {
+    const room = roomRef.current;
+    if (!room) return;
+    setScreenShareStarting(true);
+    try {
+      await room.localParticipant.setScreenShareEnabled(false);
+      setScreenShareEnabled(false);
+      setScreenShareError('');
+    } catch (cause) {
+      setScreenShareError(cause instanceof Error ? cause.message : '화면 공유를 종료하지 못했습니다.');
+    } finally {
+      setScreenShareStarting(false);
+    }
+  }, []);
+
+
   return {
     remoteStreams,
+    remoteScreenStreams,
+    screenShareSupported,
+    screenShareEnabled,
+    screenShareStarting,
+    screenShareError,
+    startScreenShare,
+    stopScreenShare,
     connectionState,
     error,
     audioPlaybackBlocked,

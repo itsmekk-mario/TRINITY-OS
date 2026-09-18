@@ -14,7 +14,7 @@ function ActiveStudyRoom() {
     return () => document.removeEventListener('visibilitychange', recover);
   }, [camera.recover]);
   const deviceError = camera.error || camera.microphoneError;
-  const remoteMicrophoneActive = session.participants.some((participant) => participant.id !== session.selfId && participant.microphoneEnabled);
+
   return <div className="study-room-active">
     <StudyRoomHeader room={session.room} participants={session.participants} connectionState={session.mediaConnectionState} capture={camera.capture} diagnostics={session.diagnostics} />
     {(deviceError || session.mediaError || (session.error && session.presenceConnectionState !== 'connected')) &&
@@ -24,15 +24,20 @@ function ActiveStudyRoom() {
         {camera.error && <button className="button" onClick={() => void camera.start()}>카메라 다시 연결</button>}
         {camera.microphoneError && <button className="button" onClick={() => void camera.startMicrophone()}>마이크 다시 연결</button>}
       </div>}
-    {session.audioPlaybackBlocked && remoteMicrophoneActive && <div className="study-room-notice" role="status"><b>오디오 재생 권한이 필요합니다.</b><button className="button" onClick={() => void session.startAudio()}>오디오 켜기</button></div>}
+    {session.screenShareError && <div className="study-room-notice" role="status"><b>{session.screenShareError}</b><p>Chrome 공유 선택 창에서 오디오 공유를 켜면 화면 소리도 함께 전송됩니다.</p></div>}
+    {session.audioPlaybackBlocked && <div className="study-room-notice" role="status"><b>오디오 재생 권한이 필요합니다.</b><button className="button" onClick={() => void session.startAudio()}>오디오 켜기</button></div>}
     <StudyGrid participants={session.participants} selfId={session.selfId} focusedId={focusedParticipantId} onFocus={setFocusedParticipantId} />
     <StudyRoomControls
       cameraEnabled={camera.enabled}
       cameraStarting={camera.starting}
       microphoneEnabled={camera.microphoneEnabled}
       microphoneStarting={camera.microphoneStarting}
+      screenShareSupported={session.screenShareSupported}
+      screenShareEnabled={session.screenShareEnabled}
+      screenShareStarting={session.screenShareStarting}
       onCamera={() => camera.enabled ? camera.stop() : void camera.start()}
       onMicrophone={() => camera.microphoneEnabled ? camera.stopMicrophone() : void camera.startMicrophone()}
+      onScreenShare={() => session.screenShareEnabled ? void session.stopScreenShare() : void session.startScreenShare()}
       onFlip={() => void camera.flip()}
       onLeave={leaveRoom}
     />
