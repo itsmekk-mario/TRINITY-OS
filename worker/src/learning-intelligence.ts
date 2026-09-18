@@ -130,7 +130,7 @@ export async function learningIntelligence(request:Request,env:Env,user:User,ori
   if(rule&&request.method==='GET'){
     const id=decodeURIComponent(rule[1]);
     if(!await ruleOwner(env.DB,id,user.id))return error(out,'NOT_FOUND','Core Rule을 찾을 수 없습니다.',404);
-    const [coreRule,linkedItems,wrongAnswers,drills,reviews,stats]=await Promise.all([
+    const [coreRule,linkedItems,wrongAnswers,drills,reviews,evidence,stats]=await Promise.all([
       env.DB.prepare('SELECT * FROM core_rules WHERE id=? AND user_id=?').bind(id,user.id).first<Record<string,unknown>>(),
       env.DB.prepare(`SELECT e.*,l.relation_type FROM archive_entries e JOIN archive_entry_core_rules l ON l.archive_entry_id=e.id
         WHERE l.core_rule_id=? AND e.user_id=? ORDER BY e.studied_at DESC,e.updated_at DESC,e.id DESC`).bind(id,user.id).all(),
@@ -140,6 +140,8 @@ export async function learningIntelligence(request:Request,env:Env,user:User,ori
         ON l.user_id=d.user_id AND l.drill_id=d.id WHERE l.core_rule_id=? AND d.user_id=? ORDER BY d.updated_at DESC`).bind(id,user.id).all<Record<string,unknown>>(),
       env.DB.prepare(`SELECT * FROM learning_reviews WHERE user_id=? AND target_type='core_rule' AND target_id=?
         ORDER BY COALESCE(reviewed_at,scheduled_at,created_at) DESC`).bind(user.id,id).all(),
+      env.DB.prepare(`SELECT source_type,source_id,relation_type,occurred_at,created_at FROM core_rule_evidence
+        WHERE user_id=? AND core_rule_id=? ORDER BY occurred_at DESC,created_at DESC LIMIT 100`).bind(user.id,id).all<Record<string,unknown>>(),
       getCoreRuleStats(env.DB,user.id,id),
     ]);
     const priority=calculateCoreRulePriority(stats,String(coreRule?.mastery_status??'input'));
@@ -147,6 +149,7 @@ export async function learningIntelligence(request:Request,env:Env,user:User,ori
       coreRule:coreRule?coreRuleDto(coreRule):null,linkedItems:linkedItems.results,
       wrongAnswers:wrongAnswers.results.map(row=>({...wrongAnswerDto(row),relationType:row.relation_type})),
       drills:drills.results.map(drillDto),reviews:reviews.results,
+      evidence:evidence.results.map(row=>({sourceType:row.source_type,sourceId:row.source_id,relationType:row.relation_type,occurredAt:row.occurred_at,createdAt:row.created_at})),
       stats:{...stats,linkedItems:linkedItems.results.length,...priority},
       priorityScore:priority.priorityScore,status:priority.status,
     });
