@@ -106,7 +106,7 @@ export default function CoreRuleIntelligencePanel({onEditRule}:{onEditRule:(rule
             <h2>{detail.coreRule.title}</h2>
             <p>{detail.coreRule.content}</p>
           </div>
-          <button className="button" onClick={()=>onEditRule(detail.coreRule)}>규칙 수정</button>
+          <button className="button" onClick={()=>detail.coreRule&&onEditRule(detail.coreRule)}>규칙 수정</button>
         </header>
         <div className="intelligence-stat-grid">
           <Card><span>최근 7일 실패</span><b>{detail.stats.failures7d}</b></Card>
