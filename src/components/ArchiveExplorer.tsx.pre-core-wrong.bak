@@ -1,7 +1,6 @@
 import { ChevronDown, FileText } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { ArchiveEntry } from '../lib/archiveApi';
-import { getCurrentStudyDay } from '../lib/date';
 
 export type ArchiveBrowseMode = 'recent' | 'exam' | 'subject';
 const colors = ['black', 'blue', 'green', 'red'] as const;
@@ -25,7 +24,7 @@ const annotations = (entries: ArchiveEntry[]): Counts => entries.reduce<Counts>(
 const reviewLabel = (entry: ArchiveEntry) => {
   if (!entry.reviewEnabled && !entry.coreRules.length) return '';
   if (!entry.nextReviewAt) return 'Review 필요';
-  const today = getCurrentStudyDay();
+  const today = new Date().toISOString().slice(0, 10);
   if (entry.nextReviewAt < today) return 'Overdue';
   if (entry.nextReviewAt === today) return 'Review Today';
   const days = Math.max(0, Math.ceil((new Date(`${entry.nextReviewAt}T00:00:00`).getTime() - new Date(`${today}T00:00:00`).getTime()) / 86400000));

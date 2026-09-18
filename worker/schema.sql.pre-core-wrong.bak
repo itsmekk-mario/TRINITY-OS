@@ -172,16 +172,6 @@ CREATE TABLE IF NOT EXISTS core_rule_drill_links (
   created_at TEXT NOT NULL,
   PRIMARY KEY(core_rule_id,drill_id)
 );
-CREATE TABLE IF NOT EXISTS core_rule_wrong_answer_links (
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  core_rule_id TEXT NOT NULL REFERENCES core_rules(id) ON DELETE CASCADE,
-  wrong_answer_id TEXT NOT NULL,
-  relation_type TEXT NOT NULL DEFAULT 'failed'
-    CHECK(relation_type IN ('derived','applied','failed','reinforced')),
-  created_at TEXT NOT NULL,
-  PRIMARY KEY(core_rule_id,wrong_answer_id)
-);
-CREATE INDEX IF NOT EXISTS core_rule_wrong_answer_user_wrong ON core_rule_wrong_answer_links(user_id,wrong_answer_id);
 CREATE TABLE IF NOT EXISTS learning_reviews (
   id TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   target_type TEXT NOT NULL,target_id TEXT NOT NULL,review_type TEXT NOT NULL DEFAULT 'retry',
