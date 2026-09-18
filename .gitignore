@@ -16,3 +16,7 @@ dist/
 .teacher-test-tools/
 *.zip
 
+
+*.tsbuildinfo
+*.pre-core-wrong.bak
+.worker-dist/
