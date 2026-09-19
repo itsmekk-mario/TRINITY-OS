@@ -1,0 +1,594 @@
+import { useMemo, useState } from "react";
+import type { Feedback } from "../../lib/feedback";
+import { FeedbackHistory, type FeedbackDraft, type FeedbackPatch } from "./shared";
+import type { Subject } from "../../types";
+import type { TeacherData } from "../../lib/teacherAnalytics";
+import type {
+  ActiveCoreRule,
+  ArchiveEntry,
+  ArchiveSubject,
+  CoreRuleIntelligence,
+} from "../../lib/archiveApi";
+import { Card, Empty } from "../Ui";
+import TeacherArchivePanel from "./TeacherArchivePanel";
+import TeacherCoreRulePanel from "./TeacherCoreRulePanel";
+
+export type TutorArchiveEntry = ArchiveEntry;
+// subject==='국어'?'korean':subject==='수학'?'math':subject==='영어'?'english':null
+export const toArchiveSubject = (subject: Subject): ArchiveSubject | null =>
+  subject === "국어"
+    ? "korean"
+    : subject === "수학"
+      ? "math"
+      : subject === "영어"
+        ? "english"
+        : null;
+export const filterTutorArchive = (
+  archive: TutorArchiveEntry[],
+  subject: Subject,
+) => {
+  const archiveSubject = toArchiveSubject(subject);
+  return archiveSubject
+    ? archive.filter((item) => item.subject === archiveSubject)
+    : [];
+};
+type Tab = string;
+const tabs: { id: Tab; label: string }[] = [
+  { id: "wrong", label: "오답" },
+  { id: "rules", label: "Core Rule" },
+  { id: "archive", label: "Learning Archive" },
+  { id: "feedback", label: "Feedback" },
+];
+const attitudeTags = [
+  "조건 확인",
+  "문제 해석",
+  "논리 완결성",
+  "시간 관리",
+  "계산 안정성",
+  "풀이 태도",
+] as const;
+
+export default function TutorWorkspace({
+  data,
+  subject,
+  archive,
+  feedback,
+  busy,
+  canFeedback,
+  onFeedback,
+  onEditFeedback,
+  onDeleteFeedback,
+  intelligenceRules,
+  archiveError,
+  rulesError,
+  onOpenRule,
+  ruleDetail,
+}: {
+  data: TeacherData;
+  subject: Subject;
+  archive: TutorArchiveEntry[];
+  feedback: Feedback[];
+  busy: boolean;
+  canFeedback: boolean;
+  onFeedback: (draft: FeedbackDraft) => Promise<void>;
+  onEditFeedback?: (item: Feedback, patch: FeedbackPatch) => Promise<void>;
+  onDeleteFeedback?: (item: Feedback) => Promise<void>;
+  intelligenceRules?: ActiveCoreRule[] | null;
+  archiveError?: string;
+  rulesError?: string;
+  onOpenRule?: (id: string) => void;
+  ruleDetail?: CoreRuleIntelligence | null;
+}) {
+  const [tab, setTab] = useState<Tab>("feedback"),
+    [observation, setObservation] = useState(""),
+    [strength, setStrength] = useState(""),
+    [nextAttitude, setNextAttitude] = useState(""),
+    [tags, setTags] = useState<string[]>([]),
+    [error, setError] = useState(""),
+    [sent, setSent] = useState(false);
+  const wrong = useMemo(
+    () =>
+      data.wrongAnswerDrills
+        .filter((item) => item.subject === subject)
+        .sort((a, b) => b.date.localeCompare(a.date)),
+    [data.wrongAnswerDrills, subject],
+  );
+  const subjectArchive = useMemo(
+    () =>
+      filterTutorArchive(archive, subject).sort((a, b) =>
+        b.studiedAt.localeCompare(a.studiedAt),
+      ),
+    [archive, subject],
+  );
+  const rules = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        id: string;
+        title: string;
+        content: string;
+        latest: string;
+        count: number;
+      }
+    >();
+    for (const entry of subjectArchive)
+      for (const rule of entry.coreRules) {
+        const current = map.get(rule.id);
+        if (current) {
+          current.count += 1;
+          if (entry.studiedAt > current.latest)
+            current.latest = entry.studiedAt;
+        } else map.set(rule.id, { ...rule, latest: entry.studiedAt, count: 1 });
+      }
+    return [...map.values()].sort((a, b) => b.latest.localeCompare(a.latest));
+  }, [subjectArchive]);
+  const intelligenceAvailable =
+    intelligenceRules !== null && intelligenceRules !== undefined;
+  const subjectFeedback = useMemo(
+    () =>
+      feedback
+        .filter((item) => !item.subject || item.subject === subject)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    [feedback, subject],
+  );
+  const toggleTag = (tag: string) =>
+    setTags((current) =>
+      current.includes(tag)
+        ? current.filter((item) => item !== tag)
+        : [...current, tag],
+    );
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!observation.trim() || !nextAttitude.trim() || busy) return;
+    setError("");
+    setSent(false);
+    const today = new Date().toLocaleDateString("sv-SE", {
+      timeZone: "Asia/Seoul",
+    });
+    const combinedObservation = [
+      `오늘 관찰한 태도: ${observation.trim()}`,
+      strength.trim() ? `잘하고 있는 점: ${strength.trim()}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    try {
+      await onFeedback({
+        title: `${subject} 수업 후 피드백 · ${today}`,
+        observation: combinedObservation,
+        bottleneck: tags.join(" · ") || "수업 태도",
+        action: nextAttitude.trim(),
+        successCriterion:
+          "다음 수업 시작 시 해당 태도를 실제 풀이에서 적용했는지 확인",
+        categories: tags.length ? tags : ["수업 태도"],
+        contextType: "general",
+        contextTargetId: "",
+      });
+      setObservation("");
+      setStrength("");
+      setNextAttitude("");
+      setTags([]);
+      setSent(true);
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "피드백 전송에 실패했습니다.",
+      );
+    }
+  };
+  const [bottleneckFilter, setBottleneckFilter] = useState<string | number>(
+    "전체",
+  );
+  const bottlenecks = useMemo(
+    () =>
+      Object.entries(
+        wrong.reduce<Record<string, number>>((counts, item) => {
+          const key = item.bottleneck || "미분류";
+          counts[key] = (counts[key] ?? 0) + 1;
+          return counts;
+        }, {}),
+      ).sort((a, b) => b[1] - a[1]),
+    [wrong],
+  );
+  const filteredWrong =
+    bottleneckFilter === "전체"
+      ? wrong
+      : wrong.filter(
+          (item) => (item.bottleneck || "미분류") === bottleneckFilter,
+        );
+  if (tab === "wrong")
+    return (
+      <section className="tutor-workspace">
+        <nav className="tutor-tabs" aria-label="과외 선생님 메뉴">
+          {tabs.map((item) => (
+            <button
+              key={item.id}
+              className={tab === item.id ? "active" : ""}
+              onClick={() => setTab(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        <div className="tutor-panel">
+          <header className="tutor-panel-head">
+            <div>
+              <span className="eyebrow">REPEATED BOTTLENECKS</span>
+              <h2>반복 병목</h2>
+            </div>
+            <small>{wrong.length}개</small>
+          </header>
+          {bottlenecks.length ? (
+            <div className="tutor-record-meta">
+              {[["전체", wrong.length], ...bottlenecks].map(
+                ([label, count]) => (
+                  <button
+                    className={bottleneckFilter === label ? "active" : ""}
+                    key={label}
+                    onClick={() => setBottleneckFilter(label)}
+                  >
+                    {label} {count}회
+                  </button>
+                ),
+              )}
+            </div>
+          ) : (
+            <p>데이터 부족</p>
+          )}
+          <div className="tutor-record-list">
+            {filteredWrong.map((item) => (
+              <article key={item.id} className="tutor-record">
+                <div className="tutor-record-meta">
+                  <span>{item.date}</span>
+                  <span>{item.source}</span>
+                  {item.bottleneck && <span>{item.bottleneck}</span>}
+                </div>
+                <h3>{item.question || "문항 미입력"}</h3>
+                <dl>
+                  <div>
+                    <dt>잘못된 판단</dt>
+                    <dd>{item.wrongJudgment || "미기록"}</dd>
+                  </div>
+                  <div>
+                    <dt>놓친 단서</dt>
+                    <dd>{item.missedCue || "미기록"}</dd>
+                  </div>
+                  <div>
+                    <dt>교정 행동</dt>
+                    <dd>{item.correction || "미기록"}</dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
+          {!filteredWrong.length && (
+            <Empty
+              title="조건에 맞는 오답이 없습니다."
+              description="선택한 병목의 기록이 없습니다."
+            />
+          )}
+        </div>
+      </section>
+    );
+  if (tab === "archive")
+    return (
+      <section className="tutor-workspace">
+        <nav className="tutor-tabs" aria-label="과외 선생님 메뉴">
+          {tabs.map((item) => (
+            <button
+              key={item.id}
+              className={tab === item.id ? "active" : ""}
+              onClick={() => setTab(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        <TeacherArchivePanel
+          entries={subjectArchive}
+          error={archiveError}
+          onOpenRule={onOpenRule}
+        />
+      </section>
+    );
+  if (tab === "rules")
+    return (
+      <section className="tutor-workspace">
+        <nav className="tutor-tabs" aria-label="과외 선생님 메뉴">
+          {tabs.map((item) => (
+            <button
+              key={item.id}
+              className={tab === item.id ? "active" : ""}
+              onClick={() => setTab(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        <TeacherCoreRulePanel
+          rules={intelligenceRules ?? null}
+          error={rulesError}
+          onOpen={(id) => onOpenRule?.(id)}
+          detail={ruleDetail}
+        />
+      </section>
+    );
+  return (
+    <section className="tutor-workspace">
+      <nav className="tutor-tabs" aria-label="과외 선생님 메뉴">
+        {tabs.map((item) => (
+          <button
+            key={item.id}
+            className={tab === item.id ? "active" : ""}
+            aria-current={tab === item.id ? "page" : undefined}
+            onClick={() => setTab(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </nav>
+      {tab === "rules" && (
+        <div className="tutor-panel">
+          <header className="tutor-panel-head">
+            <div>
+              <span className="eyebrow">CORE RULE</span>
+              <h2>누적 풀이 원칙</h2>
+            </div>
+            <small>
+              {intelligenceAvailable ? intelligenceRules.length : rules.length}
+              개
+            </small>
+          </header>
+          {rulesError && (
+            <p role="alert" className="team-error">
+              {rulesError}
+            </p>
+          )}
+          {intelligenceAvailable ? (
+            intelligenceRules.length ? (
+              <div className="tutor-rule-list">
+                {intelligenceRules.map((rule) => (
+                  <button
+                    type="button"
+                    key={rule.id}
+                    className="tutor-rule"
+                    onClick={() => onOpenRule?.(rule.id)}
+                  >
+                    <div>
+                      <small>
+                        {rule.status} · Priority {rule.priorityScore}
+                      </small>
+                      <h3>{rule.title}</h3>
+                    </div>
+                    <p>{rule.content}</p>
+                    <small>
+                      최근 7일 실패 {rule.stats.failures7d} · Archive{" "}
+                      {rule.stats.archiveCount} · Drill {rule.stats.drillCount}
+                    </small>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <Empty
+                title="연결된 Core Rule이 없습니다."
+                description="이 과목에 활성화된 Core Rule이 없습니다."
+              />
+            )
+          ) : rules.length ? (
+            <div className="tutor-rule-list">
+              {rules.map((rule) => (
+                <article key={rule.id} className="tutor-rule">
+                  <div>
+                    <small>
+                      연결 {rule.count}회 · 최근 {rule.latest?.slice(0, 10)}
+                    </small>
+                    <h3>{rule.title}</h3>
+                  </div>
+                  <p>{rule.content}</p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <Empty
+              title="연결된 Core Rule이 없습니다."
+              description="Learning Archive에서 Core Rule을 연결하면 읽기 전용으로 표시됩니다."
+            />
+          )}
+          {ruleDetail && (
+            <article className="tutor-rule">
+              <h3>{ruleDetail.coreRule?.title ?? "Core Rule 상세"}</h3>
+              <p>{ruleDetail.coreRule?.content}</p>
+              <small>
+                관련 Archive {ruleDetail.linkedItems.length} · Wrong Answer{" "}
+                {ruleDetail.wrongAnswers.length} · Drill{" "}
+                {ruleDetail.drills.length} · Review {ruleDetail.reviews.length}{" "}
+                · Evidence {ruleDetail.evidence.length}
+              </small>
+              <p>
+                최근 7일 실패 {ruleDetail.stats.failures7d} · 최근 30일 실패{" "}
+                {ruleDetail.stats.failures30d} · Review 성공{" "}
+                {ruleDetail.stats.reviewSuccessCount} · Review 실패{" "}
+                {ruleDetail.stats.reviewFailureCount} · 숙련도{" "}
+                {ruleDetail.stats.masteryRate === null
+                  ? "데이터 없음"
+                  : `${Math.round(ruleDetail.stats.masteryRate * 100)}%`}
+              </p>
+            </article>
+          )}
+        </div>
+      )}
+      {tab === "archive" && (
+        <div className="tutor-panel">
+          <header className="tutor-panel-head">
+            <div>
+              <span className="eyebrow">LEARNING ARCHIVE</span>
+              <h2>학습 기록</h2>
+            </div>
+            <small>{subjectArchive.length}개</small>
+          </header>
+          {archiveError ? (
+            <p role="alert" className="team-error">
+              {archiveError}
+            </p>
+          ) : subjectArchive.length ? (
+            <div className="tutor-archive-list">
+              {subjectArchive.slice(0, 60).map((entry) => (
+                <article key={entry.id} className="tutor-archive-row">
+                  <div>
+                    <small>
+                      {entry.studiedAt?.slice(0, 10)} ·{" "}
+                      {entry.category || "미분류"} · {entry.masteryStatus}
+                    </small>
+                    <h3>{entry.title}</h3>
+                  </div>
+                  <span>
+                    Annotation {entry.annotations.length} · Rule{" "}
+                    {entry.coreRules.length}
+                  </span>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <Empty
+              title="Learning Archive가 비어 있습니다."
+              description={
+                toArchiveSubject(subject)
+                  ? "학생이 기록한 학습 문서가 여기에 표시됩니다."
+                  : "현재 Learning Archive를 지원하지 않는 과목입니다."
+              }
+            />
+          )}
+        </div>
+      )}
+      {tab === "feedback" && (
+        <div className="tutor-feedback-layout">
+          <Card className="tutor-feedback-compose">
+            <div className="tutor-panel-head">
+              <div>
+                <span className="eyebrow">AFTER LESSON</span>
+                <h2>수업 후 피드백</h2>
+              </div>
+              <small>2–5분 기록</small>
+            </div>
+            {canFeedback ? (
+              <form onSubmit={submit}>
+                <label className="tutor-field">
+                  <span>
+                    오늘 관찰한 태도 <b>*</b>
+                  </span>
+                  <textarea
+                    required
+                    rows={3}
+                    maxLength={600}
+                    placeholder="예: 발상은 빠르지만 답을 낸 뒤 조건 재검사를 생략함"
+                    value={observation}
+                    onChange={(event) => setObservation(event.target.value)}
+                  />
+                </label>
+                <label className="tutor-field">
+                  <span>잘하고 있는 점</span>
+                  <textarea
+                    rows={2}
+                    maxLength={400}
+                    placeholder="예: 그래프 해석과 핵심 발상은 안정적임"
+                    value={strength}
+                    onChange={(event) => setStrength(event.target.value)}
+                  />
+                </label>
+                <label className="tutor-field tutor-field-primary">
+                  <span>
+                    다음 수업까지 가져갈 태도 <b>*</b>
+                  </span>
+                  <textarea
+                    required
+                    rows={2}
+                    maxLength={400}
+                    placeholder="예: 답을 확정하기 전 경계값과 충분조건을 30초 동안 재검사"
+                    value={nextAttitude}
+                    onChange={(event) => setNextAttitude(event.target.value)}
+                  />
+                </label>
+                <fieldset className="tutor-tag-field">
+                  <legend>태도 태그</legend>
+                  <div>
+                    {attitudeTags.map((tag) => (
+                      <button
+                        type="button"
+                        key={tag}
+                        className={tags.includes(tag) ? "active" : ""}
+                        onClick={() => toggleTag(tag)}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+                {error && (
+                  <p className="team-error" role="alert">
+                    {error}
+                  </p>
+                )}
+                {sent && (
+                  <p className="tutor-success" role="status">
+                    학생에게 피드백을 발송했습니다.
+                  </p>
+                )}
+                <button
+                  className="button primary tutor-send"
+                  disabled={busy || !observation.trim() || !nextAttitude.trim()}
+                >
+                  {busy ? "발송 중…" : "피드백 발송"}
+                </button>
+              </form>
+            ) : (
+              <Empty
+                title="피드백 작성 권한이 없습니다."
+                description="관리자에게 createFeedback 권한을 요청하세요."
+              />
+            )}
+          </Card>
+          <section className="tutor-feedback-history">
+            <FeedbackHistory
+              items={subjectFeedback}
+              busy={busy}
+              onEdit={onEditFeedback}
+              onDelete={onDeleteFeedback}
+            />
+            <div className="tutor-panel-head">
+              <div>
+                <span className="eyebrow">HISTORY</span>
+                <h2>이전 피드백</h2>
+              </div>
+              <small>{subjectFeedback.length}개</small>
+            </div>
+            {false ? (
+              subjectFeedback.slice(0, 8).map((item) => (
+                <Card key={item.id} className="tutor-history-card">
+                  <small>
+                    {item.created_at?.slice(0, 10)} ·{" "}
+                    {item.teacher_name || "선생님"}
+                  </small>
+                  <h3>{item.title || "수업 피드백"}</h3>
+                  {item.observation && (
+                    <p className="tutor-history-observation">
+                      {item.observation}
+                    </p>
+                  )}
+                  <div className="tutor-next-attitude">
+                    <b>다음 태도</b>
+                    <p>{item.action || "기록 없음"}</p>
+                  </div>
+                </Card>
+              ))
+            ) : (
+              <Empty
+                title="아직 피드백이 없습니다."
+                description="수업이 끝난 뒤 핵심 태도만 짧게 남기면 됩니다."
+              />
+            )}
+          </section>
+        </div>
+      )}
+    </section>
+  );
+}

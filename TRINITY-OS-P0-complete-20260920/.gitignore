@@ -1,0 +1,22 @@
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+
+node_modules/
+worker/node_modules/
+dist/
+.teacher-ui-check/
+.teacher-test-tools/
+*.zip
+
+
+*.tsbuildinfo
+*.pre-core-wrong.bak
+.worker-dist/

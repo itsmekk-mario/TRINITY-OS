@@ -1,0 +1,13 @@
+[
+  { "id": "mock-korean", "label": "1교시 국어", "start": "08:40", "end": "10:00", "kind": "exam", "subject": "국어", "questions": 45 },
+  { "id": "mock-break-1", "label": "휴식", "start": "10:00", "end": "10:20", "kind": "break" },
+  { "id": "mock-math", "label": "2교시 수학", "start": "10:30", "end": "12:10", "kind": "exam", "subject": "수학", "questions": 30 },
+  { "id": "mock-lunch", "label": "점심시간", "start": "12:10", "end": "13:00", "kind": "break" },
+  { "id": "mock-english", "label": "3교시 영어", "start": "13:10", "end": "14:20", "kind": "exam", "subject": "영어", "questions": 45 },
+  { "id": "mock-break-2", "label": "휴식", "start": "14:20", "end": "14:40", "kind": "break" },
+  { "id": "mock-history", "label": "한국사", "start": "14:40", "end": "15:10", "kind": "exam", "subject": "탐구" },
+  { "id": "mock-paper-1", "label": "문답지 회수 및 배부", "start": "15:10", "end": "15:25", "kind": "admin" },
+  { "id": "mock-social", "label": "사회탐구 / 직업탐구", "start": "15:25", "end": "16:05", "kind": "exam", "subject": "탐구", "questions": 25 },
+  { "id": "mock-paper-2", "label": "문답지 회수 및 배부", "start": "16:05", "end": "16:20", "kind": "admin" },
+  { "id": "mock-science", "label": "과학탐구", "start": "16:20", "end": "17:00", "kind": "exam", "subject": "탐구", "questions": 25 }
+]

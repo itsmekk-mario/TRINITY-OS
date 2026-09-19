@@ -1,0 +1,450 @@
+From fb6ed20c515a9fdd53d8f9ea63700f7f0b3bdcd9 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Wed, 16 Sep 2026 07:07:22 -0500
+Subject: [PATCH] security: isolate browser state by authenticated user
+
+---
+ src/App.tsx                       | 15 ++++----
+ src/components/CloudflareSync.tsx | 17 ++++-----
+ src/lib/aiCoach.ts                |  3 +-
+ src/lib/auth.ts                   | 25 ++++++++-----
+ src/lib/cloudflare.ts             | 59 ++++++++++++++++++++-----------
+ src/lib/runtimeConfig.ts          | 11 ++++++
+ src/lib/storage.ts                | 16 ++++++---
+ src/lib/useStudyClock.ts          | 10 ++++--
+ tests/teacher-browser.mjs         |  5 ++-
+ worker/src/index.ts               |  4 +--
+ 10 files changed, 107 insertions(+), 58 deletions(-)
+ create mode 100644 src/lib/runtimeConfig.ts
+
+diff --git a/src/App.tsx b/src/App.tsx
+index 0d46daf..5193b9a 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -3,14 +3,14 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+ import { flushSync } from 'react-dom';
+ import { BrainCircuit, CalendarRange, ChartNoAxesCombined, Menu, Download, Gauge, Home, MessageSquareText, NotebookTabs, Settings, ShieldCheck, Swords, Target, Upload, UserRound, Video, X } from 'lucide-react';
+ import type { AppData } from './types';
+-import { downloadBackup, loadData, parseBackup, saveData } from './lib/storage';
++import { downloadBackup, initialData, loadData, parseBackup, saveData } from './lib/storage';
+ import { APP_VERSION } from './data/config';
+ import Dashboard from './pages/Dashboard';
+ import ScoreTracker from './pages/ScoreTracker';
+ import NotionWorkspace from './pages/NotionWorkspace';
+ import CloudflareSync from './components/CloudflareSync';
+ import LoginPage from './components/LoginPage';
+-import { logoutLocal, validateSession } from './lib/auth';
++import { logoutLocal, type SessionIdentity, validateSession } from './lib/auth';
+ import { autoSyncCloudflareData, loadCloudflareConfig } from './lib/cloudflare';
+ import SupportPortal, { ExamArchive, SupportOwner } from './pages/SupportPortal';
+ import FeedbackInbox from './pages/FeedbackInbox';
+@@ -61,17 +61,17 @@ function StudentApp() {
+   const [planView, setPlanView] = useState<PlanView>(() => (['overview', 'calendar', 'weekly', 'routine'].includes(queryView() ?? '') ? queryView() as PlanView : 'overview'));
+   const [trainView, setTrainView] = useState<TrainView>(() => (['timer', 'drill', 'wrong', 'resources'].includes(queryView() ?? '') ? queryView() as TrainView : 'timer'));
+   const [insightsView, setInsightsView] = useState<InsightsView>(() => (['overview', 'performance', 'bottlenecks', 'review'].includes(queryView() ?? '') ? queryView() as InsightsView : 'overview'));
+-  const [data, setData] = useState<AppData>(loadData); const [menu, setMenu] = useState(false); const [settings, setSettings] = useState(false); const [passwordDialog, setPasswordDialog] = useState(false); const [passwordRequired, setPasswordRequired] = useState(Boolean(loadCloudflareConfig().mustChangePassword)); const [toast, setToast] = useState(''); const fileRef = useRef<HTMLInputElement>(null); const [authenticated, setAuthenticated] = useState(Boolean(loadCloudflareConfig().token)); const syncing = useRef(false); const scrollPositions = useRef(new Map<string, number>());
++  const [data, setData] = useState<AppData>(initialData); const [menu, setMenu] = useState(false); const [settings, setSettings] = useState(false); const [passwordDialog, setPasswordDialog] = useState(false); const [passwordRequired, setPasswordRequired] = useState(Boolean(loadCloudflareConfig().mustChangePassword)); const [toast, setToast] = useState(''); const fileRef = useRef<HTMLInputElement>(null); const [authenticated, setAuthenticated] = useState(Boolean(loadCloudflareConfig().token)); const [identity, setIdentity] = useState<SessionIdentity | null>(null); const syncing = useRef(false); const scrollPositions = useRef(new Map<string, number>());
+   const sidebarRef = useRef<HTMLElement>(null);
+   useDialogFocus(menu, sidebarRef, () => setMenu(false));
+   const settingsRef = useRef<HTMLElement>(null);
+   useDialogFocus(settings, settingsRef, () => setSettings(false));
+   const contextLabel = [...primaryNav, ...utilityNav].find((item) => item.id === page)?.label ?? 'Archive';
+   const username = loadCloudflareConfig().username || '내 계정';
+-  useEffect(() => saveData(data), [data]);
+-  useEffect(() => { const retry = () => setData((value) => ({ ...value })); window.addEventListener('online', retry); return () => window.removeEventListener('online', retry); }, []);
+-  useEffect(() => { if (!authenticated) return; const timer = window.setTimeout(async () => { if (syncing.current) return; syncing.current = true; try { const result = await autoSyncCloudflareData(data); if (result.action === 'downloaded' && result.data) { saveData(result.data); setData(result.data); } } catch { /* Local data remains authoritative until the next retry. */ } finally { syncing.current = false; } }, 1500); return () => window.clearTimeout(timer); }, [data, authenticated]);
+-  useEffect(() => { if (authenticated) void validateSession().then((ok) => { if (!ok) { logoutLocal(); setAuthenticated(false); } }); }, [authenticated]);
++  useEffect(() => { if (identity) saveData(identity.userId, data); }, [data, identity]);
++  useEffect(() => { const retry = () => { if (identity) setData((value) => ({ ...value })); }; window.addEventListener('online', retry); return () => window.removeEventListener('online', retry); }, [identity]);
++  useEffect(() => { if (!authenticated) { setIdentity(null); return; } void validateSession().then((profile) => { if (!profile) { logoutLocal(); setAuthenticated(false); return; } setPasswordRequired(Boolean(profile.mustChangePassword)); setData(loadData(profile.userId)); setIdentity(profile); }); }, [authenticated]);
++  useEffect(() => { if (!identity) return; const timer = window.setTimeout(async () => { if (syncing.current) return; syncing.current = true; try { const result = await autoSyncCloudflareData(data, identity.userId); if (result.action === 'downloaded' && result.data) { saveData(identity.userId, result.data); setData(result.data); } } catch { /* Local data remains authoritative until the next retry. */ } finally { syncing.current = false; } }, 1500); return () => window.clearTimeout(timer); }, [data, identity]);
+   useEffect(() => { const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') { setMenu(false); setSettings(false); } }; window.addEventListener('keydown', onKeyDown); return () => window.removeEventListener('keydown', onKeyDown); }, []);
+   useEffect(() => {
+     const previousRestoration = window.history.scrollRestoration;
+@@ -107,6 +107,7 @@ function StudentApp() {
+   const importData = async (file?: File) => { if (!file) return; try { setData(await parseBackup(file)); setToast('백업 데이터를 복원했습니다.'); setSettings(false); } catch (error) { setToast(error instanceof Error ? error.message : '가져오기에 실패했습니다.'); } finally { window.setTimeout(() => setToast(''), 2200); } };
+   const screen = page === 'today' ? <Dashboard data={data} update={update} navigate={navigate} /> : page === 'plan' ? <PlanHub data={data} update={update} view={planView} onView={(view) => changeSubview('plan', view, setPlanView)} /> : page === 'train' ? <TrainHub data={data} update={update} view={trainView} onView={(view) => changeSubview('train', view, setTrainView)} /> : page === 'test' ? <ScoreTracker data={data} update={update} /> : page === 'insights' ? <InsightsHub data={data} update={update} view={insightsView} onView={(view) => changeSubview('insights', view, setInsightsView)} /> : page === 'study-room' ? <StudyRoom data={data} /> : page === 'coach' ? <CoachPage data={data} /> : page === 'feedback' ? <FeedbackInbox data={data} update={update} /> : page === 'workspace' ? <NotionWorkspace data={data} update={update} /> : page === 'profile' ? <Arena data={data} /> : <ExamArchive />;
+   if (!authenticated) return <LoginPage onAuthenticated={() => { const config = loadCloudflareConfig(); setAuthenticated(true); setPasswordRequired(Boolean(config.mustChangePassword)); }} />;
++  if (!identity) return <main className="login-page" role="status">안전하게 계정을 확인하는 중…</main>;
+   return <div className="app-shell learning-shell">
+     <aside ref={sidebarRef} tabIndex={menu ? -1 : undefined} role={menu ? 'dialog' : undefined} aria-modal={menu || undefined} aria-label={menu ? '메뉴' : undefined} className={menu ? 'open' : ''}><div className="brand"><div className="brand-mark">T</div><div><strong>TRINITY OS</strong><span>Learning Operating System</span></div><button className="mobile-close" aria-label="메뉴 닫기" onClick={() => setMenu(false)}><X /></button></div><nav className="primary-nav" aria-label="핵심 메뉴">{primaryNav.map(({ id, label, icon: Icon }) => <button key={id} aria-current={page === id ? 'page' : undefined} className={page === id ? 'active' : ''} onClick={() => navigate(id)}><Icon size={19} /><span>{label}</span></button>)}</nav><div className="utility-nav"><span>UTILITY</span>{utilityNav.map(({ id, label, icon: Icon }) => <button key={id} aria-current={page === id ? 'page' : undefined} className={page === id ? 'active' : ''} onClick={() => navigate(id)}><Icon size={17} /><span>{label}</span></button>)}</div><div className="account-area"><button className="account-button" onClick={() => { setMenu(false); setSettings(true); }} aria-label={`${username} 계정 및 설정`}><span className="account-avatar"><UserRound size={19} /></span><span><b>{username}</b><small>Settings</small></span><Settings size={16} /></button></div></aside>
+     {menu && <div className="nav-backdrop" onClick={() => setMenu(false)} />}<main><div className="mobile-bar"><button aria-label="메뉴 열기" aria-expanded={menu} onClick={() => setMenu(true)}><Menu /></button><div className="mobile-context"><strong>{contextLabel}</strong><small>{new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}</small></div><button aria-label="설정 열기" onClick={() => setSettings(true)}><Settings /></button></div><div className="page-wrap"><PageTransition transitionKey={currentKey()}>{screen}</PageTransition></div></main>
+diff --git a/src/components/CloudflareSync.tsx b/src/components/CloudflareSync.tsx
+index 243c78c..1f17422 100644
+--- a/src/components/CloudflareSync.tsx
++++ b/src/components/CloudflareSync.tsx
+@@ -1,18 +1,18 @@
+ import { CloudCog, DownloadCloud, History, LogOut, UploadCloud } from 'lucide-react';
+ import { useState } from 'react';
+ import type { AppData } from '../types';
+-import { fetchCloudflareData, loadCloudflareConfig, loadRecoveryCopy, saveCloudflareConfig, saveRecoveryCopy, uploadCloudflareData } from '../lib/cloudflare';
++import { fetchCloudflareData, loadCloudflareConfig, loadRecoveryCopy, saveRecoveryCopy, uploadCloudflareData } from '../lib/cloudflare';
+ import { logout } from '../lib/auth';
+ 
+ const countRecords = (value: AppData) => Object.keys(value.calendar).length + value.sessions.length + Object.keys(value.journals).length + value.scores.length + Object.keys(value.plaire).length + value.trinity.length;
+ 
+ export default function CloudflareSync({ data, update, onLogout }: { data: AppData; update: (fn: (value: AppData) => AppData) => void; onLogout?: () => void }) {
+   const initial = loadCloudflareConfig();
+-  const [url, setUrl] = useState(initial.url);
+   const [status, setStatus] = useState('');
+   const [busy, setBusy] = useState(false);
+-  const recovery = loadRecoveryCopy();
+-  const config = () => { const value = { ...initial, url: url.trim() }; saveCloudflareConfig(value); return value; };
++  const userId = initial.userId;
++  const recovery = userId === undefined ? null : loadRecoveryCopy(userId);
++  const config = () => initial;
+ 
+   const upload = async () => {
+     setBusy(true); setStatus('서버 데이터를 확인하는 중…');
+@@ -34,23 +34,24 @@ export default function CloudflareSync({ data, update, onLogout }: { data: AppDa
+     try {
+       const remote = await fetchCloudflareData(config());
+       if (!remote.data) throw new Error('서버에 저장된 데이터가 없습니다.');
+-      saveRecoveryCopy(data); update(() => remote.data as AppData);
++      if (userId === undefined) throw new Error('세션을 다시 확인해 주세요.');
++      saveRecoveryCopy(userId, data); update(() => remote.data as AppData);
+       setStatus('서버 데이터를 가져왔습니다. 기존 데이터는 복구본으로 보관했습니다.');
+     } catch (error) { setStatus(error instanceof Error ? error.message : '가져오기에 실패했습니다.'); }
+     finally { setBusy(false); }
+   };
+ 
+   const restore = () => {
+-    const copy = loadRecoveryCopy();
++    const copy = userId === undefined ? null : loadRecoveryCopy(userId);
+     if (!copy || !window.confirm('가져오기 전 데이터로 되돌릴까요?')) return;
+     update(() => copy.data); setStatus(`복구본(${new Date(copy.savedAt).toLocaleString('ko-KR')})으로 되돌렸습니다.`);
+   };
+ 
+-  const disabled = busy || !url.trim() || !initial.token;
++  const disabled = busy || !initial.token || userId === undefined;
+   return <div className="drive-sync cloudflare-sync">
+     <div className="drive-sync-head"><CloudCog size={18}/><div><b>Cloudflare 기기 간 저장</b><small>자동 병합하지 않습니다. 데이터 방향을 직접 선택하세요.</small></div></div>
+     <p className="drive-status">자동 동기화: 로그인 상태에서 변경 후 약 1.5초 내에 D1에 저장됩니다.</p>
+-    <label className="drive-client-field"><span>Worker URL</span><input value={url} onChange={e=>setUrl(e.target.value)}/></label>
++    <p className="drive-status">연결 서버는 보안을 위해 운영 환경에서 고정됩니다.</p>
+     <p className="sync-account">로그인 계정: <b>{initial.username || 'TRINITY'}</b></p>
+     <div className="sync-actions">
+       <button className="button primary" onClick={upload} disabled={disabled}><UploadCloud size={16}/>{busy?'처리 중…':'이 기기 → 서버 저장'}</button>
+diff --git a/src/lib/aiCoach.ts b/src/lib/aiCoach.ts
+index 7d38083..34bc694 100644
+--- a/src/lib/aiCoach.ts
++++ b/src/lib/aiCoach.ts
+@@ -12,7 +12,8 @@ const AI_CACHE_TTL_MS = 30 * 60_000;
+ const inFlight = new Map<string, Promise<unknown>>();
+ 
+ function cacheKey(context: AIStudyCoachContext) {
+-  return AI_CACHE_PREFIX + coachContextHash(context);
++  const userId = loadCloudflareConfig().userId;
++  return AI_CACHE_PREFIX + (userId === undefined ? 'anonymous' : userId) + ':' + coachContextHash(context);
+ }
+ 
+ export function loadAIAnalysisCache(context: AIStudyCoachContext): CoachReply | null {
+diff --git a/src/lib/auth.ts b/src/lib/auth.ts
+index c076da8..9648900 100644
+--- a/src/lib/auth.ts
++++ b/src/lib/auth.ts
+@@ -1,6 +1,8 @@
+-import { loadCloudflareConfig, saveCloudflareConfig } from './cloudflare';
++import { clearUserSyncState, loadCloudflareConfig, saveCloudflareConfig } from './cloudflare';
++import { clearUserData } from './storage';
+ 
+-export type AuthResult = { token: string; username: string; mustChangePassword?: boolean };
++export type AuthResult = { token: string; username: string; userId: number; mustChangePassword?: boolean };
++export type SessionIdentity = Pick<AuthResult, 'username' | 'userId' | 'mustChangePassword'>;
+ 
+ async function post(path: string, url: string, body: unknown): Promise<AuthResult> {
+   const base = url.trim().replace(/\/+$/, '');
+@@ -11,7 +13,7 @@ async function post(path: string, url: string, body: unknown): Promise<AuthResul
+   });
+   const payload = await response.json() as AuthResult & { error?: string };
+   if (!response.ok) throw new Error(payload.error || `인증에 실패했습니다. (${response.status})`);
+-  saveCloudflareConfig({ url: base, token: payload.token, username: payload.username, mustChangePassword: payload.mustChangePassword });
++  saveCloudflareConfig({ url: base, token: payload.token, username: payload.username, userId: payload.userId, mustChangePassword: payload.mustChangePassword });
+   return payload;
+ }
+ 
+@@ -31,23 +33,30 @@ export async function changePassword(currentPassword: string, newPassword: strin
+   });
+   const payload = await response.json() as AuthResult & { error?: string };
+   if (!response.ok || !payload.token) throw new Error(payload.error || '비밀번호 변경에 실패했습니다.');
+-  saveCloudflareConfig({ url: config.url, token: payload.token, username: payload.username, mustChangePassword: false });
++  saveCloudflareConfig({ url: config.url, token: payload.token, username: payload.username, userId: payload.userId, mustChangePassword: false });
+   return payload;
+ }
+ 
+-export async function validateSession() {
++export async function validateSession(): Promise<SessionIdentity | null> {
+   const config = loadCloudflareConfig();
+-  if (!config.url || !config.token) return false;
++  if (!config.url || !config.token) return null;
+   try {
+     const response = await fetch(`${config.url.replace(/\/+$/, '')}/api/auth/me`, {
+       headers: { Authorization: `Bearer ${config.token}` }, cache: 'no-store',
+     });
+-    return response.ok;
+-  } catch { return false; }
++    if (!response.ok) return null;
++    const identity = await response.json() as SessionIdentity;
++    saveCloudflareConfig({ ...config, username: identity.username, userId: identity.userId, mustChangePassword: identity.mustChangePassword });
++    return identity;
++  } catch { return null; }
+ }
+ 
+ export function logoutLocal() {
+   const config = loadCloudflareConfig();
++  if (config.userId !== undefined) {
++    clearUserData(config.userId); clearUserSyncState(config.userId); localStorage.removeItem(`trinity-os:active-clock:${config.userId}:v2`);
++    for (let index = localStorage.length - 1; index >= 0; index -= 1) { const key = localStorage.key(index); if (key?.startsWith(`trinity-os:ai-study-analysis:v1:${config.userId}:`)) localStorage.removeItem(key); }
++  }
+   saveCloudflareConfig({ url: config.url, token: '', username: '', mustChangePassword: false });
+ }
+ 
+diff --git a/src/lib/cloudflare.ts b/src/lib/cloudflare.ts
+index 925a9d8..ce7be7e 100644
+--- a/src/lib/cloudflare.ts
++++ b/src/lib/cloudflare.ts
+@@ -1,32 +1,44 @@
+ import type { AppData } from '../types';
+ import { initialData } from './storage';
++import { trustedWorkerUrl } from './runtimeConfig';
+ 
+-const CONFIG_KEY = 'trinity-os:cloudflare-sync:v1';
+-const AUTO_SYNC_KEY = 'trinity-os:cloudflare-auto-sync:v1';
+-export const RECOVERY_KEY = 'trinity-os:cloudflare-recovery:v1';
+-export type CloudflareConfig = { url: string; token: string; username?: string; mustChangePassword?: boolean };
++const CONFIG_KEY = 'trinity-os:cloudflare-sync:v2';
++const LEGACY_CONFIG_KEY = 'trinity-os:cloudflare-sync:v1';
++const AUTH_KEY = 'trinity-os:auth-session:v1';
++const keyForUser = (name: string, userId: number | string) => `trinity-os:${name}:${userId}:v1`;
++export type CloudflareConfig = { url: string; token: string; username?: string; userId?: number; mustChangePassword?: boolean };
+ type RemotePayload = { data?: AppData | null; updatedAt?: string | null };
+ type AutoSyncMetadata = { localSignature: string; remoteUpdatedAt: string | null };
+ export type AutoSyncResult = { action: 'disabled' | 'uploaded' | 'downloaded' | 'unchanged'; data?: AppData; updatedAt?: string | null };
+ 
+ export const loadCloudflareConfig = (): CloudflareConfig => {
+-  try { return JSON.parse(localStorage.getItem(CONFIG_KEY) || '{"url":"","token":""}') as CloudflareConfig; }
+-  catch { return { url: '', token: '', username: '' }; }
++  try {
++    // v1 contained the Bearer token in localStorage. Do not retain it after upgrade.
++    localStorage.removeItem(LEGACY_CONFIG_KEY);
++    const publicConfig = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}') as Omit<CloudflareConfig, 'token'>;
++    const privateConfig = JSON.parse(sessionStorage.getItem(AUTH_KEY) || '{}') as Pick<CloudflareConfig, 'token'>;
++    return { ...publicConfig, ...privateConfig, url: trustedWorkerUrl(publicConfig.url), token: privateConfig.token || '' };
++  } catch { return { url: trustedWorkerUrl(), token: '', username: '' }; }
++};
++export const saveCloudflareConfig = (config: CloudflareConfig) => {
++  const url = trustedWorkerUrl(config.url);
++  localStorage.setItem(CONFIG_KEY, JSON.stringify({ url, username: config.username || '', userId: config.userId, mustChangePassword: Boolean(config.mustChangePassword) }));
++  if (config.token) sessionStorage.setItem(AUTH_KEY, JSON.stringify({ token: config.token }));
++  else sessionStorage.removeItem(AUTH_KEY);
+ };
+-export const saveCloudflareConfig = (config: CloudflareConfig) => localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+ 
+ const signature = (data: AppData) => JSON.stringify(data);
+ const initialSignature = () => signature(initialData);
+ 
+-function loadAutoSyncMetadata(): AutoSyncMetadata | null {
++function loadAutoSyncMetadata(userId: number | string): AutoSyncMetadata | null {
+   try {
+-    const value = localStorage.getItem(AUTO_SYNC_KEY);
++    const value = localStorage.getItem(keyForUser('cloudflare-auto-sync', userId));
+     return value ? JSON.parse(value) as AutoSyncMetadata : null;
+   } catch { return null; }
+ }
+ 
+-function saveAutoSyncMetadata(localSignature: string, remoteUpdatedAt: string | null) {
+-  localStorage.setItem(AUTO_SYNC_KEY, JSON.stringify({ localSignature, remoteUpdatedAt } satisfies AutoSyncMetadata));
++function saveAutoSyncMetadata(userId: number | string, localSignature: string, remoteUpdatedAt: string | null) {
++  localStorage.setItem(keyForUser('cloudflare-auto-sync', userId), JSON.stringify({ localSignature, remoteUpdatedAt } satisfies AutoSyncMetadata));
+ }
+ 
+ function requestParts(config: CloudflareConfig) {
+@@ -52,38 +64,43 @@ export async function uploadCloudflareData(data: AppData, config: CloudflareConf
+ }
+ 
+ /** Keeps browser data and D1 synchronized, preferring local changes on conflict. */
+-export async function autoSyncCloudflareData(data: AppData): Promise<AutoSyncResult> {
++export async function autoSyncCloudflareData(data: AppData, userId: number | string): Promise<AutoSyncResult> {
+   const config = loadCloudflareConfig();
+-  if (!config.url || !config.token) return { action: 'disabled' };
++  if (!config.url || !config.token || config.userId !== Number(userId)) return { action: 'disabled' };
+ 
+   const localSignature = signature(data);
+-  const metadata = loadAutoSyncMetadata();
++  const metadata = loadAutoSyncMetadata(userId);
+   const remote = await fetchCloudflareData(config);
+   const remoteSignature = remote.data ? signature(remote.data) : null;
+   const localChanged = !metadata || metadata.localSignature !== localSignature;
+   const remoteChanged = Boolean(remote.updatedAt && remote.updatedAt !== metadata?.remoteUpdatedAt);
+ 
+   if (remote.data && ((!metadata && localSignature === initialSignature()) || (!localChanged && remoteChanged))) {
+-    saveAutoSyncMetadata(remoteSignature!, remote.updatedAt ?? null);
++    saveAutoSyncMetadata(userId, remoteSignature!, remote.updatedAt ?? null);
+     return { action: 'downloaded', data: remote.data, updatedAt: remote.updatedAt };
+   }
+   if (remoteSignature === localSignature) {
+-    saveAutoSyncMetadata(localSignature, remote.updatedAt ?? null);
++    saveAutoSyncMetadata(userId, localSignature, remote.updatedAt ?? null);
+     return { action: 'unchanged', updatedAt: remote.updatedAt };
+   }
+ 
+   const saved = await uploadCloudflareData(data, config);
+-  saveAutoSyncMetadata(localSignature, saved.updatedAt ?? null);
++  saveAutoSyncMetadata(userId, localSignature, saved.updatedAt ?? null);
+   return { action: 'uploaded', updatedAt: saved.updatedAt ?? null };
+ }
+ 
+-export function saveRecoveryCopy(data: AppData) {
+-  localStorage.setItem(RECOVERY_KEY, JSON.stringify({ savedAt: new Date().toISOString(), data }));
++export function saveRecoveryCopy(userId: number | string, data: AppData) {
++  localStorage.setItem(keyForUser('cloudflare-recovery', userId), JSON.stringify({ savedAt: new Date().toISOString(), data }));
+ }
+ 
+-export function loadRecoveryCopy(): { savedAt: string; data: AppData } | null {
++export function loadRecoveryCopy(userId: number | string): { savedAt: string; data: AppData } | null {
+   try {
+-    const value = localStorage.getItem(RECOVERY_KEY);
++    const value = localStorage.getItem(keyForUser('cloudflare-recovery', userId));
+     return value ? JSON.parse(value) as { savedAt: string; data: AppData } : null;
+   } catch { return null; }
+ }
++
++export function clearUserSyncState(userId: number | string) {
++  localStorage.removeItem(keyForUser('cloudflare-auto-sync', userId));
++  localStorage.removeItem(keyForUser('cloudflare-recovery', userId));
++}
+diff --git a/src/lib/runtimeConfig.ts b/src/lib/runtimeConfig.ts
+new file mode 100644
+index 0000000..55b75be
+--- /dev/null
++++ b/src/lib/runtimeConfig.ts
+@@ -0,0 +1,11 @@
++export const PRODUCTION_WORKER_URL = 'https://trinity-os-sync.khk090525.workers.dev';
++
++export function trustedWorkerUrl(value?: string): string {
++  if (import.meta.env.DEV && value) {
++    try {
++      const url = new URL(value);
++      if (url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname)) return url.origin;
++    } catch { /* Fall through to the production origin. */ }
++  }
++  return PRODUCTION_WORKER_URL;
++}
+diff --git a/src/lib/storage.ts b/src/lib/storage.ts
+index 5d9f4ad..2f3c7ea 100644
+--- a/src/lib/storage.ts
++++ b/src/lib/storage.ts
+@@ -6,7 +6,8 @@ import quotesSeed from '../data/quotes.json';
+ import { EXAM_DATE } from '../data/config';
+ import mockScheduleSeed from '../data/mockSchedule.json';
+ 
+-export const STORAGE_KEY = 'trinity-os:data:v1';
++const LEGACY_STORAGE_KEY = 'trinity-os:data:v1';
++export const storageKeyForUser = (userId: number | string) => `trinity-os:data:${userId}:v1`;
+ 
+ export const initialData: AppData = {
+   calendar: {},
+@@ -29,9 +30,9 @@ export const initialData: AppData = {
+   trinity: [],
+ };
+ 
+-export function loadData(): AppData {
++export function loadData(userId: number | string): AppData {
+   try {
+-    const value = localStorage.getItem(STORAGE_KEY);
++    const value = localStorage.getItem(storageKeyForUser(userId));
+     if (!value) return initialData;
+     const parsed = JSON.parse(value) as Partial<AppData>;
+     return { ...initialData, ...parsed, mockSchedule: Array.isArray(parsed.mockSchedule) ? parsed.mockSchedule : initialData.mockSchedule, resources: parsed.resources?.length ? parsed.resources : initialData.resources, goals: parsed.goals?.length ? parsed.goals : initialData.goals, routine: parsed.routine?.length ? parsed.routine : initialData.routine, weeklyCapabilityGoals: Array.isArray(parsed.weeklyCapabilityGoals) ? parsed.weeklyCapabilityGoals : [], wrongAnswerDrills: Array.isArray(parsed.wrongAnswerDrills) ? parsed.wrongAnswerDrills : [], dailyDrills: Array.isArray(parsed.dailyDrills) ? parsed.dailyDrills : [], monthlyPlans: Array.isArray(parsed.monthlyPlans) ? parsed.monthlyPlans : [], notionPages: Array.isArray(parsed.notionPages) ? parsed.notionPages : [] };
+@@ -40,10 +41,15 @@ export function loadData(): AppData {
+   }
+ }
+ 
+-export function saveData(data: AppData) {
+-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
++export function saveData(userId: number | string, data: AppData) {
++  localStorage.setItem(storageKeyForUser(userId), JSON.stringify(data));
+ }
+ 
++/** Legacy data is deliberately never migrated automatically: its owner cannot be proven. */
++export function hasLegacyData() { return Boolean(localStorage.getItem(LEGACY_STORAGE_KEY)); }
++
++export function clearUserData(userId: number | string) { localStorage.removeItem(storageKeyForUser(userId)); }
++
+ export function downloadBackup(data: AppData) {
+   const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), data }, null, 2)], { type: 'application/json' });
+   const url = URL.createObjectURL(blob);
+diff --git a/src/lib/useStudyClock.ts b/src/lib/useStudyClock.ts
+index 3089aca..f7b0b0d 100644
+--- a/src/lib/useStudyClock.ts
++++ b/src/lib/useStudyClock.ts
+@@ -1,13 +1,17 @@
+ import { useEffect, useRef, useState } from 'react';
+ import type { Subject, TimerSession } from '../types';
+ import { toDateKey, uid } from './date';
++import { loadCloudflareConfig } from './cloudflare';
+ 
+ export type ActiveStudyClock = { subject: Subject; startedAt: string; since: string; running: boolean; segments: NonNullable<TimerSession['segments']> };
+ type Clock = ActiveStudyClock;
+-const KEY = 'trinity-os:active-clock:v2';
++const key = () => {
++  const userId = loadCloudflareConfig().userId;
++  return userId === undefined ? null : `trinity-os:active-clock:${userId}:v2`;
++};
+ export const STUDY_CLOCK_EVENT = 'trinity-study-clock-change';
+ function load(): Clock | null {
+-  try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); return v && Array.isArray(v.segments) && ['국어','수학','영어','탐구'].includes(v.subject) && Number.isFinite(Date.parse(v.since)) ? v : null; } catch { return null; }
++  try { const storageKey = key(); const v = JSON.parse(storageKey ? localStorage.getItem(storageKey) || 'null' : 'null'); return v && Array.isArray(v.segments) && ['국어','수학','영어','탐구'].includes(v.subject) && Number.isFinite(Date.parse(v.since)) ? v : null; } catch { return null; }
+ }
+ export const readStudyClock = () => load();
+ export const studyClockElapsedSeconds = (clock: ActiveStudyClock, now = Date.now()) => Math.floor((clock.segments.filter(s => s.kind === 'focus').reduce((sum, s) => sum + Date.parse(s.end) - Date.parse(s.start), 0) + (clock.running ? Math.max(0, now - Date.parse(clock.since)) : 0)) / 1000);
+@@ -17,7 +21,7 @@ export function useStudyClock(save: (session: TimerSession) => void) {
+   const [now, setNow] = useState(Date.now());
+   const current = useRef(clock); current.current = clock;
+   useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), 250); return () => clearInterval(id); }, []);
+-  const put = (next: Clock | null) => { localStorage.setItem(KEY, JSON.stringify(next)); window.dispatchEvent(new Event(STUDY_CLOCK_EVENT)); current.current = next; setClock(next); setNow(Date.now()); };
++  const put = (next: Clock | null) => { const storageKey=key(); if (storageKey) { if(next) localStorage.setItem(storageKey, JSON.stringify(next)); else localStorage.removeItem(storageKey); } window.dispatchEvent(new Event(STUDY_CLOCK_EVENT)); current.current = next; setClock(next); setNow(Date.now()); };
+   const close = (v: Clock, end: string) => [...v.segments, { start: v.since, end, kind: v.running ? 'focus' as const : 'break' as const }];
+   const start = () => { const time = new Date().toISOString(); const v = current.current; if (v?.running) return; put(v ? { ...v, since: time, running: true, segments: close(v, time) } : { subject, startedAt: time, since: time, running: true, segments: [] }); };
+   const pause = () => { const v = current.current; if (!v?.running) return; const time = new Date().toISOString(); put({ ...v, running: false, since: time, segments: close(v, time) }); };
+diff --git a/tests/teacher-browser.mjs b/tests/teacher-browser.mjs
+index 6741676..13bb518 100644
+--- a/tests/teacher-browser.mjs
++++ b/tests/teacher-browser.mjs
+@@ -165,9 +165,8 @@ try{
+ 
+  // Student confirms the same teacher drafts through the existing FeedbackInbox and Sync.
+  const studentContext=await browser.newContext({viewport:{width:1024,height:900}});
+- const storageSource=await readFile(new URL('../src/lib/storage.ts',import.meta.url),'utf8');
+- const storageKey=storageSource.match(/const STORAGE_KEY = '([^']+)'/)[1];
+- await studentContext.addInitScript(({data,key})=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify(data));localStorage.setItem('trinity-os:cloudflare-sync:v1',JSON.stringify({url:'http://127.0.0.1:8789',token:'fixture-student',username:'TEST 학생'}));},{data:fixture,key:storageKey});
++ const storageKey='trinity-os:data:1:v1';
++ await studentContext.addInitScript(({data,key})=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify(data));localStorage.setItem('trinity-os:cloudflare-sync:v2',JSON.stringify({url:'http://127.0.0.1:8789',username:'TEST 학생',userId:1}));sessionStorage.setItem('trinity-os:auth-session:v1',JSON.stringify({token:'fixture-student'}));},{data:fixture,key:storageKey});
+  const pupil=await studentContext.newPage();pupil.on('pageerror',error=>errors.push(error.message));
+  await pupil.goto('http://127.0.0.1:4173/feedback');
+  const card=pupil.locator('.feedback-card').filter({has:pupil.getByRole('heading',{name:'TEST 조건 검증 진단',exact:true})});
+diff --git a/worker/src/index.ts b/worker/src/index.ts
+index be4d4fe..f0039c9 100644
+--- a/worker/src/index.ts
++++ b/worker/src/index.ts
+@@ -51,7 +51,7 @@ async function authContext(request: Request, env: Env): Promise<AuthContext|null
+   const pat=await env.DB.prepare("SELECT u.id,u.username,u.is_admin,u.must_change_password,u.arena_public_id,t.scopes FROM api_tokens t JOIN users u ON u.id=t.user_id WHERE t.token_hash=? AND t.revoked_at IS NULL AND u.active=1").bind(tokenHash).first<User&{scopes:string}>();
+   return pat?{user:pat,authType:'api_token',tokenHash,scopes:(pat.scopes||'').split(',').map(value=>value.trim()).filter(Boolean)}:null;
+ }
+-async function createSession(env: Env, username: string, userId: number) { const token=randomHex(),hash=await sha256(token),expires=new Date(Date.now()+sessionTtlDays(env.SESSION_TTL_DAYS)*86400000).toISOString(); await env.DB.prepare("DELETE FROM sessions WHERE datetime(expires_at)<=datetime('now')").run(); await env.DB.prepare('INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)').bind(hash,userId,expires,new Date().toISOString()).run(); return {token,username,expiresAt:expires}; }
++async function createSession(env: Env, username: string, userId: number) { const token=randomHex(),hash=await sha256(token),expires=new Date(Date.now()+sessionTtlDays(env.SESSION_TTL_DAYS)*86400000).toISOString(); await env.DB.prepare("DELETE FROM sessions WHERE datetime(expires_at)<=datetime('now')").run(); await env.DB.prepare('INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)').bind(hash,userId,expires,new Date().toISOString()).run(); return {token,username,userId,expiresAt:expires}; }
+ const tokenName = (value: unknown) => typeof value === 'string' ? value.trim().slice(0, 40) : '';
+ const clientIp = (request: Request) => request.headers.get('CF-Connecting-IP') || 'local';
+ async function rateKey(request: Request, username: string, windowMs = 900_000) { return sha256(`${clientIp(request)}:${username.toLowerCase()}:${Math.floor(Date.now()/windowMs)}`); }
+@@ -192,7 +192,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
+   if (arenaResponse) return arenaResponse;
+   const studyRoomResponse = await handleStudyRoomApi(request, env, sessionUser, origin, json);
+   if (studyRoomResponse) return studyRoomResponse;
+-  if (url.pathname === '/api/auth/me' && request.method === 'GET') return user ? json({ ok: true, username: user.username, mustChangePassword: user.must_change_password === 1 }, 200, origin) : json({ error: 'Unauthorized' }, 401, origin);
++  if (url.pathname === '/api/auth/me' && request.method === 'GET') return user ? json({ ok: true, username: user.username, userId: user.id, mustChangePassword: user.must_change_password === 1 }, 200, origin) : json({ error: 'Unauthorized' }, 401, origin);
+   if (url.pathname === '/api/auth/logout' && request.method === 'POST') {
+     if(!auth||auth.authType!=='session')return json({error:'Unauthorized'},401,origin);
+     await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(auth.tokenHash).run();
+-- 
+2.51.1
+

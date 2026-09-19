@@ -1,0 +1,77 @@
+CREATE TABLE IF NOT EXISTS arena_profiles (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  nickname TEXT NOT NULL UNIQUE,
+  grade TEXT NOT NULL DEFAULT '',
+  target_university TEXT NOT NULL DEFAULT '',
+  target_department TEXT NOT NULL DEFAULT '',
+  target_admission_type TEXT NOT NULL DEFAULT '',
+  study_goal TEXT NOT NULL DEFAULT '[]',
+  achievement_level TEXT NOT NULL DEFAULT '',
+  profile_image TEXT,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS arena_groups (
+  id TEXT PRIMARY KEY,
+  owner_user_id INTEGER NOT NULL REFERENCES users(id),
+  name TEXT NOT NULL,
+  type TEXT NOT NULL CHECK(type IN ('university','department','custom')),
+  target_university TEXT NOT NULL DEFAULT '',
+  target_department TEXT NOT NULL DEFAULT '',
+  visibility TEXT NOT NULL CHECK(visibility IN ('public','private')),
+  invite_code TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS arena_group_members (
+  group_id TEXT NOT NULL REFERENCES arena_groups(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'member',
+  joined_at TEXT NOT NULL,
+  PRIMARY KEY(group_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS arena_seasons (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  starts_at TEXT NOT NULL,
+  ends_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS arena_score_snapshots (
+  id TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  season_id TEXT NOT NULL REFERENCES arena_seasons(id),
+  week_start TEXT NOT NULL,
+  score INTEGER NOT NULL,
+  execution INTEGER NOT NULL,
+  problem_solving INTEGER NOT NULL,
+  consistency INTEGER NOT NULL,
+  growth INTEGER NOT NULL,
+  growth_rate REAL NOT NULL DEFAULT 0,
+  metrics TEXT NOT NULL DEFAULT '{}',
+  calculated_at TEXT NOT NULL,
+  UNIQUE(user_id, season_id, week_start)
+);
+CREATE INDEX IF NOT EXISTS arena_scores_season_score ON arena_score_snapshots(season_id, score DESC);
+
+CREATE TABLE IF NOT EXISTS arena_rivals (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  rival_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY(user_id, rival_user_id),
+  CHECK(user_id <> rival_user_id)
+);
+
+CREATE TABLE IF NOT EXISTS arena_achievements (
+  id TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  awarded_at TEXT NOT NULL,
+  UNIQUE(user_id, code)
+);
+
+INSERT OR IGNORE INTO arena_seasons(id,name,starts_at,ends_at)
+VALUES('suneung-2028-fall','2028 수능 시즌','2026-09-01','2026-12-31');
