@@ -2,11 +2,14 @@ import { normalizeLearningText } from './context.ts';
 import type { CoachConfidence, CoachDiagnosis, CoachRuleResult, LearningAnalysisCore } from './types.ts';
 
 const KEYWORDS: Record<string, string[]> = {
-  '발문·해석': ['조건', '발문', '해석', '오독', '경계', '단서'],
+  '발문·해석': ['발문', '해석', '오독', '경계', '단서'],
   '개념 공백': ['개념', '정의', '공식', '원리'],
+  '조건 누락': ['조건 누락', '정의역', '빠진 조건', '놓친 조건'],
+  '표상 실패': ['표상', '그래프', '좌표', '개형'],
   '계산 실수': ['계산', '부호', '산술', '전개'],
-  '시간 관리': ['시간', '속도', '배분', '마감'],
   '전략·판단': ['판단', '전략', '선택', '필요조건', '충분조건'],
+  '완결성 실패': ['완결', '검산', '끝점', '경우 나누기'],
+  '시간 관리': ['시간', '속도', '배분', '마감'],
 };
 
 function confidence(count: number): CoachConfidence {

@@ -87,3 +87,14 @@
 .wrong-subject-groups .wrong-library{padding:14px}
 @media(max-width:900px){.intelligence-workspace{grid-template-columns:1fr}.intelligence-overview{position:static}.intelligence-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.intelligence-detail{padding:18px}.intelligence-summary{grid-template-columns:1fr}.intelligence-detail-head{display:grid}.intelligence-stat-grid{grid-template-columns:1fr 1fr}.wrong-view-toggle{padding-inline:0;border-bottom:0}}
+
+.drill-classify{margin-top:18px;padding:16px;border:1px solid var(--line);border-radius:12px;background:#fbfcfd}
+.drill-classify-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.drill-classify-head b{display:block;font-size:13px}
+.drill-classify-head small{display:block;margin-top:4px;color:var(--muted);font-size:11px;line-height:1.6;font-weight:400}
+.drill-classify-result{display:grid;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid #edf0f2}
+.drill-classify-result p,.drill-classify-result div{margin:0;font-size:12px;line-height:1.7}
+.drill-classify-result ul{margin:8px 0 0;padding:0;list-style:none;display:grid;gap:8px}
+.drill-classify-result li{display:grid;gap:3px;padding:10px 12px;border:1px solid #e8edf1;border-radius:9px;background:#fff}
+.drill-classify-result li span{color:var(--muted);font-size:11px}
+.drill-classify-actions{display:flex;gap:8px;flex-wrap:wrap}

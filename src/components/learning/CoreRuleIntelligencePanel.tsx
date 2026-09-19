@@ -66,6 +66,7 @@ export default function CoreRuleIntelligencePanel({onEditRule}:{onEditRule:(rule
 
   const activeCount=useMemo(()=>rules.filter(rule=>rule.status==='ACTIVE').length,[rules]);
   const watchCount=useMemo(()=>rules.filter(rule=>rule.status==='WATCH').length,[rules]);
+  const selectedRule=detail?.coreRule??null;
 
   return <div className="intelligence-workspace">
     <section className="intelligence-overview">
@@ -99,14 +100,14 @@ export default function CoreRuleIntelligencePanel({onEditRule}:{onEditRule:(rule
 
     <section className="intelligence-detail">
       {!selectedId?<Empty title="Core Rule을 선택하세요." description="왼쪽에서 규칙을 선택하면 근거와 우선순위를 확인할 수 있습니다."/>:
-      detailLoading&&!detail?<p className="archive-empty-copy">상세 분석 중…</p>:detail?.coreRule?<>
+      detailLoading&&!detail?<p className="archive-empty-copy">상세 분석 중…</p>:detail&&selectedRule?<>
         <header className="intelligence-detail-head">
           <div>
             <span className={`priority-status ${detail.status.toLowerCase()}`}>{detail.status} · {detail.priorityScore}</span>
-            <h2>{detail.coreRule.title}</h2>
-            <p>{detail.coreRule.content}</p>
+            <h2>{selectedRule.title}</h2>
+            <p>{selectedRule.content}</p>
           </div>
-          <button className="button" onClick={()=>detail.coreRule&&onEditRule(detail.coreRule)}>규칙 수정</button>
+          <button className="button" onClick={()=>onEditRule(selectedRule)}>규칙 수정</button>
         </header>
         <div className="intelligence-stat-grid">
           <Card><span>최근 7일 실패</span><b>{detail.stats.failures7d}</b></Card>
