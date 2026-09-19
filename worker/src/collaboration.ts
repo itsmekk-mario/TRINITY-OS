@@ -1,5 +1,6 @@
 import type { AppData } from '../../src/types';
 import { newSignal, readSignal, updateSignal } from './teacherSignals.ts';
+import { calculateCoreRulePriority, getCoreRuleStats, listActiveCoreRules } from './learning-graph.ts';
 
 type Env = { DB: D1Database };
 type Account = { id: string; username: string; role: string };
@@ -12,6 +13,7 @@ const clean = (value: unknown, max = 1200) => typeof value === 'string' ? value.
 const asArray = (value: unknown, max = 8) => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string').map(item => clean(item,80)).filter(Boolean).slice(0,max) : [];
 const permissions = (value: string): Record<Permission, boolean> => { try { const parsed=JSON.parse(value); return parsed && typeof parsed==='object' ? parsed as Record<Permission,boolean> : {} as Record<Permission,boolean>; } catch { return {} as Record<Permission, boolean>; } };
 const allowed = (assignment: Assignment, permission: Permission) => assignment.role === 'academic_manager' || assignment.role === 'admin' || permissions(assignment.permissions_json)[permission] === true;
+const archiveSubjectFor = (subject: string | null) => subject==='국어'?'korean':subject==='수학'?'math':subject==='영어'?'english':null;
 
 export const outData = (data: AppData, assignment: Assignment) => {
   const manager = assignment.role === 'academic_manager' || assignment.role === 'admin';
@@ -92,11 +94,39 @@ export async function collaboration(request: Request, env: Env, owner: boolean, 
       return out({ok:true});
     }
     if (!account) return out({error:'Support session required'},403);
+    const rulesRoute=path.match(/^\/api\/collab\/students\/([^/]+)\/core-rules$/);
+    if(rulesRoute&&method==='GET'){
+      const access=await assignmentFor(env,account,rulesRoute[1]);
+      if(!access||access.assignment.role==='parent')return out({error:'Core Rule permission required'},403);
+      const assigned=access.assignment.role==='subject_teacher'?archiveSubjectFor(access.assignment.subject):null;
+      if(access.assignment.role==='subject_teacher'&&!assigned)return out({error:'Unsupported subject'},403);
+      return out({rules:await listActiveCoreRules(env.DB,access.student.id,assigned??undefined,30)});
+    }
+    const intelligenceRoute=path.match(/^\/api\/collab\/students\/([^/]+)\/core-rules\/([^/]+)\/intelligence$/);
+    if(intelligenceRoute&&method==='GET'){
+      const access=await assignmentFor(env,account,intelligenceRoute[1]);
+      if(!access||access.assignment.role==='parent')return out({error:'Core Rule permission required'},403);
+      const assigned=access.assignment.role==='subject_teacher'?archiveSubjectFor(access.assignment.subject):null;
+      if(access.assignment.role==='subject_teacher'&&!assigned)return out({error:'Unsupported subject'},403);
+      const id=decodeURIComponent(intelligenceRoute[2]);
+      const coreRule=await env.DB.prepare(`SELECT id,subject,title,content,tags_json tagsJson,mastery_status masteryStatus FROM core_rules WHERE id=? AND user_id=? ${assigned?'AND subject=?':''}`).bind(id,access.student.id,...(assigned?[assigned]:[])).first<Record<string,unknown>>();
+      if(!coreRule)return out({error:'Core Rule not found'},404);
+      const [linkedItems,wrongAnswers,drills,reviews,evidence,stats]=await Promise.all([
+        env.DB.prepare('SELECT e.id,e.title,e.studied_at studiedAt FROM archive_entries e JOIN archive_entry_core_rules l ON l.archive_entry_id=e.id WHERE l.core_rule_id=? AND e.user_id=? ORDER BY e.studied_at DESC').bind(id,access.student.id).all(),
+        env.DB.prepare('SELECT w.id,w.date,w.question FROM wrong_answers w JOIN core_rule_wrong_answer_links l ON l.user_id=w.user_id AND l.wrong_answer_id=w.id WHERE l.core_rule_id=? AND w.user_id=? ORDER BY w.updated_at DESC').bind(id,access.student.id).all(),
+        env.DB.prepare('SELECT d.id,d.date,d.title FROM learning_drills d JOIN core_rule_drill_links l ON l.user_id=d.user_id AND l.drill_id=d.id WHERE l.core_rule_id=? AND d.user_id=? ORDER BY d.updated_at DESC').bind(id,access.student.id).all(),
+        env.DB.prepare("SELECT id,reviewed_at reviewedAt,result FROM learning_reviews WHERE user_id=? AND target_type='core_rule' AND target_id=? ORDER BY COALESCE(reviewed_at,scheduled_at,created_at) DESC").bind(access.student.id,id).all(),
+        env.DB.prepare('SELECT source_type sourceType,source_id sourceId,relation_type relationType,occurred_at occurredAt,created_at createdAt FROM core_rule_evidence WHERE user_id=? AND core_rule_id=? ORDER BY occurred_at DESC,created_at DESC LIMIT 100').bind(access.student.id,id).all(),
+        getCoreRuleStats(env.DB,access.student.id,id),
+      ]);
+      const priority=calculateCoreRulePriority(stats,String(coreRule.masteryStatus??'input'));
+      return out({coreRule:{...coreRule,tags:(()=>{try{return JSON.parse(String(coreRule.tagsJson??'[]'))}catch{return[]}})(),usageCount:stats.evidenceCount},linkedItems:linkedItems.results,wrongAnswers:wrongAnswers.results,drills:drills.results,reviews:reviews.results,evidence:evidence.results,stats:{...stats,linkedItems:linkedItems.results.length},...priority});
+    }
     const archiveRoute = path.match(/^\/api\/collab\/students\/([^/]+)\/archive$/);
     if (archiveRoute && method === 'GET') {
       const access=await assignmentFor(env,account,archiveRoute[1]);
       if(!access || access.assignment.role==='parent' || (!allowed(access.assignment,'viewWrongAnswers')&&!allowed(access.assignment,'viewAcademicInsights')))return out({error:'Archive permission required'},403);
-      const subject=access.assignment.role==='subject_teacher'&&access.assignment.subject ? access.assignment.subject==='국어'?'korean':access.assignment.subject==='수학'?'math':access.assignment.subject==='영어'?'english':'__none__' : null;
+      const subject=access.assignment.role==='subject_teacher'&&access.assignment.subject ? archiveSubjectFor(access.assignment.subject)??'__none__' : null;
       const entries=await env.DB.prepare(`SELECT e.id,e.subject,e.year,e.month,e.institution,e.exam_name examName,e.source_name sourceName,e.question_number questionNumber,e.category,e.subcategory,e.title,e.studied_at studiedAt,e.mastery_status masteryStatus,e.memo,e.review_enabled reviewEnabled FROM archive_entries e WHERE e.user_id=? ${subject?'AND e.subject=?':''} ORDER BY e.studied_at DESC LIMIT 300`).bind(access.student.id,...(subject?[subject]:[])).all<Record<string,unknown>>();
       const ids=entries.results.map(item=>String(item.id));if(!ids.length)return out({entries:[]});const marks=ids.map(()=>'?').join(',');
       const [annotations,rules]=await Promise.all([env.DB.prepare(`SELECT archive_entry_id entryId,color,type,text,sort_order sortOrder FROM archive_annotations WHERE archive_entry_id IN (${marks}) ORDER BY sort_order`).bind(...ids).all<Record<string,unknown>>(),env.DB.prepare(`SELECT l.archive_entry_id entryId,r.id,r.title,r.content,r.tags_json tagsJson,r.mastery_status masteryStatus FROM archive_entry_core_rules l JOIN core_rules r ON r.id=l.core_rule_id WHERE l.archive_entry_id IN (${marks}) AND r.user_id=?`).bind(...ids,access.student.id).all<Record<string,unknown>>()]);

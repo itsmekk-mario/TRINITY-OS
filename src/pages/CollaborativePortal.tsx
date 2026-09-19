@@ -9,8 +9,9 @@ import { Card, Empty, Field, PageHeader } from '../components/Ui';
 import SegmentedControl from '../components/navigation/SegmentedControl';
 import MathTeacherDashboard from '../components/teacher/MathTeacherDashboard';
 import LearningManagerDashboard from '../components/teacher/LearningManagerDashboard';
-import TutorWorkspace from '../components/teacher/TutorWorkspace';
+import TutorWorkspace, { type TutorArchiveEntry } from '../components/teacher/TutorWorkspace';
 import { InterventionEditor, type FeedbackDraft } from '../components/teacher/shared';
+import type { ActiveCoreRule, CoreRuleIntelligence } from '../lib/archiveApi';
 type Auth={url:string;token:string;role:TeacherRole};
 type Assignment={id:string;student_id:string;student_name?:string;subject?:Subject;role:TeacherRole;permissions?:{createFeedback?:boolean}};
 const base=(url:string)=>url.replace(/\/+$/,'');
@@ -29,7 +30,8 @@ export default function CollaborativePortal({role, subjectHint}:{role:TeacherRol
   const [loading,setLoading]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[success,setSuccess]=useState(''),[revision,setRevision]=useState(0);
   const [period,setPeriod]=useState('14'),[range,setRange]=useState<DateRange>(()=>recentRange(14));
   const [intervention,setIntervention]=useState<{item:Feedback;kind:'weekly'|'daily'}>();
-  const [archive,setArchive]=useState<Array<{id:string;subject:string;title:string;studiedAt:string;masteryStatus:string;category?:string;annotations:Array<{color:string}>;coreRules:Array<{id:string;title:string;content:string}>}>|null>(null);
+  const [archive,setArchive]=useState<TutorArchiveEntry[]|null>(null);
+  const [archiveError,setArchiveError]=useState(''),[coreRules,setCoreRules]=useState<ActiveCoreRule[]|null>(null),[rulesError,setRulesError]=useState(''),[ruleDetail,setRuleDetail]=useState<CoreRuleIntelligence|null>(null);
   useEffect(()=>{
     if(!auth)return;
     const controller=new AbortController();setLoading(true);setError('');
@@ -37,7 +39,7 @@ export default function CollaborativePortal({role, subjectHint}:{role:TeacherRol
     return()=>controller.abort();
   },[auth?.token,subjectHint]);
   useEffect(()=>{
-    setData(null);setFeedback([]);setLoadedStudent('');setSyncedAt('');setIntervention(undefined);setArchive(null);
+    setData(null);setFeedback([]);setLoadedStudent('');setSyncedAt('');setIntervention(undefined);setArchive(null);setArchiveError('');setCoreRules(null);setRulesError('');setRuleDetail(null);
     if(!auth||!selected)return;
     const controller=new AbortController();setLoading(true);setError('');
     const studentPath=`/api/collab/students/${encodeURIComponent(selected)}`;
@@ -46,8 +48,10 @@ export default function CollaborativePortal({role, subjectHint}:{role:TeacherRol
   },[auth?.token,selected,revision]);
   useEffect(()=>{
     if(!auth||!selected||role!=='subject_teacher')return;
-    const controller=new AbortController();
-    api<{entries:NonNullable<typeof archive>}>(auth,`/api/collab/students/${encodeURIComponent(selected)}/archive`,'GET',undefined,controller.signal).then(value=>setArchive(value.entries)).catch(reason=>{if(!controller.signal.aborted)setError(reason instanceof Error?reason.message:'Archive 조회 실패');});
+    const controller=new AbortController();setArchiveError('');setRulesError('');
+    const basePath=`/api/collab/students/${encodeURIComponent(selected)}`;
+    api<{entries:TutorArchiveEntry[]}>(auth,basePath+'/archive','GET',undefined,controller.signal).then(value=>{if(!controller.signal.aborted)setArchive(value.entries);}).catch(reason=>{if(!controller.signal.aborted){setArchive([]);setArchiveError(reason instanceof Error?reason.message:'Archive 조회 실패');}});
+    api<{rules:ActiveCoreRule[]}>(auth,basePath+'/core-rules','GET',undefined,controller.signal).then(value=>{if(!controller.signal.aborted)setCoreRules(value.rules);}).catch(reason=>{if(!controller.signal.aborted){setCoreRules(null);setRulesError(reason instanceof Error?reason.message:'Core Rule 조회 실패');}});
     return()=>controller.abort();
   },[auth?.token,selected,revision,role]);
   const assignment=assignments.find(item=>item.student_id===selected);
@@ -58,7 +62,8 @@ export default function CollaborativePortal({role, subjectHint}:{role:TeacherRol
     try{await api(auth,`/api/collab/students/${encodeURIComponent(selected)}/feedback`,'POST',{...draft,status:draft.signal?.priority==='high'?'needs_improvement':'normal'});setSuccess('판단과 제안을 전달했습니다.');setRevision(value=>value+1);}
     catch(reason){throw reason;}finally{setBusy(false);}
   };
-  if(auth&&role==='subject_teacher'){const tutorSubject=(assignment?.subject??subjectHint??'수학') as Subject;return <main className="team-page learning-shell tutor-page"><header className="tutor-heading"><div><p className="eyebrow">TUTOR WORKSPACE</p><h1>{tutorSubject} 수업 피드백</h1><p>오답과 학습 기록은 참고하고, 수업 후 가져갈 태도만 짧게 남깁니다.</p></div><div className="tutor-heading-actions"><button className="button" disabled={loading||busy} onClick={()=>setRevision(value=>value+1)}><RefreshCw size={15}/>새로고침</button><button className="button" onClick={()=>{sessionStorage.removeItem(key);setAuth(null);setAssignments([]);setSelected('');setData(null);setFeedback([]);setArchive(null);}}><LogOut size={15}/>로그아웃</button></div></header><section className="tutor-context"><Field label="학생 선택"><select value={selected} disabled={busy} onChange={e=>{setSuccess('');setSelected(e.target.value);}}>{assignments.map(item=><option key={item.id} value={item.student_id}>{item.student_name??item.student_id} · {item.subject??'전체 과목'}</option>)}</select></Field><small>{assignment?.student_name??'담당 학생'} · 최근 Sync {syncedAt?new Date(syncedAt).toLocaleString():'확인 불가'}</small></section>{error&&<div role="alert" className="team-error">{error}<button className="button" onClick={()=>setRevision(value=>value+1)}>다시 시도</button></div>}{success&&<p role="status">{success}</p>}{loading?<section className="teacher-loading" aria-live="polite" aria-busy="true">학습 기록을 불러오는 중…</section>:!assignment?<Empty title="연결된 담당 학생이 없습니다." description="관리자에게 담당 배정을 요청하세요."/>:loadedStudent===selected&&data&&archive?<TutorWorkspace data={data} subject={tutorSubject} archive={archive} feedback={feedback} busy={busy} canFeedback={canFeedback} onFeedback={submit}/>:!error?<Empty title="동기화된 학습 기록이 없습니다." description="학생의 Sync가 완료되면 오답·Core Rule·Learning Archive를 확인할 수 있습니다."/>:null}</main>;}
+  const openRule=async(id:string)=>{if(!auth||!selected)return;setRulesError('');try{const value=await api<CoreRuleIntelligence>(auth,`/api/collab/students/${encodeURIComponent(selected)}/core-rules/${encodeURIComponent(id)}/intelligence`);setRuleDetail(value);}catch(reason){setRulesError(reason instanceof Error?reason.message:'Core Rule 상세 조회 실패');}};
+  if(auth&&role==='subject_teacher'){const tutorSubject=(assignment?.subject??subjectHint??'수학') as Subject;return <main className="team-page learning-shell tutor-page"><header className="tutor-heading"><div><p className="eyebrow">TUTOR WORKSPACE</p><h1>{tutorSubject} 수업 피드백</h1><p>오답과 학습 기록은 참고하고, 수업 후 가져갈 태도만 짧게 남깁니다.</p></div><div className="tutor-heading-actions"><button className="button" disabled={loading||busy} onClick={()=>setRevision(value=>value+1)}><RefreshCw size={15}/>새로고침</button><button className="button" onClick={()=>{sessionStorage.removeItem(key);setAuth(null);setAssignments([]);setSelected('');setData(null);setFeedback([]);setArchive(null);}}><LogOut size={15}/>로그아웃</button></div></header><section className="tutor-context"><Field label="학생 선택"><select value={selected} disabled={busy} onChange={e=>{setSuccess('');setSelected(e.target.value);}}>{assignments.map(item=><option key={item.id} value={item.student_id}>{item.student_name??item.student_id} · {item.subject??'전체 과목'}</option>)}</select></Field><small>{assignment?.student_name??'담당 학생'} · 최근 Sync {syncedAt?new Date(syncedAt).toLocaleString():'확인 불가'}</small></section>{error&&<div role="alert" className="team-error">{error}<button className="button" onClick={()=>setRevision(value=>value+1)}>다시 시도</button></div>}{success&&<p role="status">{success}</p>}{loading?<section className="teacher-loading" aria-live="polite" aria-busy="true">학습 기록을 불러오는 중…</section>:!assignment?<Empty title="연결된 담당 학생이 없습니다." description="관리자에게 담당 배정을 요청하세요."/>:loadedStudent===selected&&data&&archive!==null?<TutorWorkspace data={data} subject={tutorSubject} archive={archive} feedback={feedback} busy={busy} canFeedback={canFeedback} onFeedback={submit} intelligenceRules={coreRules} archiveError={archiveError} rulesError={rulesError} onOpenRule={openRule} ruleDetail={ruleDetail}/>:!error?<Empty title="동기화된 학습 기록이 없습니다." description="학생의 Sync가 완료되면 오답·Core Rule·Learning Archive를 확인할 수 있습니다."/>:null}</main>;}
   const updateSignal=async(item:Feedback,body:Record<string,unknown>)=>{
     if(!auth||busy)return;setBusy(true);setError('');
     try{await api(auth,`/api/collab/students/${encodeURIComponent(selected)}/signals/${encodeURIComponent(item.id)}`,'PATCH',body);setRevision(value=>value+1);}

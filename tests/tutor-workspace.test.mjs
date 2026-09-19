@@ -16,3 +16,8 @@ test('Subject teacher uses the lightweight tutor workspace',()=>{
   assert.match(portal,/role==='subject_teacher'/);
   assert.match(portal,/TutorWorkspace/);
 });
+test('Tutor archive subject mapping preserves math and never falls back to all subjects',()=>{
+  assert.match(tutor,/subject==='국어'\?'korean':subject==='수학'\?'math':subject==='영어'\?'english':null/);
+  assert.match(tutor,/filterTutorArchive=.*archiveSubject\?archive\.filter.*:\[\]/);
+  assert.match(tutor,/filterTutorArchive\(archive,subject\)/);
+});
