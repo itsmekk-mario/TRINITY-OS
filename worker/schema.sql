@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS teacher_feedback (
   subject TEXT,title TEXT,categories_json TEXT NOT NULL DEFAULT '[]',
   status TEXT NOT NULL CHECK(status IN ('needs_improvement','normal','stable')),
   progress TEXT NOT NULL DEFAULT 'active' CHECK(progress IN ('active','achieved','replaced','archived')),
-  bottleneck TEXT,observation TEXT,action TEXT,success_criterion TEXT,comment TEXT,
+  bottleneck TEXT,observation TEXT,action TEXT,success_criterion TEXT,comment TEXT,deleted_at TEXT,deleted_by TEXT,
   linked_weekly_goal_id TEXT,linked_daily_drill_id TEXT,acknowledged_at TEXT,
   context_type TEXT NOT NULL DEFAULT 'general',context_target_id TEXT,
   created_at TEXT NOT NULL,updated_at TEXT NOT NULL
