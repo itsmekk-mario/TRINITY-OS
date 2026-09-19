@@ -11,6 +11,7 @@ import {
   wrongAnswerDto,
   wrongAnswerExists,
 } from './learning-graph.ts';
+import { writeLearningStateAndProjection } from './learning-state.ts';
 
 type Env={DB:D1Database};
 type User={id:number}|null;
@@ -61,6 +62,22 @@ async function recordReviewEvidence(db:D1Database,userId:number,reviewId:string,
 }
 
 export async function learningIntelligence(request:Request,env:Env,user:User,origin:string,h:Tools):Promise<Response|null>{
+  if(request.method==='POST'&&new URL(request.url).pathname==='/api/learning-intelligence/quick-capture'){
+    if(!user)return h.json({error:'Unauthorized'},401,origin);
+    const b=await h.boundedJson<Record<string,unknown>>(request),requestId=clean(b.requestId,100),subject=clean(b.subject,40),wrong=b.wrongAnswer as Record<string,unknown>|undefined;
+    if(!requestId||!['국어','수학','영어','탐구'].includes(subject)||!wrong||!clean(wrong.date,40)||(!clean(wrong.source,240)&&!clean(wrong.question,240)))return h.json({error:'Invalid quick capture'},400,origin);
+    const prior=await env.DB.prepare('SELECT result_json FROM quick_capture_requests WHERE user_id=? AND request_id=? AND status=\'completed\'').bind(user.id,requestId).first<{result_json:string}>();
+    if(prior)return h.json(JSON.parse(prior.result_json),200,origin);
+    const state=await env.DB.prepare('SELECT payload FROM learning_state WHERE user_id=?').bind(user.id).first<{payload:string}>();
+    let app:Record<string,unknown>;try{app=state?JSON.parse(state.payload):{}}catch{return h.json({error:'Invalid learning state'},409,origin)}
+    const id=h.randomHex(16),rows=Array.isArray(app.wrongAnswerDrills)?app.wrongAnswerDrills:[];
+    const next={...app,wrongAnswerDrills:[...rows,{id,date:clean(wrong.date,40),subject,source:clean(wrong.source,240),question:clean(wrong.question,240),wrongJudgment:clean(wrong.wrongJudgment,5000),missedCue:clean(wrong.missedCue,5000),correction:clean(wrong.correction,5000),bottleneck:clean(wrong.bottleneck,120),transfer:clean(wrong.nextAction,5000),retries:[]}]};
+    const now=new Date().toISOString(),result={ok:true,requestId,wrongAnswerId:id,coreRuleId:null,archiveEntryId:null,reviewId:null,drillId:null};
+    await env.DB.prepare('INSERT INTO quick_capture_requests(user_id,request_id,status,created_at,updated_at) VALUES(?,?,\'processing\',?,?) ON CONFLICT(user_id,request_id) DO NOTHING').bind(user.id,requestId,now,now).run();
+    await writeLearningStateAndProjection(env.DB,user.id,next,now);
+    await env.DB.prepare('UPDATE quick_capture_requests SET status=\'completed\',result_json=?,updated_at=? WHERE user_id=? AND request_id=?').bind(JSON.stringify(result),now,user.id,requestId).run();
+    return h.json(result,201,origin);
+  }
   const url=new URL(request.url),path=url.pathname;
   if(!path.startsWith('/api/learning-intelligence')&&!path.match(/^\/api\/core-rules\/[^/]+\/intelligence$/))return null;
   const out=(v:unknown,s=200)=>h.json(v,s,origin);
