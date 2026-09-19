@@ -68,7 +68,8 @@ async function assignmentFor(env: Env, account: Account, publicId: string) {
   return assignment ? { assignment,student } : null;
 }
 const feedbackRow = (row: Record<string, unknown>) => ({ ...row, categories: (()=>{ try{return JSON.parse(String(row.categories_json ?? '[]'));}catch{return[];} })(), signal:readSignal(row.signal_json), acknowledgedByStudent:Boolean(row.acknowledged_at) });
-const feedbackContext = (body: Record<string, unknown>) => ({ type: ['general','mock_exam','wrong_answer','drill','weekly_goal','subject_progress','statistics','resource','weekly_plan'].includes(String(body.contextType)) ? String(body.contextType) : 'general', targetId: clean(body.contextTargetId,100) || null });
+const feedbackContext = (body: Record<string, unknown>) => ({ type: ['general','mock_exam','wrong_answer','drill','weekly_goal','subject_progress','statistics','resource','weekly_plan','core_rule','learning_item'].includes(String(body.contextType)) ? String(body.contextType) : 'general', targetId: clean(body.contextTargetId,100) || null });
+const feedbackLinks=(body:Record<string,unknown>)=>Array.isArray(body.links)?body.links.map(item=>item&&typeof item==='object'?item as Record<string,unknown>:{}).map(item=>({type:clean(item.type,30),id:clean(item.id,100)})).filter(item=>['wrong_answer','core_rule','learning_item','drill','subject_progress','mock_exam'].includes(item.type)&&item.id).slice(0,12):[];
 
 export async function collaboration(request: Request, env: Env, owner: boolean, account: Account | null, origin: string, h: Helpers, studentActor: StudentActor = null): Promise<Response | null> {
   const url = new URL(request.url), path = url.pathname, method = request.method;

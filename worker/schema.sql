@@ -125,6 +125,14 @@ CREATE TABLE IF NOT EXISTS teacher_feedback_audit (
   id TEXT PRIMARY KEY,feedback_id TEXT NOT NULL REFERENCES teacher_feedback(id),editor_id TEXT NOT NULL,
   snapshot_json TEXT NOT NULL,edited_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS teacher_feedback_links (
+  feedback_id TEXT NOT NULL REFERENCES teacher_feedback(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_type TEXT NOT NULL CHECK(target_type IN ('wrong_answer','core_rule','learning_item','drill','subject_progress','mock_exam')),
+  target_id TEXT NOT NULL,created_at TEXT NOT NULL,
+  PRIMARY KEY(feedback_id,target_type,target_id)
+);
+CREATE INDEX IF NOT EXISTS teacher_feedback_links_target ON teacher_feedback_links(user_id,target_type,target_id,created_at DESC);
 CREATE TABLE IF NOT EXISTS student_support_assignments (
   id TEXT PRIMARY KEY,
   student_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
