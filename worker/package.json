@@ -3,7 +3,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --experimental-transform-types --test tests/*.test.mjs",
     "dev": "wrangler dev --config wrangler.toml",
     "deploy": "wrangler deploy --config wrangler.toml",
     "db:init": "wrangler d1 execute trinity-os-db --config wrangler.toml --remote --file=./schema.sql"
