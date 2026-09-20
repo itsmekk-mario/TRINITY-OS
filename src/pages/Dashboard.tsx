@@ -2,28 +2,61 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Check, RefreshCw } from 'lucide-react';
 import type { AppData, CalendarPlan } from '../types';
 import { Empty, PageHeader } from '../components/Ui';
-import { formatKoreanDate, formatMinutes, toDateKey } from '../lib/date';
+import { formatKoreanDate, formatMinutes, getCurrentStudyDay, toDateKey } from '../lib/date';
 import { deriveLearningSignals } from '../lib/learningSignals';
 import { parsePlannedMinutes } from '../lib/plannedTime';
 import { formatResourceDeadline, normalizeResourceDueDate, sortResourcesByDeadline } from '../lib/resourceDeadline';
 import { archiveApi, type ActiveCoreRule } from '../lib/archiveApi';
 
-type ReviewSummary={counts:{overdue:number;today:number;upcoming:number}};
+type ReviewItem={id:string;targetType:'wrong_answer'|'core_rule'|'drill'|'learning_item';title:string;reason:string;scheduledAt:string;priority:number};
+type ReviewQueue={overdue:ReviewItem[];today:ReviewItem[];upcoming:ReviewItem[];counts:{overdue:number;today:number;upcoming:number}};
+
+function TodayLearningExecution({review,rules,busy,error,onOpenQueue,onBegin}:{review:ReviewQueue|null;rules:ActiveCoreRule[];busy:boolean;error:string;onOpenQueue:()=>void;onBegin:(rule:ActiveCoreRule)=>void}){
+  const due=[...(review?.overdue??[]),...(review?.today??[])].slice(0,3);
+  return <div className="today-learning-execution">
+    <section className="today-review-card" aria-labelledby="today-review-queue-title">
+      <div className="today-section-head"><div><p className="card-label">REVIEW</p><h2 id="today-review-queue-title">오늘 재현할 판단 기준</h2></div><button className="text-button" onClick={onOpenQueue}>Review 전체 보기<ArrowRight size={16}/></button></div>
+      <div className="today-review-summary"><span>오늘 <b>{review?.counts.today??'—'}</b></span><span>연체 <b>{review?.counts.overdue??'—'}</b></span><small>대상을 열어 성공·실패와 메모를 남길 수 있습니다.</small></div>
+      {due.length?<div className="today-review-list">{due.map(item=><button key={item.id} onClick={onOpenQueue}><span>{item.targetType.replace('_',' ')}</span><b>{item.title}</b><small>{item.reason||'저장한 판단 기준을 먼저 재현하세요.'}</small></button>)}</div>:<p className="today-quiet-copy">오늘 처리할 Review가 없습니다. 아래 Core Rule에서 검증을 시작해 보세요.</p>}
+    </section>
+    <section className="today-core-rule-card" aria-labelledby="today-core-rule-title">
+      <div className="today-section-head"><div><p className="card-label">LEARNING INTELLIGENCE</p><h2 id="today-core-rule-title">지금 다시 검증할 Core Rule</h2></div></div>
+      {error&&<p className="team-error" role="alert">{error}</p>}
+      {rules.length?<div className="today-rule-list">{rules.map(rule=><article key={rule.id}><span>{rule.status} · 최근 7일 실패 {rule.stats.failures7d}회</span><b>{rule.title}</b><p>{rule.content}</p><button className="text-button" disabled={busy} onClick={()=>onBegin(rule)}><RefreshCw size={14}/>{busy?'Review 추가 중…':'오늘 Review 시작'}</button></article>)}</div>:<p className="today-quiet-copy">우선순위가 높은 Core Rule이 없습니다. 오답과 Evidence를 연결하면 여기에 표시됩니다.</p>}
+    </section>
+  </div>;
+}
 
 export default function Dashboard({ data, update, navigate }: { data: AppData; update: (fn: (value: AppData) => AppData) => void; navigate: (page: string) => void }) {
   const today = toDateKey();
   const analytics = useMemo(() => deriveLearningSignals(data, new Date(`${today}T12:00:00`)), [data, today]);
   const [showCompleted, setShowCompleted] = useState(false);
-  const [review,setReview]=useState<ReviewSummary | null>(null);
+  const [review,setReview]=useState<ReviewQueue | null>(null);
   const [activeRules,setActiveRules]=useState<ActiveCoreRule[]>([]);
+  const [reviewError,setReviewError]=useState('');
+  const [reviewingRuleId,setReviewingRuleId]=useState('');
+  const loadLearningExecution=async()=>{
+    const [queue,rules]=await Promise.all([
+      archiveApi<ReviewQueue>('/api/learning-intelligence/reviews?view=queue'),
+      archiveApi<{rules:ActiveCoreRule[]}>('/api/learning-intelligence/active-rules?limit=3'),
+    ]);
+    setReview(queue);setActiveRules(rules.rules.slice(0,3));
+  };
   useEffect(() => {
     let active = true;
-    void Promise.all([
-      archiveApi<ReviewSummary>('/api/learning-intelligence/reviews?view=queue'),
-      archiveApi<{rules:ActiveCoreRule[]}>('/api/learning-intelligence/active-rules?limit=3'),
-    ]).then(([queue,rules])=>{if(active){setReview(queue);setActiveRules(rules.rules.slice(0,3));}}).catch(()=>{if(active){setReview(null);setActiveRules([]);}});
+    void loadLearningExecution().catch(()=>{if(active){setReview(null);setActiveRules([]);}});
     return () => { active = false; };
   }, []);
+  const beginCoreRuleReview=async(rule:ActiveCoreRule)=>{
+    if(reviewingRuleId)return;
+    setReviewingRuleId(rule.id);setReviewError('');
+    try{
+      await archiveApi('/api/learning-intelligence/reviews','POST',{targetType:'core_rule',targetId:rule.id,reviewType:'today_core_rule',scheduledAt:`${getCurrentStudyDay()}T06:00:00+09:00`,result:'pending'});
+      await loadLearningExecution();
+      navigate('insights:review');
+    }catch(cause){setReviewError(cause instanceof Error?cause.message:'Core Rule Review를 시작하지 못했습니다.');}
+    finally{setReviewingRuleId('');}
+  };
   const todayPlans = data.calendar[today]?.plans ?? [];
   const completed = todayPlans.filter((item) => item.done);
   const incomplete = todayPlans.filter((item) => !item.done);
@@ -43,6 +76,7 @@ export default function Dashboard({ data, update, navigate }: { data: AppData; u
   const resourceDeadlines=useMemo(()=>sortResourcesByDeadline((data.resources??[]).filter(resource=>!resource.total||resource.done<resource.total).filter(resource=>Boolean(normalizeResourceDueDate(resource.dueDate)))).slice(0,3),[data.resources]);
 
   return <div className="today-page">
+    <TodayLearningExecution review={review} rules={activeRules} busy={Boolean(reviewingRuleId)} error={reviewError} onOpenQueue={()=>navigate('insights:review')} onBegin={rule=>void beginCoreRuleReview(rule)} />
     <PageHeader eyebrow="TODAY" title={formatKoreanDate(new Date(`${today}T12:00:00`))} action={countdown && <span className="exam-indicator" title={data.examDate}>수능 {countdown}</span>} />
     <section className="next-action" aria-labelledby="next-title"><div><p className="eyebrow">NEXT</p><h2 id="next-title">{next?.title ?? (todayPlans.length ? '오늘의 계획을 모두 마쳤습니다' : '첫 학습을 계획하세요')}</h2><p>{next ? `${next.subject} · ${targetMinutes ? `목표 ${targetMinutes}분` : next.quantity || '목표량 미설정'}` : todayPlans.length ? '기록을 돌아보거나 다음 학습을 준비하세요.' : '일정을 추가하면 다음 학습이 여기에 연결됩니다.'}</p></div><button className="button primary" onClick={() => navigate(next ? 'train:timer' : 'plan:calendar')}>{next ? '공부 시작' : '일정 추가'}<ArrowRight size={18} /></button></section>
     <section className="execution-section" aria-label="오늘의 실행"><p className="card-label">TODAY'S EXECUTION</p><dl className="execution-strip"><div><dt>오늘 학습</dt><dd className="metric-number">{formatMinutes(analytics.execution.todayMinutes)}</dd></div><div><dt>계획 실행</dt><dd className="metric-number">{analytics.execution.completionRate === null ? '—' : `${analytics.execution.completionRate}%`}</dd></div><div><dt>일정 완료</dt><dd className="metric-number">{completed.length}<span> / {todayPlans.length}</span></dd></div></dl></section>

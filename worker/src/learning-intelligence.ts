@@ -246,6 +246,10 @@ export async function learningIntelligence(request:Request,env:Env,user:User,ori
     const b=await h.boundedJson<Record<string,unknown>>(request),type=clean(b.targetType,30),id=clean(b.targetId,100),result=clean(b.result,20)||'pending';
     if(!['wrong_answer','core_rule','drill','learning_item'].includes(type)||!['pending','success','fail'].includes(result)||!await targetOwned(env.DB,user.id,type,id))
       return error(out,'INVALID_REVIEW_TARGET','올바른 Review 대상이 아닙니다.',400);
+    if(result==='pending'){
+      const existing=await env.DB.prepare("SELECT id FROM learning_reviews WHERE user_id=? AND target_type=? AND target_id=? AND result='pending' ORDER BY created_at DESC LIMIT 1").bind(user.id,type,id).first<{id:string}>();
+      if(existing)return out({ok:true,id:existing.id,recovered:true});
+    }
     const now=new Date().toISOString(),reviewed=result==='pending'?null:now,reviewId=h.randomHex(16);
     await env.DB.prepare(`INSERT INTO learning_reviews(
       id,user_id,target_type,target_id,review_type,scheduled_at,reviewed_at,result,notes,created_at,updated_at
