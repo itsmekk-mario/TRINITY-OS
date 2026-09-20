@@ -22,6 +22,16 @@ test('Active Core Rules connect evidence, linked records, and the unified Review
   assert.match(archive,/insights:review/);
 });
 
+test('Core Rules use the same document archive interaction model as Learning Archive',()=>{
+  assert.match(archive,/core-rule-document-list/);
+  assert.match(archive,/Core Rule 검색/);
+  assert.match(archive,/새 Core Rule/);
+  assert.match(archive,/selectedRule/);
+  assert.match(archive,/ruleEditorOpen/);
+  assert.match(archive,/연결 문서/);
+  assert.doesNotMatch(archive,/core-rule-workspace/);
+});
+
 test('Wrong Answers UI supports subject, source and time grouping',()=>{
   assert.match(train,/'source'/);
   assert.match(train,/'time'/);
