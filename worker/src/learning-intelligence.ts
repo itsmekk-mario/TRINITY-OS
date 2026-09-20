@@ -7,6 +7,7 @@ import {
   getCoreRuleStats,
   listActiveCoreRules,
   recordCoreRuleEvidence,
+  type CoreRuleStats,
   type RuleRelation,
   wrongAnswerDto,
   wrongAnswerExists,
@@ -37,6 +38,8 @@ const coreRuleDto=(r:Record<string,unknown>)=>({
   usageCount:Number(r.usage_count??0),relationType:r.relation_type??undefined,
 });
 const reviewRelation=(result:string):RuleRelation=>result==='success'?'reinforced':result==='fail'?'failed':'applied';
+const studyDayFormatter=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'});
+const studyDayKey=(value:Date|string|number=new Date())=>studyDayFormatter.format(new Date(new Date(value).getTime()-6*60*60*1000));
 const archiveSubjects=['korean','math','english'] as const;
 const appSubject=(subject:string)=>subject==='korean'?'국어':subject==='math'?'수학':'영어';
 const dateOnly=(value:string)=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(`${value}T12:00:00Z`));
@@ -54,6 +57,31 @@ async function saveCaptureRequest(db:D1Database,userId:number,requestId:string,s
   await db.prepare(`INSERT INTO quick_capture_requests(user_id,request_id,status,result_json,created_at,updated_at) VALUES(?,?,?,?,?,?)
     ON CONFLICT(user_id,request_id) DO UPDATE SET status=excluded.status,result_json=excluded.result_json,updated_at=excluded.updated_at`)
     .bind(userId,requestId,status,JSON.stringify(result),now,now).run();
+}
+
+type QueueMetadata={subject:string;title:string;reason:string;priority:number;detail:Record<string,unknown>};
+const inSql=(ids:string[])=>ids.map(()=>'?').join(',');
+async function resolveReviewQueueMetadata(db:D1Database,userId:number,reviews:{target_type:string;target_id:string}[]){
+  const ids=(type:string)=>[...new Set(reviews.filter(review=>review.target_type===type).map(review=>review.target_id))];
+  const ruleIds=ids('core_rule'),wrongIds=ids('wrong_answer'),drillIds=ids('drill'),itemIds=ids('learning_item');
+  const now=new Date(),cut7=new Date(now.getTime()-7*86400000).toISOString(),cut30=new Date(now.getTime()-30*86400000).toISOString();
+  const [rules,wrong,drills,items]=await Promise.all([
+    ruleIds.length?db.prepare(`SELECT r.id,r.subject,r.title,r.content,r.mastery_status,
+      COUNT(e.id) evidence_count,SUM(CASE WHEN e.source_type='archive' THEN 1 ELSE 0 END) archive_count,SUM(CASE WHEN e.source_type='wrong_answer' THEN 1 ELSE 0 END) wrong_answer_count,SUM(CASE WHEN e.source_type='drill' THEN 1 ELSE 0 END) drill_count,
+      SUM(CASE WHEN e.relation_type='derived' THEN 1 ELSE 0 END) derived_count,SUM(CASE WHEN e.relation_type='applied' THEN 1 ELSE 0 END) applied_count,SUM(CASE WHEN e.relation_type='failed' THEN 1 ELSE 0 END) failed_count,SUM(CASE WHEN e.relation_type='reinforced' THEN 1 ELSE 0 END) reinforced_count,
+      SUM(CASE WHEN e.relation_type='failed' AND e.occurred_at>=? THEN 1 ELSE 0 END) failures_7d,SUM(CASE WHEN e.relation_type='failed' AND e.occurred_at>=? THEN 1 ELSE 0 END) failures_30d,MAX(e.occurred_at) last_occurrence_at,MAX(CASE WHEN e.relation_type='failed' THEN e.occurred_at END) last_failure_at,
+      COUNT(DISTINCT CASE WHEN e.source_type='review' THEN e.source_id END) review_count,COUNT(DISTINCT CASE WHEN e.source_type='review' AND e.relation_type='reinforced' THEN e.source_id END) review_success_count,COUNT(DISTINCT CASE WHEN e.source_type='review' AND e.relation_type='failed' THEN e.source_id END) review_failure_count
+      FROM core_rules r LEFT JOIN core_rule_evidence e ON e.user_id=r.user_id AND e.core_rule_id=r.id WHERE r.user_id=? AND r.id IN (${inSql(ruleIds)}) GROUP BY r.id`).bind(cut7,cut30,userId,...ruleIds).all<Record<string,unknown>>():Promise.resolve({results:[] as Record<string,unknown>[]}),
+    wrongIds.length?db.prepare(`SELECT id,subject,source,question,wrong_judgment,missed_cue,correction,transfer,bottleneck FROM wrong_answers WHERE user_id=? AND id IN (${inSql(wrongIds)})`).bind(userId,...wrongIds).all<Record<string,unknown>>():Promise.resolve({results:[] as Record<string,unknown>[]}),
+    drillIds.length?db.prepare(`SELECT id,subject,title,action,success_criterion FROM learning_drills WHERE user_id=? AND id IN (${inSql(drillIds)})`).bind(userId,...drillIds).all<Record<string,unknown>>():Promise.resolve({results:[] as Record<string,unknown>[]}),
+    itemIds.length?db.prepare(`SELECT id,subject,title,question_number,memo,condition_summary,first_thought,representation,solution_flow,bottleneck,transfer FROM archive_entries WHERE user_id=? AND id IN (${inSql(itemIds)})`).bind(userId,...itemIds).all<Record<string,unknown>>():Promise.resolve({results:[] as Record<string,unknown>[]}),
+  ]);
+  const output=new Map<string,QueueMetadata>();
+  for(const row of rules.results){const stats:CoreRuleStats={evidenceCount:Number(row.evidence_count??0),archiveCount:Number(row.archive_count??0),wrongAnswerCount:Number(row.wrong_answer_count??0),drillCount:Number(row.drill_count??0),derivedCount:Number(row.derived_count??0),appliedCount:Number(row.applied_count??0),failedCount:Number(row.failed_count??0),reinforcedCount:Number(row.reinforced_count??0),failures7d:Number(row.failures_7d??0),failures30d:Number(row.failures_30d??0),lastOccurrenceAt:row.last_occurrence_at?String(row.last_occurrence_at):null,lastFailureAt:row.last_failure_at?String(row.last_failure_at):null,reviewCount:Number(row.review_count??0),reviewSuccessCount:Number(row.review_success_count??0),reviewFailureCount:Number(row.review_failure_count??0),masteryRate:Number(row.review_count??0)?Number(row.review_success_count??0)/Number(row.review_count??0):null};output.set(`core_rule:${row.id}`,{subject:String(row.subject),title:String(row.title),reason:String(row.content),priority:calculateCoreRulePriority(stats,String(row.mastery_status??'input')).priorityScore,detail:{content:row.content,stats}})}
+  for(const row of wrong.results)output.set(`wrong_answer:${row.id}`,{subject:String(row.subject),title:String(row.question||row.source||'Wrong Answer'),reason:String(row.correction||row.wrong_judgment||''),priority:0,detail:{source:row.source,question:row.question,wrongJudgment:row.wrong_judgment,missedCue:row.missed_cue,correction:row.correction,transfer:row.transfer,bottleneck:row.bottleneck}});
+  for(const row of drills.results)output.set(`drill:${row.id}`,{subject:String(row.subject),title:String(row.title||'Drill'),reason:String(row.action||''),priority:0,detail:{action:row.action,successCriterion:row.success_criterion}});
+  for(const row of items.results)output.set(`learning_item:${row.id}`,{subject:String(row.subject),title:String(row.title||'Learning Archive'),reason:String(row.bottleneck||row.memo||''),priority:0,detail:{questionNumber:row.question_number,memo:row.memo,conditionSummary:row.condition_summary,firstThought:row.first_thought,representation:row.representation,solutionFlow:row.solution_flow,bottleneck:row.bottleneck,transfer:row.transfer}});
+  return output;
 }
 
 async function ruleIdsForTarget(db:D1Database,userId:number,type:string,id:string){
@@ -293,6 +321,18 @@ export async function learningIntelligence(request:Request,env:Env,user:User,ori
     await env.DB.prepare('DELETE FROM core_rule_drill_links WHERE user_id=? AND core_rule_id=? AND drill_id=?').bind(user.id,ruleId,drillId).run();
     await deleteCoreRuleEvidenceForSource(env.DB,user.id,ruleId,'drill',drillId);
     return out({ok:true});
+  }
+
+  if(path==='/api/learning-intelligence/reviews'&&request.method==='GET'&&url.searchParams.get('view')==='queue'){
+    const rawLimit=Number(url.searchParams.get('limit')||200),limit=Math.max(1,Math.min(500,Number.isFinite(rawLimit)?Math.floor(rawLimit):200));
+    const rows=await env.DB.prepare(`SELECT id,target_type,target_id,scheduled_at,reviewed_at,result,notes,created_at,updated_at
+      FROM learning_reviews WHERE user_id=? AND result='pending' AND scheduled_at IS NOT NULL ORDER BY scheduled_at ASC,id ASC LIMIT ?`).bind(user.id,limit).all<Record<string,unknown>>();
+    const metadata=await resolveReviewQueueMetadata(env.DB,user.id,rows.results as {target_type:string;target_id:string}[]),today=studyDayKey();
+    const item=(row:Record<string,unknown>)=>{const meta=metadata.get(`${row.target_type}:${row.target_id}`)??{subject:'',title:'Unavailable target',reason:'',priority:0,detail:{}};return {id:String(row.id),targetType:String(row.target_type),targetId:String(row.target_id),subject:meta.subject,title:meta.title,reason:meta.reason,scheduledAt:String(row.scheduled_at),reviewedAt:row.reviewed_at??null,result:String(row.result),previousResult:null,priority:meta.priority,notes:String(row.notes??''),detail:meta.detail}};
+    const queue={overdue:[] as ReturnType<typeof item>[],today:[] as ReturnType<typeof item>[],upcoming:[] as ReturnType<typeof item>[]};
+    for(const row of rows.results){const review=item(row),day=studyDayKey(review.scheduledAt);if(day<today)queue.overdue.push(review);else if(day===today)queue.today.push(review);else queue.upcoming.push(review);}
+    for(const bucket of Object.values(queue))bucket.sort((a,b)=>b.priority-a.priority||a.scheduledAt.localeCompare(b.scheduledAt)||a.id.localeCompare(b.id));
+    return out({...queue,counts:{overdue:queue.overdue.length,today:queue.today.length,upcoming:queue.upcoming.length,due:queue.overdue.length+queue.today.length}});
   }
 
   if(path==='/api/learning-intelligence/reviews'&&request.method==='POST'){

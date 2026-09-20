@@ -6,6 +6,7 @@ const archive=readFileSync(new URL('../src/pages/LearningArchive.tsx',import.met
 const train=readFileSync(new URL('../src/pages/TrainHub.tsx',import.meta.url),'utf8');
 const panel=readFileSync(new URL('../src/components/learning/CoreRuleIntelligencePanel.tsx',import.meta.url),'utf8');
 const quickCapture=readFileSync(new URL('../src/components/learning/QuickCaptureSheet.tsx',import.meta.url),'utf8');
+const reviewQueue=readFileSync(new URL('../src/components/learning/UnifiedReviewQueue.tsx',import.meta.url),'utf8');
 
 test('Learning Intelligence UI exposes active rules, priority and evidence',()=>{
   assert.match(archive,/Intelligence/);
@@ -39,4 +40,15 @@ test('Quick Capture keeps one request identity through retry and exposes optiona
   assert.match(quickCapture,/Drill/);
   assert.match(quickCapture,/disabled=\{busy\}/);
   assert.match(quickCapture,/오답 기록 완료/);
+});
+
+test('Unified Review is the Insights execution surface',()=>{
+  assert.match(readFileSync(new URL('../src/pages/InsightsHub.tsx',import.meta.url),'utf8'),/UnifiedReviewQueue/);
+  assert.match(reviewQueue,/reviews\?view=queue/);
+  assert.match(reviewQueue,/overdue/);
+  assert.match(reviewQueue,/today/);
+  assert.match(reviewQueue,/upcoming/);
+  assert.match(reviewQueue,/save\('success'\)/);
+  assert.match(reviewQueue,/save\('fail'\)/);
+  assert.match(train,/빠른 오답 기록/);
 });

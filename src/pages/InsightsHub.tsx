@@ -8,7 +8,7 @@ import type { ReactNode } from 'react';
 import LearningSignalCards from '../components/insights/LearningSignalCards';
 import { deriveLearningSignals } from '../lib/learningSignals';
 import Statistics from './Statistics';
-import PlaireReview from './PlaireReview';
+import UnifiedReviewQueue from '../components/learning/UnifiedReviewQueue';
 
 export type InsightsView = 'overview' | 'performance' | 'bottlenecks' | 'review';
 const tabs = [{ id: 'overview', label: 'Overview' }, { id: 'performance', label: 'Performance' }, { id: 'bottlenecks', label: 'Bottlenecks' }, { id: 'review', label: 'Review' }] as const;
@@ -17,7 +17,7 @@ export default function InsightsHub({ data, update, view, onView }: { data: AppD
   const analytics = useMemo(() => deriveLearningSignals(data), [data]);
   const layout = (content: ReactNode) => <HubLayout eyebrow="INSIGHTS" title="무엇이 달라졌는지 확인합니다" description="실행 시간과 능력 개선의 근거를 읽고 다음 행동을 결정합니다." controls={<SegmentedControl label="Insights 화면" options={tabs} value={view} onChange={onView} />}>{content}</HubLayout>;
   if (view === 'performance') return layout(<Statistics data={data} />);
-  if (view === 'review') return layout(<PlaireReview data={data} update={update} />);
+  if (view === 'review') return layout(<UnifiedReviewQueue />);
   if (view === 'bottlenecks') return layout(<div><PageHeader eyebrow="DIAGNOSE" title="병목과 재현" description="빈도만 보지 않고, 교정 행동이 재도전과 전이로 이어졌는지 확인합니다." />
     <div className="capability-summary"><Card><span>동일 오류 재발률</span><strong className="metric-number">{analytics.recurrenceRate === null ? '—' : `${analytics.recurrenceRate}%`}</strong><small>최근 14일 동일 병목·판단·단서 조합</small></Card>{analytics.retries.map((retry) => <Card key={retry.id}><span>{retry.label}</span><strong className="metric-number">{retry.rate === null ? '—' : `${retry.rate}%`}</strong><small>{retry.due ? `${retry.completed}/${retry.due}회 완료` : '도래한 재도전 없음'}</small></Card>)}<Card><span>Transfer 확인</span><strong className="metric-number">{analytics.transfer.rate === null ? '—' : `${analytics.transfer.rate}%`}</strong><small>전이 설계 후 재현 완료 기록</small></Card></div>
     <SectionTitle title="Bottleneck Frequency" meta="최근 14일 vs 이전 14일" />{analytics.bottlenecks.length ? <div className="bottleneck-list">{analytics.bottlenecks.map((item) => <Card key={item.name} className="bottleneck-row"><Crosshair /><div><h2>{item.name}</h2><p>{item.action || '교정 행동이 아직 기록되지 않았습니다.'}</p></div><div><strong>{item.current}회</strong><small>이전 {item.previous}회</small></div><em className={item.current < item.previous ? 'positive' : item.current > item.previous ? 'negative' : ''}>{item.changePercent === null ? '신규' : `${item.changePercent > 0 ? '+' : ''}${item.changePercent}%`}</em></Card>)}</div> : <Empty>아직 병목 데이터가 없습니다.<br />Wrong Answer Drill에서 병목과 놓친 단서를 기록하세요.</Empty>}</div>);
