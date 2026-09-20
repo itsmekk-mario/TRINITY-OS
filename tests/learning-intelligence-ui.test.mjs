@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 const archive=readFileSync(new URL('../src/pages/LearningArchive.tsx',import.meta.url),'utf8');
 const train=readFileSync(new URL('../src/pages/TrainHub.tsx',import.meta.url),'utf8');
 const panel=readFileSync(new URL('../src/components/learning/CoreRuleIntelligencePanel.tsx',import.meta.url),'utf8');
+const styles=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
 
 test('Learning Intelligence UI exposes active rules, priority and evidence',()=>{
   assert.match(archive,/Intelligence/);
@@ -30,6 +31,7 @@ test('Core Rules use the same document archive interaction model as Learning Arc
   assert.match(archive,/ruleEditorOpen/);
   assert.match(archive,/연결 문서/);
   assert.doesNotMatch(archive,/core-rule-workspace/);
+  assert.match(styles,/\.core-rule-document-list\{display:block;width:100%\}/);
 });
 
 test('Wrong Answers UI supports subject, source and time grouping',()=>{
