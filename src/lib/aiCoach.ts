@@ -1,4 +1,4 @@
-import { loadCloudflareConfig } from './cloudflare';
+﻿import { loadCloudflareConfig } from './cloudflare';
 import { coachContextHash } from './coach/context';
 import type { AIStudyCoachContext } from './coach/types';
 
@@ -33,13 +33,13 @@ export function saveAIAnalysisCache(context: AIStudyCoachContext, value: CoachRe
 
 async function request<T>(path: string, body: unknown): Promise<T> {
   const config = loadCloudflareConfig();
-  if (!config.url || !config.token) throw new Error('AI 기능을 사용하려면 먼저 로그인해 주세요. 기본 TRINITY 분석은 계속 사용할 수 있습니다.');
+  if (!config.url || !config.token) throw new Error('AI 湲곕뒫???ъ슜?섎젮硫?癒쇱? 濡쒓렇?명빐 二쇱꽭?? 湲곕낯 TRINITY 遺꾩꽍? 怨꾩냽 ?ъ슜?????덉뒿?덈떎.');
   const requestKey = `${path}:${JSON.stringify(body)}`;
   const pending = inFlight.get(requestKey) as Promise<T> | undefined;
   if (pending) return pending;
   const task = (async () => {
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 35_000);
+    const timeout = window.setTimeout(() => controller.abort(), 315_000);
     try {
       const response = await fetch(config.url.replace(/\/+$/, '') + path, {
         method: 'POST', signal: controller.signal,
@@ -48,12 +48,12 @@ async function request<T>(path: string, body: unknown): Promise<T> {
       });
       const payload = await response.json().catch(() => ({})) as T & ApiError;
       if (!response.ok) {
-        const suffix = payload.requestId ? ` (참조: ${payload.requestId})` : '';
-        throw new Error(`${payload.error || `AI 요청에 실패했습니다. (${response.status})`}${suffix}`);
+        const suffix = payload.requestId ? ` (李몄“: ${payload.requestId})` : '';
+        throw new Error(`${payload.error || `AI ?붿껌???ㅽ뙣?덉뒿?덈떎. (${response.status})`}${suffix}`);
       }
       return payload;
     } catch (cause) {
-      if (cause instanceof DOMException && cause.name === 'AbortError') throw new Error('AI 응답 시간이 초과되었습니다. 기본 TRINITY 분석은 정상적으로 사용할 수 있습니다.');
+      if (cause instanceof DOMException && cause.name === 'AbortError') throw new Error('AI ?묐떟 ?쒓컙??珥덇낵?섏뿀?듬땲?? 湲곕낯 TRINITY 遺꾩꽍? ?뺤긽?곸쑝濡??ъ슜?????덉뒿?덈떎.');
       throw cause;
     } finally { window.clearTimeout(timeout); }
   })();
@@ -67,5 +67,6 @@ export const requestAIStudyAnalysis = (context: AIStudyCoachContext) =>
 export const requestCoachChat = (context: AIStudyCoachContext, messages: CoachChatMessage[]) =>
   request<CoachReply>('/api/ai/chat', {
     context,
-    messages: messages.slice(-6).map((message) => ({ role: message.role, content: message.content.slice(0, 300) })),
+    messages: messages.slice(-4).map((message) => ({ role: message.role, content: message.content.slice(0, 240) })),
   });
+

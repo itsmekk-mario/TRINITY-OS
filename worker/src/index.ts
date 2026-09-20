@@ -15,7 +15,7 @@ export { StudyRoomDurableObject };
 export interface Env {
   DB: D1Database; SYNC_TOKEN?: string; NVIDIA_API_KEY?: string; NVIDIA_MODEL?: string; NVIDIA_BASE_URL?: string;
   AI_PROVIDER?: string; AI_TIMEOUT_MS?: string; AI_MAX_RETRIES?: string; AI_DEBUG?: string; ENVIRONMENT?: string;
-  AI_USER_DAILY_LIMIT?: string; AI_GLOBAL_DAILY_LIMIT?: string; AI_CHAT_COOLDOWN_SECONDS?: string;
+  AI_USER_DAILY_LIMIT?: string; AI_GLOBAL_DAILY_LIMIT?: string; AI_CHAT_COOLDOWN_SECONDS?: string; AI_MAX_CONTEXT_BYTES?: string;
   LOCAL_AI_BASE_URL?: string; LOCAL_AI_API_KEY?: string; LOCAL_AI_TIMEOUT_MS?: string; LOCAL_AI_MODEL?: string;
   ALLOWED_ORIGIN?: string; SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; SUPABASE_BUCKET?: string;
   SESSION_TTL_DAYS?: string;
@@ -75,6 +75,16 @@ const arenaSystem = '너는 TRINITY Arena의 성장 코치다. 순위나 공부�
 const asObject = (value: unknown): Record<string, unknown> | null => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
 const text = (value: unknown, fallback = '') => typeof value === 'string' ? value.slice(0, 900) : fallback;
 const stableJson = (value: unknown): string => Array.isArray(value) ? `[${value.map(stableJson).join(',')}]` : value && typeof value === 'object' ? `{${Object.keys(value as Record<string, unknown>).sort().map((key) => `${JSON.stringify(key)}:${stableJson((value as Record<string, unknown>)[key])}`).join(',')}}` : JSON.stringify(value);
+const nimContextLimit = (env: Env) => {
+  const parsed = Number(env.AI_MAX_CONTEXT_BYTES);
+  return Number.isInteger(parsed) && parsed >= 4_000 && parsed <= 32_000 ? parsed : 12_000;
+};
+const nimContextBytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).byteLength;
+const ensureNimContextSize = (value: unknown, env: Env) => {
+  if (nimContextBytes(value) > nimContextLimit(env)) {
+    throw new RequestError('AI 컨텍스트가 허용된 크기를 초과했습니다. 최근 핵심 학습 데이터만 사용할 수 있습니다.', 413);
+  }
+};
 const finite = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 const short = (value: unknown, size = 120) => typeof value === 'string' ? value.slice(0, size) : undefined;
 const compactItems = (value: unknown, limit: number, select: (item: Record<string, unknown>) => Record<string, unknown>) => Array.isArray(value) ? value.map(asObject).filter((item): item is Record<string, unknown> => Boolean(item)).slice(0, limit).map(select) : [];
@@ -228,7 +238,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
   if (url.pathname === '/api/ai/daily-coach' && request.method === 'POST') return json({ error: '자동 AI 분석 API는 종료되었습니다. Dashboard의 로컬 TRINITY 분석을 사용해 주세요.', code: 'LOCAL_COACH_ONLY' }, 410, origin);
   if (url.pathname === '/api/ai/study-analysis' && request.method === 'POST') {
     if (!user || auth?.authType!=='session') return json({ error: 'Unauthorized' }, 401, origin);
-    const body = asObject(await boundedJson<unknown>(request)); const context = safeStudyContext(body?.context);
+    const body = asObject(await boundedJson<unknown>(request)); const context = safeStudyContext(body?.context); if (context) ensureNimContextSize(context, env);
     if (!context) return json({ error: '압축된 TRINITY Analytics 결과가 필요합니다.' }, 400, origin);
     const requestText = `TRINITY Analytics 결과:\n${JSON.stringify(context)}\n\n이 결과를 다시 계산하지 말고 근거를 연결해 현재 상태, 핵심 병목, 근거, 다음 행동 1개와 검증 기준을 짧게 설명하세요.`;
     try {
@@ -241,21 +251,21 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     if (!user || auth?.authType!=='session') return json({ error: 'Unauthorized' }, 401, origin);
     const body = asObject(await boundedJson<unknown>(request)); const context = asObject(body?.context);
     if (!context) return json({ error: 'Teacher feedback context is required.' }, 400, origin);
-    const safe = { today: asObject(context.today), subjectFeedback: Array.isArray(context.subjectFeedback) ? context.subjectFeedback.slice(0, 5) : [], academicFeedback: Array.isArray(context.academicFeedback) ? context.academicFeedback.slice(0, 3) : [], weeklyGoals: Array.isArray(context.weeklyGoals) ? context.weeklyGoals.slice(0, 5) : [], recentBottlenecks: Array.isArray(context.recentBottlenecks) ? context.recentBottlenecks.slice(0, 5) : [] };
+    const safe = { today: asObject(context.today), subjectFeedback: Array.isArray(context.subjectFeedback) ? context.subjectFeedback.slice(0, 5) : [], academicFeedback: Array.isArray(context.academicFeedback) ? context.academicFeedback.slice(0, 3) : [], weeklyGoals: Array.isArray(context.weeklyGoals) ? context.weeklyGoals.slice(0, 3) : [], recentBottlenecks: Array.isArray(context.recentBottlenecks) ? context.recentBottlenecks.slice(0, 5) : [] }; ensureNimContextSize(safe, env);
     try { const result = await aiService.complete({ db: env.DB, userId: user.id, user: user.username, operation: 'teacher-feedback-summary', cacheKey: await sha256(stableJson(safe)), maxTokens: 180, config: providerConfig(env), messages: prompt('You summarize teacher feedback for a student. Never override, reinterpret, or invent a teacher decision. Use only the supplied academic context. Give a short Korean priority order with at most two concrete actions.', JSON.stringify(safe)) }); return json({ message: result.content, cached: result.cached }, 200, origin); } catch (cause) { return aiError(cause, origin); }
   }
   if (url.pathname === '/api/ai/arena-coach' && request.method === 'POST') {
     if (!user || auth?.authType!=='session') return json({ error: 'Unauthorized' }, 401, origin);
     const body = asObject(await boundedJson<unknown>(request)); const context = asObject(body?.context);
     if (!context) return json({ error: 'Arena 성장 컨텍스트가 필요합니다.' }, 400, origin);
-    const safe = { score: asObject(context.score), metrics: asObject(context.metrics), breakdown: asObject(context.breakdown), group: asObject(context.group), nextActions: Array.isArray(context.nextActions) ? context.nextActions.slice(0, 3) : [] };
+    const safe = { score: asObject(context.score), metrics: asObject(context.metrics), breakdown: asObject(context.breakdown), group: asObject(context.group), nextActions: Array.isArray(context.nextActions) ? context.nextActions.slice(0, 3) : [] }; ensureNimContextSize(safe, env);
     try { const result = await aiService.complete({ db: env.DB, userId: user.id, user: user.username, operation: 'arena-coach', cacheKey: await sha256(stableJson(safe)), maxTokens: 220, config: providerConfig(env), messages: prompt(arenaSystem, JSON.stringify(safe)) }); return json({ message: result.content, cached: result.cached }, 200, origin); } catch (cause) { return aiError(cause, origin); }
   }
   if (url.pathname === '/api/ai/chat' && request.method === 'POST') {
     if (!user || auth?.authType!=='session') return json({ error: 'Unauthorized' }, 401, origin);
-    const body = asObject(await boundedJson<unknown>(request)); const context = safeStudyContext(body?.context); const raw = Array.isArray(body?.messages) ? body.messages.slice(-6) : [];
+    const body = asObject(await boundedJson<unknown>(request)); const context = safeStudyContext(body?.context); if (context) ensureNimContextSize(context, env); const raw = Array.isArray(body?.messages) ? body.messages.slice(-4) : [];
     if (!context || !raw.length) return json({ error: '학습 컨텍스트와 질문이 필요합니다.' }, 400, origin);
-    const conversation = raw.map(asObject).filter((item): item is Record<string, unknown> => Boolean(item)).filter((item) => (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string').map((item) => `${item.role === 'user' ? '사용자' : '코치'}: ${text(item.content).slice(0, 300)}`).join('\n');
+    const conversation = raw.map(asObject).filter((item): item is Record<string, unknown> => Boolean(item)).filter((item) => (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string').map((item) => `${item.role === 'user' ? '사용자' : '코치'}: ${text(item.content).slice(0, 240)}`).join('\n');
     if (!conversation) return json({ error: '유효한 질문이 필요합니다.' }, 400, origin);
     const requestText = `선별된 학습 데이터:\n${JSON.stringify(context)}\n\n최근 대화:\n${conversation}\n\n위 질문에만 짧게 답하세요.`;
     try { const selected = await localAIContext(env, user.id); const result = await aiService.complete({ db: env.DB, userId: user.id, user: user.username, operation: 'chat', cacheKey: await sha256(`${requestText}:${stableJson(selected ?? {})}`), maxTokens: 280, context: selected, config: providerConfig(env), messages: prompt(coachSystem, requestText) }); return json({ message: result.content, cached: result.cached }, 200, origin); } catch (cause) { return aiError(cause, origin); }

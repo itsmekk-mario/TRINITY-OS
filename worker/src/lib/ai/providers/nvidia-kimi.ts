@@ -1,4 +1,4 @@
-import { AIProviderError, type AIProvider, type AIResponse, type ChatMessage, type ChatOptions } from '../types.ts';
+﻿import { AIProviderError, type AIProvider, type AIResponse, type ChatMessage, type ChatOptions } from '../types.ts';
 
 export interface NvidiaKimiConfig {
   apiKey?: string;
@@ -17,7 +17,7 @@ type NvidiaPayload = {
 };
 
 const DEFAULT_BASE_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
-const DEFAULT_MODEL = 'nvidia/nemotron-3.5-lightning-30b-a3b';
+const DEFAULT_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b';
 
 function boundedInt(value: string | undefined, fallback: number, minimum: number, maximum: number) {
   const parsed = Number(value);
@@ -62,7 +62,7 @@ export class NvidiaKimiProvider implements AIProvider {
   constructor(private readonly config: NvidiaKimiConfig) {
     this.model = config.model || DEFAULT_MODEL;
     this.endpoint = (config.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
-    this.timeoutMs = boundedInt(config.timeoutMs, 25_000, 1_000, 60_000);
+    this.timeoutMs = boundedInt(config.timeoutMs, 300_000, 1_000, 300_000);
   }
 
   async chat(messages: ChatMessage[], options: ChatOptions): Promise<AIResponse> {
@@ -93,3 +93,4 @@ export class NvidiaKimiProvider implements AIProvider {
     } finally { clearTimeout(timeout); }
   }
 }
+

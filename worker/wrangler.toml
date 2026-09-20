@@ -1,4 +1,4 @@
-name = "trinity-os-sync"
+﻿name = "trinity-os-sync"
 main = "src/index.ts"
 compatibility_date = "2026-08-24"
 
@@ -31,15 +31,17 @@ ALLOWED_ORIGIN = "https://trinityos.mcv.kr"
 ENVIRONMENT = "production"
 SESSION_TTL_DAYS = "7"
 AI_PROVIDER = "nvidia-nim"
-NVIDIA_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
-AI_TIMEOUT_MS = "25000"
+NVIDIA_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
+AI_TIMEOUT_MS = "300000"
 AI_MAX_RETRIES = "0"
 AI_USER_DAILY_LIMIT = "12"
 AI_GLOBAL_DAILY_LIMIT = "100"
 AI_CHAT_COOLDOWN_SECONDS = "8"
+AI_MAX_CONTEXT_BYTES = "12000"
 LOCAL_AI_BASE_URL = "https://ai.trinityos.mcv.kr"
 LOCAL_AI_TIMEOUT_MS = "30000"
 LOCAL_AI_MODEL = "qwen3:8b"
 # Set AI_DEBUG = "true" only in the development Worker environment.
 LIVEKIT_URL = "wss://cam.trinityos.mcv.kr"
 # LIVEKIT_API_KEY and LIVEKIT_API_SECRET must be configured with `wrangler secret put`.
+
