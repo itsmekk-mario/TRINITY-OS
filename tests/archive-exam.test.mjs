@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { compareArchiveEntries, compareArchiveExams, normalizeArchiveExam, normalizeExamText } from '../src/lib/archiveExam.ts';
+import { archiveExamExecutionMonth, compareArchiveEntries, compareArchiveExams, normalizeArchiveExam, normalizeExamText } from '../src/lib/archiveExam.ts';
 
 const entry = (overrides = {}) => ({ id: 'id', subject: 'math', year: 2027, month: 9, institution: 'KICE', institutionCustomName: '', examName: '', sourceName: '', questionNumber: '', studiedAt: '2026-09-01T00:00:00.000Z', ...overrides });
 
@@ -31,6 +31,7 @@ test('private exams remain distinct, KICE does not merge with private, and 수�
   assert.notEqual(kangK.groupKey, survival.groupKey);
   assert.equal(suneung.month, 11);
   assert.equal(suneung.displayName, '2027학년도 수능');
+  assert.equal(archiveExamExecutionMonth(entry({ month: 6, examName: '수능' })), '2026-11');
 });
 
 test('entries sort by subject, numeric question number, then study time and unspecified exams are last', () => {

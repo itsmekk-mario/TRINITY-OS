@@ -27,6 +27,15 @@ export const normalizeArchiveExam = (entry: Pick<ArchiveEntry, 'year' | 'month' 
 };
 /** Latest academic year and exam first; unspecified exams always remain last. */
 export const compareArchiveExams = (left: NormalizedArchiveExam, right: NormalizedArchiveExam) => (right.academicYear - left.academicYear) || (right.month - left.month) || (left.priority - right.priority) || left.displayName.localeCompare(right.displayName, 'ko');
+
+/**
+ * Archive `year` is an academic year, so its examinations are administered in
+ * the preceding calendar year. The stored schema has month precision only.
+ */
+export const archiveExamExecutionMonth = (entry: Pick<ArchiveEntry, 'year' | 'month' | 'institution' | 'institutionCustomName' | 'examName' | 'sourceName'>) => {
+  const exam = normalizeArchiveExam(entry);
+  return exam.academicYear && exam.month ? `${exam.academicYear - 1}-${String(exam.month).padStart(2, '0')}` : '';
+};
 const subjectOrder = ['korean', 'math', 'english'];
 const questionOrder = (value: string) => { const match = text(value).match(/\d+/); return match ? Number(match[0]) : Number.POSITIVE_INFINITY; };
 /** Within one exam: subject, numeric question number, then record time. */
