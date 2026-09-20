@@ -90,7 +90,7 @@ test('teacher roles render distinct information architectures and evidence-based
  const math=renderToStaticMarkup(createElement(MathTeacherDashboard,teacherProps()));
  const learning=renderToStaticMarkup(createElement(LearningManagerDashboard,teacherProps()));
  assert.match(math,/Capability/);assert.match(math,/Bottlenecks/);assert.match(math,/Wrong Answers/);assert.doesNotMatch(math,/Schedule \/ Load/);
- assert.match(learning,/Execution/);assert.match(learning,/Teacher Signals/);assert.match(learning,/Schedule \/ Load/);assert.doesNotMatch(learning,/Wrong Answers/);
+ assert.match(learning,/Execution/);assert.match(learning,/Teacher Signals/);assert.match(learning,/Plan vs Execution/);assert.doesNotMatch(learning,/Wrong Answers/);
  assert.match(math,/현재 수학 병목을 판단할 기록이 부족합니다/);assert.match(learning,/데이터 부족/);assert.doesNotMatch(math,/성적 예측|실력 지수|AI confidence/);
 });
 test('signal cards prioritize active signals before resolved history',()=>{
