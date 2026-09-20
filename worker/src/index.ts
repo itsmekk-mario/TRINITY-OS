@@ -243,8 +243,8 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     const requestText = `TRINITY Analytics 결과:\n${JSON.stringify(context)}\n\n이 결과를 다시 계산하지 말고 근거를 연결해 현재 상태, 핵심 병목, 근거, 다음 행동 1개와 검증 기준을 짧게 설명하세요.`;
     try {
       const selected = await localAIContext(env, user.id);
-      const result = await aiService.complete({ db: env.DB, userId: user.id, user: user.username, operation: 'study-analysis', cacheKey: await sha256(stableJson({ context, selected })), maxTokens: 260, context: selected, config: providerConfig(env), messages: prompt(coachSystem, requestText) });
-      return json({ message: text(result.content, '정밀 분석 결과를 확인하지 못했습니다.'), cached: result.cached }, 200, origin);
+      const result = await aiService.complete({ db: env.DB, userId: user.id, user: user.username, operation: 'study-analysis', cacheKey: await sha256(stableJson({ context, selected, responseProfile: 'ultra-final-v2' })), maxTokens: 2048, context: selected, config: providerConfig(env), messages: prompt(coachSystem, requestText) });
+      return json({ message: result.content, cached: result.cached }, 200, origin);
     } catch (cause) { return aiError(cause, origin); }
   }
   if (url.pathname === '/api/ai/teacher-feedback-summary' && request.method === 'POST') {
@@ -268,7 +268,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     const conversation = raw.map(asObject).filter((item): item is Record<string, unknown> => Boolean(item)).filter((item) => (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string').map((item) => `${item.role === 'user' ? '사용자' : '코치'}: ${text(item.content).slice(0, 240)}`).join('\n');
     if (!conversation) return json({ error: '유효한 질문이 필요합니다.' }, 400, origin);
     const requestText = `선별된 학습 데이터:\n${JSON.stringify(context)}\n\n최근 대화:\n${conversation}\n\n위 질문에만 짧게 답하세요.`;
-    try { const selected = await localAIContext(env, user.id); const result = await aiService.complete({ db: env.DB, userId: user.id, user: user.username, operation: 'chat', cacheKey: await sha256(`${requestText}:${stableJson(selected ?? {})}`), maxTokens: 280, context: selected, config: providerConfig(env), messages: prompt(coachSystem, requestText) }); return json({ message: result.content, cached: result.cached }, 200, origin); } catch (cause) { return aiError(cause, origin); }
+    try { const selected = await localAIContext(env, user.id); const result = await aiService.complete({ db: env.DB, userId: user.id, user: user.username, operation: 'chat', cacheKey: await sha256(`${requestText}:${stableJson(selected ?? {})}:ultra-final-v2`), maxTokens: 2048, context: selected, config: providerConfig(env), messages: prompt(coachSystem, requestText) }); return json({ message: result.content, cached: result.cached }, 200, origin); } catch (cause) { return aiError(cause, origin); }
   }
   if (url.pathname !== '/api/sync' || !['GET', 'PUT'].includes(request.method)) return json({ error: 'Not found' }, 404, origin);
   if (!auth||!user) return json({ error: 'Unauthorized' }, 401, origin);

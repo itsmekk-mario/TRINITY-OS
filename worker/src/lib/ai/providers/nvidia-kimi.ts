@@ -74,7 +74,7 @@ export class NvidiaKimiProvider implements AIProvider {
       const response = await fetch(this.endpoint, {
         method: 'POST', signal: controller.signal,
         headers: { Authorization: `Bearer ${this.config.apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: this.model, temperature: options.temperature ?? 0.2, max_tokens: options.maxTokens, stream: false, messages }),
+        body: JSON.stringify({ model: this.model, temperature: options.temperature ?? 0.2, max_tokens: options.maxTokens, stream: false, messages, chat_template_kwargs: { enable_thinking: false, force_nonempty_content: true } }),
       });
       const responseText = await response.text();
       const payload = parsePayload(responseText);

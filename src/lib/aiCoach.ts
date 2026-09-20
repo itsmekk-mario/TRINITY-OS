@@ -7,7 +7,7 @@ export type CoachChatMessage = { role: 'user' | 'assistant'; content: string };
 type ApiError = { error?: string; code?: string; requestId?: string };
 type CachedCoachReply = { value: CoachReply; expiresAt: number };
 
-const AI_CACHE_PREFIX = 'trinity-os:ai-study-analysis:v1:';
+const AI_CACHE_PREFIX = 'trinity-os:ai-study-analysis:v2:';
 const AI_CACHE_TTL_MS = 30 * 60_000;
 const inFlight = new Map<string, Promise<unknown>>();
 
