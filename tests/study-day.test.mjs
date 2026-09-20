@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getCurrentStudyDay, getStudyDayKey, getStudyDayRange, STUDY_DAY_START_HOUR } from '../src/lib/date.ts';
+import { getCurrentStudyDay, getStudyDayKey, getStudyDayRange, shouldAutoAdvanceWeek, STUDY_DAY_START_HOUR } from '../src/lib/date.ts';
 import { splitSessionByStudyDay, studyTotals } from '../src/lib/studyTotals.ts';
 import { calculateArenaScore } from '../src/lib/arenaScore.ts';
 
@@ -30,4 +30,10 @@ test('Arena derives weekly study seconds from Study Day segments, not stored ses
   const data = { sessions: [session('2026-09-17T14:00:00Z', '2026-09-17T17:00:00Z'), session('2026-09-17T19:00:00Z', '2026-09-17T20:00:00Z')], calendar: {}, dailyDrills: [], wrongAnswerDrills: [], scores: [], weeklyCapabilityGoals: [] };
   const score = calculateArenaScore(data, at('2026-09-17T17:00:00Z'));
   assert.equal(score.metrics.currentWeekSeconds, 14_400); // A 23:00–02:00 and B 04:00–05:00 are both Sep 17 Study Day.
+});
+
+test('weekly plan follows a new current week without overriding manual navigation', () => {
+  assert.equal(shouldAutoAdvanceWeek('2026-09-14', '2026-09-14', '2026-09-21'), true);
+  assert.equal(shouldAutoAdvanceWeek('2026-09-07', '2026-09-14', '2026-09-21'), false);
+  assert.equal(shouldAutoAdvanceWeek('2026-09-14', '2026-09-14', '2026-09-14'), false);
 });

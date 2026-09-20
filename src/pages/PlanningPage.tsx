@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { AppData, CalendarEntry, CalendarPlan, MonthlyPlan, Subject } from '../types';
 import { SUBJECTS } from '../data/config';
 import { Card, Empty, Field, PageHeader, SaveButton, TextArea } from '../components/Ui';
-import { toDateKey, uid, weekStartKey } from '../lib/date';
+import { shouldAutoAdvanceWeek, toDateKey, uid, weekStartKey } from '../lib/date';
 
 type WeeklyTaskDraft = CalendarPlan & { date: string };
 const emptyCalendar = (date: string): CalendarEntry => ({ date, study: '', minutes: 0, exam: '', event: '', condition: 3, reflection: '', plans: [] });
@@ -15,6 +15,7 @@ const weekDates = (start: string) => Array.from({ length: 7 }, (_, index) => { c
 export default function PlanningPage({ data, update }: { data: AppData; update: (fn: (value: AppData) => AppData) => void }) {
   const [tab, setTab] = useState<'weekly' | 'monthly'>('weekly');
   const [weekStart, setWeekStart] = useState(weekStartKey());
+  const currentWeekRef = useRef(weekStartKey());
   const [month, setMonth] = useState(toDateKey().slice(0, 7));
   const [taskDate, setTaskDate] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -24,6 +25,24 @@ export default function PlanningPage({ data, update }: { data: AppData; update: 
   const [dragging, setDragging] = useState<{ kind: 'weekly'; date: string; id: string } | { kind: 'monthly'; id: string } | null>(null);
   const [dragHint, setDragHint] = useState('');
   const dragTimer = useState<{ current: number | null }>({ current: null })[0];
+  useEffect(() => {
+    const syncWeek = () => {
+      const previousCurrentWeek = currentWeekRef.current;
+      const currentWeek = weekStartKey();
+      if (currentWeek === previousCurrentWeek) return;
+      currentWeekRef.current = currentWeek;
+      setWeekStart((selectedWeek) => shouldAutoAdvanceWeek(selectedWeek, previousCurrentWeek, currentWeek) ? currentWeek : selectedWeek);
+    };
+    const syncWhenVisible = () => { if (document.visibilityState === 'visible') syncWeek(); };
+    const interval = window.setInterval(syncWeek, 60_000);
+    window.addEventListener('focus', syncWeek);
+    document.addEventListener('visibilitychange', syncWhenVisible);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', syncWeek);
+      document.removeEventListener('visibilitychange', syncWhenVisible);
+    };
+  }, []);
   const dates = useMemo(() => weekDates(weekStart), [weekStart]);
   const monthlyPlans = useMemo(() => data.monthlyPlans.filter((item) => item.month === month), [data.monthlyPlans, month]);
   const openTask = (date: string, existing?: CalendarPlan) => { setTaskDate(date); setEditingTaskId(existing?.id ?? null); setTask(existing ? { ...existing, date } : blankTask(date)); };

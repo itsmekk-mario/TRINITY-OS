@@ -2,6 +2,7 @@ import { ChevronDown, FileText } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { ArchiveEntry } from '../lib/archiveApi';
 import { getCurrentStudyDay } from '../lib/date';
+import { compareArchiveEntries, compareArchiveExams, normalizeArchiveExam } from '../lib/archiveExam';
 
 export type ArchiveBrowseMode = 'recent' | 'exam' | 'subject';
 const colors = ['black', 'blue', 'green', 'red'] as const;
@@ -31,15 +32,7 @@ const reviewLabel = (entry: ArchiveEntry) => {
   const days = Math.max(0, Math.ceil((new Date(`${entry.nextReviewAt}T00:00:00`).getTime() - new Date(`${today}T00:00:00`).getTime()) / 86400000));
   return `Review D+${days}`;
 };
-const examMonth = (entry: ArchiveEntry) => /수능/.test(`${entry.examName} ${entry.sourceName}`) ? 11 : entry.month;
-const exam = (entry: ArchiveEntry) => {
-  const text = entry.examName.trim() || entry.sourceName.trim();
-  const organization = entry.institutionCustomName || ({ KICE: '평가원', education_office: '교육청', EBS: 'EBS', private: '사설', textbook: '교재', custom: '기타' }[entry.institution] || entry.institution);
-  const year = entry.year ? `${entry.year}학년도` : '';
-  const month = entry.month ? `${entry.month}월` : '';
-  const label = text || [year, month, organization].filter(Boolean).join(' ') || '시험 미지정';
-  return { key: `${entry.year}-${String(examMonth(entry)).padStart(2, '0')}-${entry.institution}-${text || label}`, label };
-};
+const exam = (entry: ArchiveEntry) => normalizeArchiveExam(entry);
 const groupBy = (entries: ArchiveEntry[], key: (entry: ArchiveEntry) => { id: string; label: string }) => {
   const map = new Map<string, Group>();
   entries.forEach(entry => { const value = key(entry), group = map.get(value.id) || { id: value.id, label: value.label, entries: [] }; group.entries.push(entry); map.set(value.id, group); });
@@ -73,7 +66,7 @@ function EntryCard({ entry, expanded, onToggle }: { entry: ArchiveEntry; expande
   return <article className={`archive-compact-entry ${expanded ? 'expanded' : ''}`}>
     <button className="archive-compact-button" aria-expanded={expanded} onClick={onToggle}>
       <span className="archive-color-strip" aria-label={segments.length ? `Annotation 색상: ${segments.map(c => colorNames[c]).join(', ')}` : 'Annotation 없음'}>{segments.map(color => <i className={color} style={{ flex: counts[color] }} key={color} />)}</span>
-      <span className="archive-compact-main"><span className="archive-entry-topline"><FileText size={16} />{exam(entry).label} · {subjectNames[entry.subject]}{entry.questionNumber && ` · ${entry.questionNumber}번`}</span><b>{entry.title}</b><CountLine entries={[entry]} /><small>{entry.coreRules.length ? `Core Rule ${entry.coreRules.length}` : ''}{entry.coreRules.length && (reviewLabel(entry) || entry.wrongAnswerId) ? ' · ' : ''}{reviewLabel(entry)}{(entry.coreRules.length || reviewLabel(entry)) && entry.wrongAnswerId ? ' · ' : ''}{entry.wrongAnswerId ? '오답 연결' : ''}</small></span>
+      <span className="archive-compact-main"><span className="archive-entry-topline"><FileText size={16} />{exam(entry).displayName} · {subjectNames[entry.subject]}{entry.questionNumber && ` · ${entry.questionNumber}번`}</span><b>{entry.title}</b><CountLine entries={[entry]} /><small>{entry.coreRules.length ? `Core Rule ${entry.coreRules.length}` : ''}{entry.coreRules.length && (reviewLabel(entry) || entry.wrongAnswerId) ? ' · ' : ''}{reviewLabel(entry)}{(entry.coreRules.length || reviewLabel(entry)) && entry.wrongAnswerId ? ' · ' : ''}{entry.wrongAnswerId ? '오답 연결' : ''}</small></span>
       <ChevronDown className="archive-entry-chevron" size={18} />
     </button>
     {expanded && <div className="archive-entry-expanded-note">상세 분석, Annotation, Core Rule, 문항 정보와 Review를 열었습니다.</div>}
@@ -91,7 +84,16 @@ export function AnnotationLegend() { return <details className="archive-legend">
 export default function ArchiveExplorer({ entries, mode, onEntry }: { entries: ArchiveEntry[]; mode: ArchiveBrowseMode; onEntry: (entry: ArchiveEntry) => void }) {
   const groups = useMemo(() => {
     if (mode === 'recent') return groupBy(entries, entry => ({ id: `date:${entry.studiedAt.slice(0, 10)}`, label: entry.studiedAt.slice(0, 10) }));
-    if (mode === 'exam') return groupBy(entries, entry => ({ id: `exam:${exam(entry).key}`, label: exam(entry).label })).map(group => ({ ...group, children: groupBy(group.entries, entry => ({ id: `${group.id}:subject:${entry.subject}`, label: subjectNames[entry.subject] })) }));
+    if (mode === 'exam') {
+      const exams = new Map<string, { exam: ReturnType<typeof normalizeArchiveExam>; group: Group }>();
+      entries.forEach(entry => { const normalized = normalizeArchiveExam(entry), current = exams.get(normalized.groupKey) || { exam: normalized, group: { id: normalized.groupKey, label: normalized.displayName, entries: [] } }; current.group.entries.push(entry); exams.set(normalized.groupKey, current); });
+      const subjectOrder = ['korean', 'math', 'english'];
+      return [...exams.values()].sort((left, right) => compareArchiveExams(left.exam, right.exam)).map(({ group }) => {
+        const ordered = [...group.entries].sort(compareArchiveEntries);
+        const children = groupBy(ordered, entry => ({ id: `${group.id}:subject:${entry.subject}`, label: subjectNames[entry.subject] })).sort((left, right) => subjectOrder.indexOf(left.id.split(':').pop()!) - subjectOrder.indexOf(right.id.split(':').pop()!)).map(child => ({ ...child, entries: [...child.entries].sort(compareArchiveEntries) }));
+        return { ...group, entries: ordered, children };
+      });
+    }
     return groupBy(entries, entry => ({ id: `subject:${entry.subject}`, label: subjectNames[entry.subject] })).map(group => {
       if (group.id !== 'subject:korean') {
         const direct = group.entries.filter(entry => !entry.subcategory.trim());

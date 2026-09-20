@@ -30,6 +30,10 @@ test('Core Rules use the same document archive interaction model as Learning Arc
   assert.match(archive,/selectedRule/);
   assert.match(archive,/ruleEditorOpen/);
   assert.match(archive,/연결 문서/);
+  assert.match(archive,/const loadRules=async/);
+  assert.match(archive,/ruleError/);
+  assert.match(archive,/다시 불러오기/);
+  assert.doesNotMatch(archive,/Promise\.all\(\[archiveApi<ArchivePage>\([\s\S]*?archive\/rules/);
   assert.doesNotMatch(archive,/core-rule-workspace/);
   assert.match(styles,/\.core-rule-document-list\{display:block;width:100%\}/);
 });

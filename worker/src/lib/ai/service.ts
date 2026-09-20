@@ -2,7 +2,7 @@ import { NvidiaKimiProvider, type NvidiaKimiConfig } from './providers/nvidia-ki
 import { LocalQwenProvider, type LocalQwenConfig } from './providers/local-qwen.ts';
 import { AIProviderError, type AIProvider, type ChatMessage } from './types.ts';
 
-export type AIOperation = 'study-analysis' | 'teacher-feedback-summary' | 'arena-coach' | 'chat';
+export type AIOperation = 'study-analysis' | 'teacher-feedback-summary' | 'arena-coach' | 'wrong-answer-graph' | 'chat';
 
 export interface AIServiceConfig extends NvidiaKimiConfig, LocalQwenConfig {
   provider?: string;

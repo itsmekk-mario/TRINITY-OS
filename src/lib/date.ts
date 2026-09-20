@@ -25,4 +25,10 @@ export const weekStartKey = (date = new Date()) => {
   value.setUTCDate(value.getUTCDate() - day + 1);
   return toDateKey(value);
 };
+/**
+ * Keep a weekly screen on the current week after a rollover, without pulling
+ * someone away when they intentionally navigated to a different week.
+ */
+export const shouldAutoAdvanceWeek = (selectedWeekStart: string, previousCurrentWeekStart: string, currentWeekStart: string) =>
+  selectedWeekStart === previousCurrentWeekStart && currentWeekStart !== previousCurrentWeekStart;
 export const uid = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
