@@ -1,41 +1,30 @@
 import { useState } from 'react';
-import { ArrowDown, ArrowUp, Minus, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Minus, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { AppData, Resource, Subject } from '../types';
 import { SUBJECTS } from '../data/config';
 import { Card, PageHeader, Progress } from '../components/Ui';
 import { uid } from '../lib/date';
+import { formatResourceDeadline, normalizeResourceDueDate, sortResourcesByDeadline } from '../lib/resourceDeadline';
+
+type Draft = { subject: Subject; group: string; name: string; total: number; dueDate: string };
+const emptyDraft = (): Draft => ({ subject: '국어', group: '', name: '', total: 1, dueDate: '' });
 
 export default function Resources({ data, update }: { data: AppData; update: (fn: (value: AppData) => AppData) => void }) {
   const [filter, setFilter] = useState<Subject | '전체'>('전체');
-  const [sort, setSort] = useState<'custom' | 'subject' | 'name' | 'progress'>('custom');
-  const filtered = filter === '전체' ? data.resources : data.resources.filter((r) => r.subject === filter);
-  const resources = [...filtered].sort((a, b) => {
-    if (sort === 'subject') return a.subject.localeCompare(b.subject, 'ko') || a.name.localeCompare(b.name, 'ko');
-    if (sort === 'name') return a.name.localeCompare(b.name, 'ko');
-    if (sort === 'progress') return (b.done / b.total) - (a.done / a.total) || a.name.localeCompare(b.name, 'ko');
-    return 0;
-  });
-  const [draft,setDraft]=useState({subject:'국어' as Subject,group:'',name:'',total:1});
-  const change = (item: Resource, amount: number) => update((value) => ({ ...value, resources: value.resources.map((r) => r.id === item.id ? { ...r, done: Math.max(0, Math.min(r.total, r.done + amount)) } : r) }));
-  const total = resources.reduce((a,r)=>a+r.total,0), done=resources.reduce((a,r)=>a+r.done,0);
-  const add=()=>{if(!draft.name.trim())return;update(v=>({...v,resources:[...v.resources,{...draft,id:uid(),done:0,total:Math.max(1,draft.total)}]}));setDraft({subject:'국어',group:'',name:'',total:1})};
-  const move = (item: Resource, direction: -1 | 1) => {
-    const current = filtered.findIndex((resource) => resource.id === item.id);
-    const target = current + direction;
-    if (target < 0 || target >= filtered.length) return;
-    const other = filtered[target];
-    update((value) => {
-      const next = [...value.resources];
-      const firstIndex = next.findIndex((resource) => resource.id === item.id);
-      const secondIndex = next.findIndex((resource) => resource.id === other.id);
-      [next[firstIndex], next[secondIndex]] = [next[secondIndex], next[firstIndex]];
-      return { ...value, resources: next };
-    });
-  };
-  return <div><PageHeader eyebrow="RESOURCE DATABASE" title="학습 자원 현황" description="보유량과 실제 완료량을 분리해, 막연한 진도 감각을 수치로 바꿉니다." />
-    <Card className="resource-summary"><div><span className="card-label">선택 범위 진행률</span><strong>{done} / {total}</strong></div><Progress value={done} max={total} /></Card><div className="filter-tabs">{(['전체',...SUBJECTS] as const).map((x)=><button key={x} onClick={()=>setFilter(x)} className={filter===x?'active':''}>{x}</button>)}</div>
-    <div className="list-toolbar"><span>표시 순서</span><select value={sort} onChange={(event) => setSort(event.target.value as typeof sort)}><option value="custom">직접 정렬</option><option value="subject">과목순</option><option value="name">이름순</option><option value="progress">진행률순</option></select>{sort !== 'custom' && <small>직접 이동은 ‘직접 정렬’에서 사용할 수 있습니다.</small>}</div>
-    <div className="resource-grid">{resources.map((r,index)=><Card key={r.id} className="resource-card"><div className="resource-head"><span className={`subject-badge ${r.subject}`}>{r.subject} · {r.group}</span><span><b>{Math.round(r.done/r.total*100)}%</b><div className="order-actions"><button aria-label="위로 이동" disabled={sort !== 'custom' || index === 0} onClick={()=>move(r,-1)}><ArrowUp size={14}/></button><button aria-label="아래로 이동" disabled={sort !== 'custom' || index === resources.length - 1} onClick={()=>move(r,1)}><ArrowDown size={14}/></button><button className="resource-delete" aria-label="자료 삭제" onClick={()=>update(v=>({...v,resources:v.resources.filter(x=>x.id!==r.id)}))}><Trash2 size={14}/></button></div></span></div><h3>{r.name}</h3><Progress value={r.done} max={r.total}/><div className="stepper"><button onClick={()=>change(r,-1)} disabled={!r.done}><Minus size={17}/></button><strong>{r.done}<small> / {r.total}</small></strong><button onClick={()=>change(r,1)} disabled={r.done>=r.total}><Plus size={17}/></button></div></Card>)}</div>
-    <Card className="resource-add"><h2>자료 추가</h2><div className="resource-add-grid"><select value={draft.subject} onChange={e=>setDraft({...draft,subject:e.target.value as Subject})}>{SUBJECTS.map(s=><option key={s}>{s}</option>)}</select><input value={draft.group} onChange={e=>setDraft({...draft,group:e.target.value})} placeholder="분류 (예: 수1)"/><input value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})} placeholder="자료명"/><input type="number" min="1" value={draft.total} onChange={e=>setDraft({...draft,total:Number(e.target.value)})}/><button className="button primary" onClick={add}><Plus size={16}/>추가</button></div></Card>
+  const [sort, setSort] = useState<'custom' | 'due' | 'subject' | 'progress'>('custom');
+  const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [editing, setEditing] = useState<string | null>(null);
+  const filtered = filter === '전체' ? data.resources : data.resources.filter(resource => resource.subject === filter);
+  const resources = sort === 'due' ? sortResourcesByDeadline(filtered) : [...filtered].sort((a, b) => sort === 'subject' ? a.subject.localeCompare(b.subject, 'ko') || a.name.localeCompare(b.name, 'ko') : sort === 'progress' ? b.done / b.total - a.done / a.total || a.name.localeCompare(b.name, 'ko') : 0);
+  const change = (item: Resource, amount: number) => update(value => ({ ...value, resources: value.resources.map(resource => resource.id === item.id ? { ...resource, done: Math.max(0, Math.min(resource.total, resource.done + amount)) } : resource) }));
+  const add = () => { if (!draft.name.trim()) return; const dueDate = normalizeResourceDueDate(draft.dueDate); update(value => ({ ...value, resources: [...value.resources, { id: uid(), subject: draft.subject, group: draft.group, name: draft.name.trim(), total: Math.max(1, draft.total), done: 0, ...(dueDate ? { dueDate } : {}) }] })); setDraft(emptyDraft()); };
+  const move = (item: Resource, direction: -1 | 1) => { const current = filtered.findIndex(resource => resource.id === item.id), other = filtered[current + direction]; if (!other) return; update(value => { const next = [...value.resources], first = next.findIndex(resource => resource.id === item.id), second = next.findIndex(resource => resource.id === other.id); [next[first], next[second]] = [next[second], next[first]]; return { ...value, resources: next }; }); };
+  const saveEdit = (resource: Resource, form: HTMLFormElement) => { const fields = new FormData(form), total = Math.max(1, Number(fields.get('total')) || resource.total), dueDate = normalizeResourceDueDate(String(fields.get('dueDate') ?? '')); update(value => ({ ...value, resources: value.resources.map(item => item.id === resource.id ? { ...item, subject: fields.get('subject') as Subject, group: String(fields.get('group') ?? ''), name: String(fields.get('name') ?? '').trim() || item.name, total, done: Math.max(0, Math.min(total, Number(fields.get('done')) || 0)), ...(dueDate ? { dueDate } : { dueDate: undefined }) } : item) })); setEditing(null); };
+  const total = resources.reduce((sum, resource) => sum + resource.total, 0), done = resources.reduce((sum, resource) => sum + resource.done, 0);
+  return <div><PageHeader eyebrow="RESOURCE DATABASE" title="학습 자원 현황" description="교재 진도와 선택형 마감일을 함께 관리합니다." />
+    <Card className="resource-summary"><div><span className="card-label">선택 범위 진행률</span><strong>{done} / {total}</strong></div><Progress value={done} max={total} /></Card><div className="filter-tabs">{(['전체', ...SUBJECTS] as const).map(value => <button key={value} onClick={() => setFilter(value)} className={filter === value ? 'active' : ''}>{value}</button>)}</div>
+    <div className="list-toolbar"><span>표시 순서</span><select value={sort} onChange={event => setSort(event.target.value as typeof sort)}><option value="custom">기본</option><option value="due">마감 임박순</option><option value="progress">진행률순</option><option value="subject">과목별</option></select>{sort !== 'custom' && <small>직접 이동은 ‘기본’에서 사용할 수 있습니다.</small>}</div>
+    <div className="resource-grid">{resources.map((resource, index) => editing === resource.id ? <Card key={resource.id} className="resource-card"><form className="resource-edit-form" onSubmit={event => { event.preventDefault(); saveEdit(resource, event.currentTarget); }}><select name="subject" defaultValue={resource.subject}>{SUBJECTS.map(subject => <option key={subject}>{subject}</option>)}</select><input name="group" defaultValue={resource.group} placeholder="분류"/><input name="name" defaultValue={resource.name} placeholder="자료명" required/><input name="total" type="number" min="1" defaultValue={resource.total}/><input name="done" type="number" min="0" max={resource.total} defaultValue={resource.done}/><label>마감일 (선택)<input name="dueDate" type="date" defaultValue={resource.dueDate ?? ''}/></label><div className="resource-edit-actions"><button type="button" className="button" onClick={() => setEditing(null)}>취소</button><button className="button primary">저장</button></div></form></Card> : <Card key={resource.id} className="resource-card"><div className="resource-head"><span className={`subject-badge ${resource.subject}`}>{resource.subject} · {resource.group}</span><span><b>{Math.round(resource.done / resource.total * 100)}%</b><div className="order-actions"><button aria-label="수정" onClick={() => setEditing(resource.id)}><Pencil size={14}/></button><button aria-label="위로 이동" disabled={sort !== 'custom' || index === 0} onClick={() => move(resource, -1)}><ArrowUp size={14}/></button><button aria-label="아래로 이동" disabled={sort !== 'custom' || index === resources.length - 1} onClick={() => move(resource, 1)}><ArrowDown size={14}/></button><button className="resource-delete" aria-label="자료 삭제" onClick={() => update(value => ({ ...value, resources: value.resources.filter(item => item.id !== resource.id) }))}><Trash2 size={14}/></button></div></span></div><h3>{resource.name}</h3>{formatResourceDeadline(resource) && <p className="resource-deadline">{formatResourceDeadline(resource)}</p>}<Progress value={resource.done} max={resource.total}/><div className="stepper"><button onClick={() => change(resource, -1)} disabled={!resource.done}><Minus size={17}/></button><strong>{resource.done}<small> / {resource.total}</small></strong><button onClick={() => change(resource, 1)} disabled={resource.done >= resource.total}><Plus size={17}/></button></div></Card>)}</div>
+    <Card className="resource-add"><h2>자료 추가</h2><div className="resource-add-grid"><select value={draft.subject} onChange={event => setDraft({ ...draft, subject: event.target.value as Subject })}>{SUBJECTS.map(subject => <option key={subject}>{subject}</option>)}</select><input value={draft.group} onChange={event => setDraft({ ...draft, group: event.target.value })} placeholder="분류 (예: 수1)"/><input value={draft.name} onChange={event => setDraft({ ...draft, name: event.target.value })} placeholder="자료명"/><input type="number" min="1" value={draft.total} onChange={event => setDraft({ ...draft, total: Number(event.target.value) })}/><input type="date" aria-label="마감일 (선택)" value={draft.dueDate} onChange={event => setDraft({ ...draft, dueDate: event.target.value })}/><button className="button primary" onClick={add}><Plus size={16}/>추가</button></div></Card>
   </div>;
 }

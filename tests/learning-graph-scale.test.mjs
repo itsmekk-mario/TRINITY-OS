@@ -36,7 +36,7 @@ const callIntel=(DB,userId,path,init={})=>learningIntelligence(new Request(`http
 test('fresh schema contains the complete Learning Graph core tables',()=>{
   const {raw}=env();
   const names=new Set(raw.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(row=>row.name));
-  for(const name of ['archive_entries','archive_annotations','core_rules','archive_entry_core_rules','archive_reviews','archive_wrong_answer_links','wrong_answers','learning_drills','core_rule_drill_links','core_rule_wrong_answer_links','learning_reviews','core_rule_evidence'])
+  for(const name of ['archive_entries','archive_annotations','core_rules','archive_entry_core_rules','archive_reviews','archive_wrong_answer_links','wrong_answers','learning_drills','core_rule_drill_links','core_rule_wrong_answer_links','learning_reviews','quick_capture_requests','core_rule_evidence'])
     assert(names.has(name),`missing ${name}`);
 });
 

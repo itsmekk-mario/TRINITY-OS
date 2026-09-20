@@ -417,6 +417,16 @@ CREATE INDEX IF NOT EXISTS learning_reviews_user_target ON learning_reviews(user
 CREATE INDEX IF NOT EXISTS learning_reviews_user_schedule ON learning_reviews(user_id,result,scheduled_at);
 CREATE INDEX IF NOT EXISTS learning_reviews_user_reviewed ON learning_reviews(user_id,target_type,target_id,reviewed_at DESC);
 
+CREATE TABLE IF NOT EXISTS quick_capture_requests (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  request_id TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('processing','completed','failed')),
+  result_json TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY(user_id, request_id)
+);
+
 CREATE TABLE IF NOT EXISTS core_rule_evidence (
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -438,4 +448,3 @@ CREATE TABLE IF NOT EXISTS learning_graph_user_state (
   projected_at TEXT NOT NULL,
   legacy_evidence_backfilled INTEGER NOT NULL DEFAULT 0
 );
-

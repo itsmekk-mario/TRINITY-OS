@@ -1,5 +1,5 @@
-import { useEffect,useMemo,useState } from 'react';
-import { Activity,AlertTriangle,BookOpen,CheckCircle2,Clock3,RefreshCw,Target } from 'lucide-react';
+import { useEffect,useMemo,useRef,useState } from 'react';
+import { Activity,AlertTriangle,BookOpen,CheckCircle2,Clock3,FileSearch,RefreshCw,Target } from 'lucide-react';
 import { Card,Empty } from '../Ui';
 import {
   archiveApi,
@@ -11,6 +11,7 @@ import {
   type CoreRuleStatus,
   type RuleRelation,
 } from '../../lib/archiveApi';
+import { getCurrentStudyDay } from '../../lib/date';
 
 const subjects:{id:''|ArchiveSubject;label:string}[]=[
   {id:'',label:'전체'},
@@ -31,7 +32,9 @@ const formatDate=(value:string|null|undefined)=>{
 };
 const pct=(value:number|null)=>value===null?'—':`${Math.round(value*100)}%`;
 
-export default function CoreRuleIntelligencePanel({onEditRule}:{onEditRule:(rule:CoreRule)=>void}){
+type ActionPanel='wrongAnswers'|'drills'|null;
+
+export default function CoreRuleIntelligencePanel({onEditRule,onOpenReviewQueue}:{onEditRule:(rule:CoreRule)=>void;onOpenReviewQueue:()=>void}){
   const [subject,setSubject]=useState<''|ArchiveSubject>('');
   const [rules,setRules]=useState<ActiveCoreRule[]>([]);
   const [selectedId,setSelectedId]=useState('');
@@ -39,6 +42,9 @@ export default function CoreRuleIntelligencePanel({onEditRule}:{onEditRule:(rule
   const [loading,setLoading]=useState(false);
   const [detailLoading,setDetailLoading]=useState(false);
   const [error,setError]=useState('');
+  const [actionPanel,setActionPanel]=useState<ActionPanel>(null);
+  const [reviewBusy,setReviewBusy]=useState(false);
+  const evidenceRef=useRef<HTMLDivElement>(null);
 
   const load=async()=>{
     setLoading(true);setError('');
@@ -58,7 +64,7 @@ export default function CoreRuleIntelligencePanel({onEditRule}:{onEditRule:(rule
     if(!selectedId){setDetail(null);return}
     let active=true;setDetailLoading(true);setError('');
     archiveApi<CoreRuleIntelligence>(`/api/core-rules/${encodeURIComponent(selectedId)}/intelligence`)
-      .then(value=>{if(active)setDetail(value)})
+      .then(value=>{if(active){setDetail(value);setActionPanel(null)}})
       .catch(cause=>{if(active)setError(cause instanceof Error?cause.message:'Core Rule 상세 정보를 불러오지 못했습니다.')})
       .finally(()=>{if(active)setDetailLoading(false)});
     return()=>{active=false};
@@ -66,6 +72,18 @@ export default function CoreRuleIntelligencePanel({onEditRule}:{onEditRule:(rule
 
   const activeCount=useMemo(()=>rules.filter(rule=>rule.status==='ACTIVE').length,[rules]);
   const watchCount=useMemo(()=>rules.filter(rule=>rule.status==='WATCH').length,[rules]);
+  const openReview=async()=>{
+    if(!detail?.coreRule||reviewBusy)return;
+    const alreadyQueued=detail.reviews.some(review=>review.result==='pending');
+    if(alreadyQueued){onOpenReviewQueue();return}
+    setReviewBusy(true);setError('');
+    try{
+      await archiveApi('/api/learning-intelligence/reviews','POST',{
+        targetType:'core_rule',targetId:detail.coreRule.id,reviewType:'active_rule',scheduledAt:`${getCurrentStudyDay()}T06:00:00+09:00`,result:'pending',
+      });
+      onOpenReviewQueue();
+    }catch(cause){setError(cause instanceof Error?cause.message:'Review Queue에 추가하지 못했습니다.')}finally{setReviewBusy(false)}
+  };
 
   return <div className="intelligence-workspace">
     <section className="intelligence-overview">
@@ -106,8 +124,19 @@ export default function CoreRuleIntelligencePanel({onEditRule}:{onEditRule:(rule
             <h2>{detail.coreRule.title}</h2>
             <p>{detail.coreRule.content}</p>
           </div>
-          <button className="button" onClick={()=>detail.coreRule&&onEditRule(detail.coreRule)}>규칙 수정</button>
+          <div className="intelligence-head-actions"><button className="button" onClick={()=>detail.coreRule&&onEditRule(detail.coreRule)}>규칙 수정</button></div>
         </header>
+        <section className="intelligence-actions" aria-label="Core Rule 행동">
+          <div><span className="eyebrow">NEXT ACTION</span><p>지식 객체인 Rule 자체를 완료 처리하지 않고, 관련 기록과 재현 행동으로 검증합니다.</p></div>
+          <div className="intelligence-action-buttons">
+            <button className="button" onClick={()=>setActionPanel(current=>current==='wrongAnswers'?null:'wrongAnswers')}><FileSearch size={14}/>관련 오답 보기 · {detail.wrongAnswers.length}</button>
+            <button className="button primary" disabled={reviewBusy} onClick={()=>void openReview()}><RefreshCw size={14}/>{detail.reviews.some(review=>review.result==='pending')?'Review 열기':'Review'}</button>
+            <button className="button" onClick={()=>setActionPanel(current=>current==='drills'?null:'drills')}><Target size={14}/>Drill · {detail.drills.length}</button>
+            <button className="button" onClick={()=>evidenceRef.current?.scrollIntoView({behavior:'smooth',block:'start'})}><BookOpen size={14}/>Evidence</button>
+          </div>
+        </section>
+        {actionPanel==='wrongAnswers'&&<section className="intelligence-linked-records"><div className="section-title"><h3>관련 Wrong Answer</h3><span>{detail.wrongAnswers.length}개</span></div>{detail.wrongAnswers.length?<div className="linked-record-list">{detail.wrongAnswers.map(item=><article key={item.id}><span>{item.date} · {item.source}</span><b>{item.question||'문항 미입력'}</b><p><strong>잘못된 판단</strong> {item.wrongJudgment||'미기록'}</p><p><strong>놓친 단서</strong> {item.missedCue||'미기록'}</p><p><strong>교정 행동</strong> {item.correction||'미기록'}</p></article>)}</div>:<p className="archive-empty-copy">이 Rule에 연결된 Wrong Answer가 없습니다.</p>}</section>}
+        {actionPanel==='drills'&&<section className="intelligence-linked-records"><div className="section-title"><h3>관련 Drill</h3><span>{detail.drills.length}개</span></div>{detail.drills.length?<div className="linked-record-list">{detail.drills.map(item=><article key={item.id}><span>{item.date} · {item.minutes}분 · {item.done?'실행 완료':'미완료'}</span><b>{item.title||'Drill'}</b><p><strong>교정 행동</strong> {item.action||'미기록'}</p><p><strong>성공 기준</strong> {item.successCriterion||'미기록'}</p></article>)}</div>:<p className="archive-empty-copy">이 Rule에 연결된 Drill이 없습니다.</p>}</section>}
         <div className="intelligence-stat-grid">
           <Card><span>최근 7일 실패</span><b>{detail.stats.failures7d}</b></Card>
           <Card><span>최근 30일 실패</span><b>{detail.stats.failures30d}</b></Card>
@@ -118,7 +147,7 @@ export default function CoreRuleIntelligencePanel({onEditRule}:{onEditRule:(rule
           <Card><span>Mastery Rate</span><b>{pct(detail.stats.masteryRate)}</b></Card>
           <Card><span>Evidence</span><b>{detail.stats.evidenceCount}</b></Card>
         </div>
-        <div className="intelligence-evidence">
+        <div className="intelligence-evidence" ref={evidenceRef}>
           <div className="section-title"><div><span className="eyebrow">TRACE</span><h3>Evidence Timeline</h3></div><span>{detail.evidence.length} events</span></div>
           {detail.evidence.length?<div className="evidence-list">{detail.evidence.map((event,index)=><article key={`${event.sourceType}-${event.sourceId}-${event.relationType}-${index}`}>
             <span className={`evidence-icon ${event.relationType}`}>{event.relationType==='failed'?<AlertTriangle size={14}/>:event.relationType==='reinforced'?<CheckCircle2 size={14}/>:event.sourceType==='archive'?<BookOpen size={14}/>:<Activity size={14}/>}</span>

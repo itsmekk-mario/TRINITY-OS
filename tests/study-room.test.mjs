@@ -28,7 +28,7 @@ test('LiveKit JWT is short-lived, correctly signed, room-bound, and least-privil
     canPublish: true,
     canSubscribe: true,
     canPublishData: false,
-    canPublishSources: ['camera', 'microphone'],
+    canPublishSources: ['camera', 'microphone', 'screen_share', 'screen_share_audio'],
   });
   assert.equal(
     signature,

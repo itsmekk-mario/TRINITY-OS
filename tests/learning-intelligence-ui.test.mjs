@@ -14,6 +14,14 @@ test('Learning Intelligence UI exposes active rules, priority and evidence',()=>
   assert.match(panel,/failures7d/);
 });
 
+test('Active Core Rules connect evidence, linked records, and the unified Review Queue',()=>{
+  assert.match(panel,/관련 오답 보기/);
+  assert.match(panel,/Drill/);
+  assert.match(panel,/onOpenReviewQueue/);
+  assert.match(panel,/learning-intelligence\/reviews/);
+  assert.match(archive,/insights:review/);
+});
+
 test('Wrong Answers UI supports subject, source and time grouping',()=>{
   assert.match(train,/'source'/);
   assert.match(train,/'time'/);

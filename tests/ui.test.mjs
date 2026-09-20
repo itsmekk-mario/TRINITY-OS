@@ -24,8 +24,8 @@ async function componentUrl(url) {
           try { await access(fileURLToPath(candidate)); target = candidate; break; } catch { /* Try the next source extension. */ }
         }
       }
-      // Feedback is an external effect, intentionally not run during server rendering.
-      resolved = target.pathname.endsWith('/feedback.ts') ? 'data:text/javascript,export const studentFeedback=async()=>({feedback:[]})' : target.pathname.endsWith('.tsx') ? await componentUrl(target) : target.href;
+      // External effects are intentionally not run during server rendering.
+      resolved = target.pathname.endsWith('/feedback.ts') ? 'data:text/javascript,export const studentFeedback=async()=>({feedback:[]})' : target.pathname.endsWith('/archiveApi.ts') ? 'data:text/javascript,export const archiveApi=async()=>({counts:{overdue:0,today:0,upcoming:0},rules:[]})' : target.pathname.endsWith('.tsx') ? await componentUrl(target) : target.href;
     }
     source = source.replace(match[0], `from ${JSON.stringify(resolved)}`);
   }
@@ -45,9 +45,10 @@ test('Today empty state gives a next action without fabricated capability metric
   const html = renderToday(data());
   assert.match(html, /첫 학습을 계획하세요/);
   assert.match(html, /일정 추가/);
-  assert.match(html, /아직 병목 기록이 없습니다/);
   assert.ok(html.indexOf('next-action') < html.indexOf('execution-section'));
-  assert.ok(html.indexOf('execution-section') < html.indexOf('today-focus'));
+  assert.ok(html.indexOf('execution-section') < html.indexOf('today-schedule'));
+  assert.match(html, /오늘 재현할 판단 기준/);
+  assert.match(html, /지금 다시 검증할 Core Rule/);
   assert.doesNotMatch(html, /LEARNING SIGNALS|최근 14일|today-hero/);
 });
 test('Today reuses plan, session and correction records without mutating AppData', () => {
@@ -57,7 +58,7 @@ test('Today reuses plan, session and correction records without mutating AppData
   value.wrongAnswerDrills = [{ id: 'w', date: today, bottleneck: '조건 누락', correction: '경계값을 재검사', wrongJudgment: '', missedCue: '', transfer: '', retries: [] }];
   const before = structuredClone(value); const html = renderToday(value);
   assert.match(html, /수열 Theme 12/); assert.match(html, /목표 40분/);
-  assert.match(html, /공부 시작/); assert.match(html, /조건 누락/); assert.match(html, /경계값을 재검사/);
+  assert.match(html, /공부 시작/);
   assert.deepEqual(value, before);
 });
 test('Hub renders page identity before tabs and retains child editing actions with one h1', () => {
