@@ -11,6 +11,7 @@ import {
   wrongAnswerDto,
   wrongAnswerExists,
 } from './learning-graph.ts';
+import { writeLearningStateAndProjection } from './learning-state.ts';
 
 type Env={DB:D1Database};
 type User={id:number}|null;
@@ -36,6 +37,24 @@ const coreRuleDto=(r:Record<string,unknown>)=>({
   usageCount:Number(r.usage_count??0),relationType:r.relation_type??undefined,
 });
 const reviewRelation=(result:string):RuleRelation=>result==='success'?'reinforced':result==='fail'?'failed':'applied';
+const archiveSubjects=['korean','math','english'] as const;
+const appSubject=(subject:string)=>subject==='korean'?'국어':subject==='math'?'수학':'영어';
+const dateOnly=(value:string)=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(`${value}T12:00:00Z`));
+const isoDate=(value:string)=>Boolean(value)&&Number.isFinite(Date.parse(value));
+const object=(value:unknown)=>value&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:null;
+
+type CaptureResult={stage:'validated'|'state_written'|'relations_written'|'completed'|'failed';wrongAnswerId:string;coreRuleId:string|null;drillId:string|null;reviewId:string|null;archiveEntryId:string|null};
+const captureResult=(value:unknown):CaptureResult|null=>{
+  const row=object(typeof value==='string'?parse<unknown>(value,{}):value); if(!row||typeof row.wrongAnswerId!=='string')return null;
+  const stage=clean(row.stage,30); if(!['validated','state_written','relations_written','completed','failed'].includes(stage))return null;
+  return {stage:stage as CaptureResult['stage'],wrongAnswerId:row.wrongAnswerId,coreRuleId:typeof row.coreRuleId==='string'?row.coreRuleId:null,drillId:typeof row.drillId==='string'?row.drillId:null,reviewId:typeof row.reviewId==='string'?row.reviewId:null,archiveEntryId:typeof row.archiveEntryId==='string'?row.archiveEntryId:null};
+};
+async function saveCaptureRequest(db:D1Database,userId:number,requestId:string,status:'processing'|'completed'|'failed',result:CaptureResult){
+  const now=new Date().toISOString();
+  await db.prepare(`INSERT INTO quick_capture_requests(user_id,request_id,status,result_json,created_at,updated_at) VALUES(?,?,?,?,?,?)
+    ON CONFLICT(user_id,request_id) DO UPDATE SET status=excluded.status,result_json=excluded.result_json,updated_at=excluded.updated_at`)
+    .bind(userId,requestId,status,JSON.stringify(result),now,now).run();
+}
 
 async function ruleIdsForTarget(db:D1Database,userId:number,type:string,id:string){
   if(type==='core_rule')return [id];
@@ -67,6 +86,87 @@ export async function learningIntelligence(request:Request,env:Env,user:User,ori
   if(!user)return error(out,'UNAUTHORIZED','Unauthorized',401);
 
   await ensureLearningGraphReady(env.DB,user.id);
+
+  if(path==='/api/learning-intelligence/quick-capture'&&request.method==='POST'){
+    const body=await h.boundedJson<Record<string,unknown>>(request);
+    const requestId=clean(body.requestId,100),subject=clean(body.subject,20),date=clean(body.date,20);
+    const source=clean(body.source,240),question=clean(body.question,240),wrongJudgment=clean(body.wrongJudgment,5000);
+    const missedCue=clean(body.missedCue,5000),correction=clean(body.correction,5000),bottleneck=clean(body.bottleneck,120),transfer=clean(body.transfer,5000);
+    const core=object(body.coreRule),mode=clean(core?.mode,20)||'none',archiveEntryId=clean(body.archiveEntryId,100)||null;
+    const review=object(body.review),drill=object(body.drill);
+    if(!requestId||!archiveSubjects.includes(subject as typeof archiveSubjects[number])||!dateOnly(date)||!wrongJudgment||!missedCue||!correction)
+      return error(out,'INVALID_QUICK_CAPTURE','필수 입력값을 확인해 주세요.',400);
+    const completedRequest=await env.DB.prepare('SELECT status,result_json FROM quick_capture_requests WHERE user_id=? AND request_id=?').bind(user.id,requestId).first<{status:string;result_json:string}>();
+    const completedResult=captureResult(completedRequest?.result_json);
+    if(completedResult?.stage==='completed')return out({ok:true,reused:true,...completedResult});
+    if(!['none','existing','new'].includes(mode))return error(out,'INVALID_CORE_RULE_MODE','Core Rule 선택을 확인해 주세요.',400);
+    const existingRuleId=clean(core?.id,100),newTitle=clean(core?.title,240),newContent=clean(core?.content,5000);
+    let selectedRule:Record<string,unknown>|null=null;
+    if(mode==='existing'){
+      selectedRule=await env.DB.prepare('SELECT id,subject FROM core_rules WHERE id=? AND user_id=?').bind(existingRuleId,user.id).first<Record<string,unknown>>();
+      if(!selectedRule)return error(out,'CORE_RULE_NOT_FOUND','선택한 Core Rule을 찾을 수 없습니다.',404);
+      if(selectedRule.subject!==subject)return error(out,'CORE_RULE_SUBJECT_MISMATCH','Core Rule 과목이 일치하지 않습니다.',400);
+    }
+    if(mode==='new'&&(!newTitle||!newContent))return error(out,'INVALID_NEW_CORE_RULE','새 Core Rule의 제목과 내용을 입력해 주세요.',400);
+    let archive:Record<string,unknown>|null=null;
+    if(archiveEntryId){
+      archive=await env.DB.prepare('SELECT id,subject FROM archive_entries WHERE id=? AND user_id=?').bind(archiveEntryId,user.id).first<Record<string,unknown>>();
+      if(!archive)return error(out,'ARCHIVE_NOT_FOUND','선택한 Learning Archive를 찾을 수 없습니다.',404);
+      if(archive.subject!==subject)return error(out,'ARCHIVE_SUBJECT_MISMATCH','Learning Archive 과목이 일치하지 않습니다.',400);
+      const linked=await env.DB.prepare('SELECT wrong_answer_id FROM archive_wrong_answer_links WHERE archive_entry_id=? AND user_id=?').bind(archiveEntryId,user.id).first<{wrong_answer_id:string}>();
+      const priorForLink=await env.DB.prepare('SELECT result_json FROM quick_capture_requests WHERE user_id=? AND request_id=?').bind(user.id,requestId).first<{result_json:string}>();
+      if(linked&&captureResult(priorForLink?.result_json)?.wrongAnswerId!==linked.wrong_answer_id)return error(out,'ARCHIVE_ALREADY_LINKED','이 Learning Archive에는 이미 Wrong Answer가 연결되어 있습니다.',409);
+    }
+    const scheduledAt=clean(review?.scheduledAt,40),reviewNotes=clean(review?.notes,3000);
+    if(review&&review.enabled===true&&!isoDate(scheduledAt))return error(out,'INVALID_REVIEW_DATE','Review 날짜를 확인해 주세요.',400);
+    const drillEnabled=drill?.enabled===true,drillTitle=clean(drill?.title,240),drillAction=clean(drill?.action,5000),drillSuccess=clean(drill?.successCriterion,3000),rawDrillMinutes=Number(drill?.minutes),drillMinutes=Math.max(1,Math.min(360,rawDrillMinutes));
+    if(drillEnabled&&(!Number.isFinite(rawDrillMinutes)||rawDrillMinutes<1||rawDrillMinutes>360))return error(out,'INVALID_DRILL','Invalid Drill payload',400);
+    if(drillEnabled&&(!drillTitle||!drillAction||!drillSuccess||!Number.isFinite(drillMinutes)))return error(out,'INVALID_DRILL','Drill 입력을 확인해 주세요.',400);
+
+    const prior=await env.DB.prepare('SELECT status,result_json FROM quick_capture_requests WHERE user_id=? AND request_id=?').bind(user.id,requestId).first<{status:string;result_json:string}>();
+    let result=prior?captureResult(prior.result_json):null;
+    if(prior?.status==='completed'&&result)return out({ok:true,reused:true,...result});
+    if(!result){
+      result={stage:'validated',wrongAnswerId:h.randomHex(16),coreRuleId:mode==='existing'?existingRuleId:mode==='new'?h.randomHex(16):null,drillId:drillEnabled?h.randomHex(16):null,reviewId:review?.enabled===true?h.randomHex(16):null,archiveEntryId};
+      await saveCaptureRequest(env.DB,user.id,requestId,'processing',result);
+    }
+    try{
+      if(result.coreRuleId&&mode==='new')await env.DB.prepare(`INSERT OR IGNORE INTO core_rules(id,user_id,subject,title,content,tags_json,mastery_status,created_at,updated_at)
+        VALUES(?,?,?,?,?,'[]','input',?,?)`).bind(result.coreRuleId,user.id,subject,newTitle,newContent,new Date().toISOString(),new Date().toISOString()).run();
+      const current=await env.DB.prepare('SELECT payload FROM learning_state WHERE user_id=?').bind(user.id).first<{payload:string}>();
+      const app=object(parse<unknown>(current?.payload,{}))??{};
+      const wrongAnswers=Array.isArray(app.wrongAnswerDrills)?app.wrongAnswerDrills.slice():[];
+      if(!wrongAnswers.some(item=>object(item)?.id===result!.wrongAnswerId))wrongAnswers.push({id:result.wrongAnswerId,date,subject:appSubject(subject),source,question,wrongJudgment,missedCue,correction,transfer,bottleneck:bottleneck||undefined,retries:[]});
+      const drills=Array.isArray(app.dailyDrills)?app.dailyDrills.slice():[];
+      if(result.drillId&&!drills.some(item=>object(item)?.id===result!.drillId))drills.push({id:result.drillId,date,subject:appSubject(subject),title:drillTitle,action:drillAction,successCriterion:drillSuccess,minutes:drillMinutes,done:false,reflection:''});
+      const next={...app,wrongAnswerDrills:wrongAnswers,dailyDrills:drills};
+      await writeLearningStateAndProjection(env.DB,user.id,next);
+      result={...result,stage:'state_written'}; await saveCaptureRequest(env.DB,user.id,requestId,'processing',result);
+      const now=new Date().toISOString();
+      if(result.coreRuleId){
+        await env.DB.prepare(`INSERT INTO core_rule_wrong_answer_links(user_id,core_rule_id,wrong_answer_id,relation_type,created_at) VALUES(?,?,?,?,?)
+          ON CONFLICT(core_rule_id,wrong_answer_id) DO UPDATE SET relation_type=excluded.relation_type`).bind(user.id,result.coreRuleId,result.wrongAnswerId,'failed',now).run();
+        await recordCoreRuleEvidence(env.DB,user.id,result.coreRuleId,'wrong_answer',result.wrongAnswerId,'failed',now);
+      }
+      if(result.archiveEntryId)await env.DB.prepare('INSERT OR IGNORE INTO archive_wrong_answer_links(archive_entry_id,user_id,wrong_answer_id,created_at) VALUES(?,?,?,?)').bind(result.archiveEntryId,user.id,result.wrongAnswerId,now).run();
+      if(result.coreRuleId&&result.drillId){
+        await env.DB.prepare('INSERT OR IGNORE INTO core_rule_drill_links(user_id,core_rule_id,drill_id,created_at) VALUES(?,?,?,?)').bind(user.id,result.coreRuleId,result.drillId,now).run();
+        await recordCoreRuleEvidence(env.DB,user.id,result.coreRuleId,'drill',result.drillId,'applied',now);
+      }
+      if(result.reviewId){
+        const targetType=result.coreRuleId?'core_rule':'wrong_answer',targetId=result.coreRuleId??result.wrongAnswerId;
+        await env.DB.prepare(`INSERT OR IGNORE INTO learning_reviews(id,user_id,target_type,target_id,review_type,scheduled_at,reviewed_at,result,notes,created_at,updated_at)
+          VALUES(?,?,?,?,? ,?,NULL,'pending',?,?,?)`).bind(result.reviewId,user.id,targetType,targetId,'retry',scheduledAt,reviewNotes,now,now).run();
+        if(result.coreRuleId)await recordCoreRuleEvidence(env.DB,user.id,result.coreRuleId,'review',result.reviewId,'applied',scheduledAt);
+      }
+      result={...result,stage:'relations_written'}; await saveCaptureRequest(env.DB,user.id,requestId,'processing',result);
+      result={...result,stage:'completed'}; await saveCaptureRequest(env.DB,user.id,requestId,'completed',result);
+      return out({ok:true,reused:false,data:next,...result},201);
+    }catch(cause){
+      if(result)await saveCaptureRequest(env.DB,user.id,requestId,'failed',{...result,stage:'failed'});
+      throw cause;
+    }
+  }
 
   if(path==='/api/learning-intelligence'&&request.method==='GET'){
     const [items,rules,wrong,drills,reviews]=await Promise.all([

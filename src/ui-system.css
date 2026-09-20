@@ -148,6 +148,21 @@ html{scrollbar-gutter:stable}
 .empty h3{margin:0 0 8px;font-size:16px}
 .empty p{color:var(--text-secondary);font-size:13px}
 .empty-action{margin-top:16px}
+.button-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.quick-capture-sheet{width:min(620px,100%)}
+.quick-capture-form{display:grid;gap:14px}
+.quick-capture-form>label,.quick-capture-form fieldset,.quick-capture-options>label{display:grid;gap:6px}
+.quick-capture-form fieldset{min-width:0;margin:0;padding:14px;border:1px solid var(--separator);border-radius:var(--radius-md)}
+.quick-capture-form legend{padding:0 4px;font-size:13px;font-weight:600}
+.quick-capture-mode{display:flex;flex-wrap:wrap;gap:10px 14px;margin-bottom:12px}
+.quick-capture-mode label,.check-row{display:flex!important;align-items:center;gap:7px;font-size:13px}
+.quick-capture-options{display:grid;gap:12px;padding:14px;border-radius:var(--radius-md);background:var(--surface-secondary)}
+.quick-capture-advanced{justify-self:start;min-height:32px}
+.quick-capture-advanced .rotate{transform:rotate(180deg)}
+.quick-capture-summary{display:grid;gap:8px;margin:16px 0;padding:0;list-style:none}
+.quick-capture-summary li{display:flex;align-items:center;gap:8px;font-size:14px}
+.quick-capture-summary li:before{content:'✓';color:var(--success,#277a57);font-weight:700}
+.quick-capture-sheet footer{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--separator)}
 @media(min-width:761px) and (max-width:1180px){
  .learning-shell>aside{width:200px}.learning-shell>main{margin-left:200px}
  .learning-shell .brand{padding-left:4px;padding-right:4px}.learning-shell .brand strong{font-size:15px}.learning-shell .brand span{font-size:10px}
@@ -183,5 +198,6 @@ html{scrollbar-gutter:stable}
  .today-coach>div{display:block}.today-coach .text-button{margin-top:8px}
  .hub-metric-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.hub-metric-grid .card{padding-right:4px}.hub-metric-grid strong{font-size:24px}.hub-metric-grid .card>svg{display:none}
  .detail-sheet{height:min(88dvh,760px);padding-bottom:max(24px,env(safe-area-inset-bottom))}.settings-sheet{height:92dvh}
+ .quick-capture-sheet{width:100%;height:min(92dvh,820px)}.quick-capture-sheet footer .button{flex:1}.quick-capture-mode{display:grid;grid-template-columns:1fr}
 }
 @media(prefers-color-scheme:dark){:root{--accent:#f2f2f4;--accent-pressed:#fff}.learning-shell .button.primary{background:#263d5c}.learning-shell .button.primary:hover{background:#304c70}}

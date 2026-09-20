@@ -8,7 +8,7 @@ import { StudyRoomDurableObject } from './study-room/StudyRoomDurableObject.ts';
 import { connectStudyRoomWebSocket, handleStudyRoomApi } from './study-room/routes.ts';
 import { archive } from './archive.ts';
 import { learningIntelligence } from './learning-intelligence.ts';
-import { syncLearningProjection } from './learning-graph.ts';
+import { writeLearningStateAndProjection } from './learning-state.ts';
 
 export { StudyRoomDurableObject };
 
@@ -31,6 +31,7 @@ async function ensureTables(db: D1Database) { await db.batch([
   db.prepare('CREATE TABLE IF NOT EXISTS api_tokens (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, label TEXT NOT NULL, created_at TEXT NOT NULL, revoked_at TEXT)'),
   db.prepare('CREATE TABLE IF NOT EXISTS learning_state_history (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, payload TEXT NOT NULL, saved_at TEXT NOT NULL)'),
   db.prepare('CREATE TABLE IF NOT EXISTS learning_state (user_id INTEGER PRIMARY KEY, payload TEXT NOT NULL, updated_at TEXT NOT NULL)'),
+  db.prepare("CREATE TABLE IF NOT EXISTS quick_capture_requests (user_id INTEGER NOT NULL,request_id TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('processing','completed','failed')),result_json TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,PRIMARY KEY(user_id,request_id))"),
   db.prepare('CREATE TABLE IF NOT EXISTS ai_cache (cache_key TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, operation TEXT NOT NULL, response TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL)'),
   db.prepare('CREATE TABLE IF NOT EXISTS ai_usage (id TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, operation TEXT NOT NULL, provider TEXT NOT NULL, model TEXT, created_at TEXT NOT NULL, success INTEGER NOT NULL DEFAULT 0, status_code INTEGER)'),
   db.prepare('CREATE TABLE IF NOT EXISTS student_login_attempts (key TEXT PRIMARY KEY,attempts INTEGER NOT NULL,expires_at INTEGER NOT NULL)'),
@@ -41,6 +42,7 @@ async function ensureTables(db: D1Database) { await db.batch([
 ]); await db.batch([
   db.prepare('CREATE INDEX IF NOT EXISTS api_tokens_user_active ON api_tokens(user_id, revoked_at)'),
   db.prepare('CREATE INDEX IF NOT EXISTS learning_state_history_user_saved ON learning_state_history(user_id, saved_at DESC)'),
+  db.prepare('CREATE INDEX IF NOT EXISTS quick_capture_requests_user_updated ON quick_capture_requests(user_id, updated_at DESC)'),
   db.prepare('CREATE INDEX IF NOT EXISTS ai_cache_expiry ON ai_cache(expires_at)'),
   db.prepare('CREATE INDEX IF NOT EXISTS ai_usage_user_created ON ai_usage(user_id, created_at DESC)'),
   db.prepare('CREATE INDEX IF NOT EXISTS ai_usage_created ON ai_usage(created_at DESC)'),
@@ -266,12 +268,8 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
   if (request.method === 'GET') { const row = await env.DB.prepare('SELECT payload,updated_at FROM learning_state WHERE user_id=?').bind(user.id).first<{ payload: string; updated_at: string }>(); return row ? json({ data: JSON.parse(row.payload), updatedAt: row.updated_at }, 200, origin) : json({ data: null, updatedAt: null }, 200, origin); }
   const body = await boundedJson<{ data?: unknown }>(request,MAX_SYNC_BODY); if (!body?.data) return json({ error: 'data is required' }, 400, origin);
   if(!validateAppData(body.data))return json({error:'지원되지 않는 학습 데이터 형식입니다.'},400,origin);
-  const now = new Date().toISOString(); const previous = await env.DB.prepare('SELECT payload FROM learning_state WHERE user_id=?').bind(user.id).first<{ payload: string }>();
-  if (previous) await env.DB.prepare('INSERT INTO learning_state_history(user_id,payload,saved_at) VALUES(?,?,?)').bind(user.id, previous.payload, now).run();
-  await env.DB.prepare('INSERT INTO learning_state(user_id,payload,updated_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at').bind(user.id, JSON.stringify(body.data), now).run();
-  await syncLearningProjection(env.DB,user.id,body.data,now);
-  await env.DB.prepare('DELETE FROM learning_state_history WHERE user_id=? AND id NOT IN (SELECT id FROM learning_state_history WHERE user_id=? ORDER BY id DESC LIMIT 20)').bind(user.id, user.id).run();
-  return json({ ok: true, updatedAt: now }, 200, origin);
+  const { updatedAt } = await writeLearningStateAndProjection(env.DB, user.id, body.data);
+  return json({ ok: true, updatedAt }, 200, origin);
  } catch(cause) {
   const requestId=randomHex(8),cors=requestOrigin(request,env.ALLOWED_ORIGIN,env.ENVIRONMENT);
   if(cause instanceof RequestError)return json({error:cause.message,requestId},cause.status,cors.responseOrigin,cause.retryAfter?{'Retry-After':String(cause.retryAfter)}:{});
