@@ -1,0 +1,7 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
+const archive=readFileSync(new URL('../src/components/teacher/TeacherArchivePanel.tsx',import.meta.url),'utf8');
+const rules=readFileSync(new URL('../src/components/teacher/TeacherCoreRulePanel.tsx',import.meta.url),'utf8');
+test('teacher archive uses a scoped master-detail workspace instead of a legacy sheet',()=>{assert.match(archive,/teacher-archive-master-detail/);assert.match(archive,/teacher-archive-list/);assert.match(archive,/teacher-archive-detail/);assert.doesNotMatch(archive,/sheet-backdrop|detail-sheet/);assert.match(archive,/onOpenRule/);assert.match(archive,/--annotation-color/);});
+test('teacher Core Rule uses master-detail, mapped labels, metrics, and evidence without a legacy sheet',()=>{assert.match(rules,/teacher-core-master-detail/);assert.match(rules,/teacher-core-list/);assert.match(rules,/teacher-core-detail/);assert.doesNotMatch(rules,/sheet-backdrop|detail-sheet/);assert.match(rules,/math:'수학'/);assert.match(rules,/ACTIVE:'집중 교정'/);assert.match(rules,/input:'입력'/);assert.match(rules,/Evidence Timeline/);assert.match(rules,/teacher-metric-grid/);});
