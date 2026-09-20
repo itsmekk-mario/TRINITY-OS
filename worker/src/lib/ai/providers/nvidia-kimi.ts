@@ -17,7 +17,7 @@ type NvidiaPayload = {
 };
 
 const DEFAULT_BASE_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
-const DEFAULT_MODEL = 'openai/gpt-oss-20b';
+const DEFAULT_MODEL = 'nvidia/nemotron-3.5-lightning-30b-a3b';
 
 function boundedInt(value: string | undefined, fallback: number, minimum: number, maximum: number) {
   const parsed = Number(value);
@@ -54,7 +54,7 @@ function isDebug(config: NvidiaKimiConfig) {
 }
 
 export class NvidiaKimiProvider implements AIProvider {
-  readonly name = 'nvidia-kimi';
+  readonly name = 'nvidia-nim';
   private readonly model: string;
   private readonly endpoint: string;
   private readonly timeoutMs: number;

@@ -33,7 +33,7 @@ export class AIService {
 
   private provider(config: AIServiceConfig): AIProvider {
     if (this.makeProvider) return this.makeProvider(config);
-    if (!config.provider || config.provider === 'nvidia-kimi') return new NvidiaKimiProvider(config);
+    if (!config.provider || config.provider === 'nvidia-nim' || config.provider === 'nvidia-kimi') return new NvidiaKimiProvider(config);
     if (config.provider === 'local-qwen') return new LocalQwenProvider(config);
     throw new AIProviderError('설정된 AI provider를 사용할 수 없습니다.', 503, 'AI_NOT_CONFIGURED');
   }
@@ -76,8 +76,11 @@ export class AIService {
   }): Promise<{ content: string; cached: boolean }> {
     const now = new Date();
     const nowIso = now.toISOString();
-    const providerName = input.config.provider || 'nvidia-kimi';
-    const modelName = providerName === 'local-qwen' ? input.config.localAIModel || 'qwen3:8b' : input.config.model || 'openai/gpt-oss-20b';
+    const configuredProvider = input.config.provider || 'nvidia-nim';
+    const providerName = configuredProvider === 'nvidia-kimi' ? 'nvidia-nim' : configuredProvider;
+    const modelName = providerName === 'local-qwen'
+      ? input.config.localAIModel || 'qwen3:8b'
+      : input.config.model || 'nvidia/nemotron-3.5-lightning-30b-a3b';
     const persistentKey = `${input.userId}:${providerName}:${modelName}:${input.operation}:${input.cacheKey}`;
     const cached = await this.cached(input.db, persistentKey, nowIso);
     if (cached !== null) return { content: cached, cached: true };
