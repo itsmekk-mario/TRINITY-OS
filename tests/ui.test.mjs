@@ -46,9 +46,13 @@ test('Today empty state gives a next action without fabricated capability metric
   assert.match(html, /첫 학습을 계획하세요/);
   assert.match(html, /일정 추가/);
   assert.ok(html.indexOf('next-action') < html.indexOf('execution-section'));
-  assert.ok(html.indexOf('execution-section') < html.indexOf('today-schedule'));
-  assert.match(html, /오늘 재현할 판단 기준/);
-  assert.match(html, /지금 다시 검증할 Core Rule/);
+  assert.ok(html.indexOf('execution-section') < html.indexOf('today-learning-compact'));
+  assert.ok(html.indexOf('today-learning-compact') < html.indexOf('today-schedule'));
+  assert.match(html, /REVIEW/);
+  assert.match(html, /CORE RULE/);
+  assert.match(html, /오늘 Review 없음/);
+  assert.match(html, /우선 Core Rule 없음/);
+  assert.doesNotMatch(html, /오늘 다시 재현할 것|오늘 재현할 판단 기준|지금 다시 검증할 Core Rule/);
   assert.doesNotMatch(html, /LEARNING SIGNALS|최근 14일|today-hero/);
 });
 test('Today reuses plan, session and correction records without mutating AppData', () => {

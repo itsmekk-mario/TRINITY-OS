@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Check, RefreshCw } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
 import type { AppData, CalendarPlan } from '../types';
 import { Empty, PageHeader } from '../components/Ui';
 import { formatKoreanDate, formatMinutes, getCurrentStudyDay, toDateKey } from '../lib/date';
@@ -30,27 +30,30 @@ function TodayLearningExecution({
   onBegin:(rule:ActiveCoreRule)=>void;
   onReload:()=>void;
 }){
-  const due=[...(review?.overdue??[]),...(review?.today??[])].slice(0,3);
-  const label=(type:ReviewItem['targetType'])=>({wrong_answer:'Wrong Answer',core_rule:'Core Rule',drill:'Drill',learning_item:'Archive'}[type]);
-  return <section className="today-learning-loop" aria-labelledby="today-learning-loop-title">
-    <div className="today-section-head">
-      <div><p className="card-label">REVIEW & CORE RULE</p><h2 id="today-learning-loop-title">오늘 다시 재현할 것</h2></div>
-      <button className="text-button" onClick={onOpenQueue}>Review 전체 보기<ArrowRight size={16}/></button>
-    </div>
-    <div className="today-learning-execution">
-      <article className="today-review-card">
-        <div className="today-learning-card-head"><div><span>REVIEW QUEUE</span><b>오늘 재현할 판단 기준</b></div><div className="today-review-counts"><span>오늘 <b>{review?.counts.today??'—'}</b></span><span>연체 <b>{review?.counts.overdue??'—'}</b></span></div></div>
-        {reviewError?<div className="today-learning-error" role="alert"><p>{reviewError}</p><button className="text-button" onClick={onReload}>다시 불러오기</button></div>:
-        due.length?<div className="today-review-list">{due.map(item=><button key={item.id} onClick={onOpenQueue}><span>{label(item.targetType)}</span><b>{item.title}</b><small>{item.reason||'저장한 판단 기준을 먼저 재현하세요.'}</small></button>)}</div>:
-        <p className="today-quiet-copy">오늘 처리할 Review가 없습니다.</p>}
-      </article>
-      <article className="today-core-rule-card">
-        <div className="today-learning-card-head"><div><span>CORE RULE</span><b>지금 다시 검증할 Core Rule</b></div></div>
-        {ruleError?<div className="today-learning-error" role="alert"><p>{ruleError}</p><button className="text-button" onClick={onReload}>다시 불러오기</button></div>:
-        rules.length?<div className="today-rule-list">{rules.map(rule=><div key={rule.id}><span>{rule.status} · 최근 7일 실패 {rule.stats.failures7d}회</span><b>{rule.title}</b><p>{rule.content}</p><button className="text-button" disabled={busy} onClick={()=>onBegin(rule)}><RefreshCw size={14}/>{busy?'Review 추가 중…':'오늘 Review 시작'}</button></div>)}</div>:
-        <p className="today-quiet-copy">우선순위가 높은 Core Rule이 없습니다.</p>}
-      </article>
-    </div>
+  const reviewItem=review?.overdue[0]??review?.today[0];
+  const rule=rules[0];
+  const dueCount=(review?.counts.overdue??0)+(review?.counts.today??0);
+
+  return <section className="today-learning-compact" aria-label="오늘의 Review와 Core Rule">
+    <button
+      className="today-learning-compact-row"
+      onClick={reviewError?onReload:onOpenQueue}
+    >
+      <span>REVIEW</span>
+      <b>{reviewError?'Review 불러오기 실패':reviewItem?.title??'오늘 Review 없음'}</b>
+      {!reviewError&&dueCount>0&&<em>{dueCount}개</em>}
+      <ArrowRight size={15}/>
+    </button>
+
+    <button
+      className="today-learning-compact-row"
+      disabled={busy}
+      onClick={ruleError?onReload:rule?()=>onBegin(rule):onOpenQueue}
+    >
+      <span>CORE RULE</span>
+      <b>{ruleError?'Core Rule 불러오기 실패':rule?.title??'우선 Core Rule 없음'}</b>
+      <ArrowRight size={15}/>
+    </button>
   </section>;
 }
 
