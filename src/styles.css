@@ -94,3 +94,52 @@
 .wrong-subject-groups .wrong-library{padding:14px}
 @media(max-width:900px){.intelligence-workspace{grid-template-columns:1fr}.intelligence-overview{position:static}.intelligence-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.intelligence-detail{padding:18px}.intelligence-summary{grid-template-columns:1fr}.intelligence-detail-head{display:grid}.intelligence-head-actions{justify-content:flex-start}.intelligence-actions{grid-template-columns:1fr}.intelligence-action-buttons{justify-content:flex-start}.intelligence-stat-grid{grid-template-columns:1fr 1fr}.wrong-view-toggle{padding-inline:0;border-bottom:0}}
+
+/* Learning record surfaces: keep the existing layout, but use a quieter document rhythm. */
+@media(min-width:761px){
+ .archive-detail-backdrop .archive-detail{width:min(960px,calc(100vw - 64px));height:auto;max-height:min(82vh,860px)}
+ .archive-detail-backdrop .archive-detail .sheet-content{flex:0 1 auto;max-height:calc(82vh - 174px)}
+}
+.archive-detail>header{padding:27px 42px 19px}
+.archive-detail>header .card-label{color:#8a7350;letter-spacing:.12em}
+.archive-detail>header h2{max-width:760px;letter-spacing:-.035em}
+.archive-detail-tabs{padding:0 36px;background:#fcfcfb}
+.archive-detail-tabs button{padding:14px 16px;font-weight:700;letter-spacing:.01em}
+.archive-detail-tabs button.active{font-weight:800}
+.archive-document-view{min-height:0;padding:34px 64px 42px!important}
+.archive-document-view section{max-width:680px}
+.document-section-title{gap:11px;margin-bottom:21px;padding-bottom:11px}
+.document-section-title>span{min-width:22px;color:#a07e43;font-size:10px;letter-spacing:.08em}
+.document-section-title h3{font-size:15px;letter-spacing:-.02em}
+.document-lead{font-size:15px;line-height:1.9}
+.archive-empty-copy{padding:18px 0 22px;line-height:1.7}
+.archive-linked-rule{gap:20px;padding:15px 0}
+.archive-linked-rule .archive-rule-title{gap:5px}
+.archive-linked-rule .archive-rule-title b{font-size:13px}
+.archive-linked-rule .archive-rule-title span{font-size:11px;line-height:1.55}
+.archive-detail-actions{padding:12px 36px;background:#fcfcfb}
+.question-metadata{margin-bottom:22px}
+.question-metadata>div{padding:13px 0}
+
+/* The rule picker reads as an index of references rather than a stack of cards. */
+.rule-picker{width:min(640px,calc(100vw - 32px));background:var(--surface)}
+.rule-picker>header{padding:27px 32px 17px}
+.rule-picker .sheet-content{padding:0 32px 30px}
+.rule-picker .field{margin-top:16px}
+.rule-picker-hint{margin:14px 0 10px;padding:9px 0;border-top:1px solid var(--line);font-size:11px;line-height:1.55}
+.rule-picker-list{gap:0;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--surface)}
+.rule-picker-item{gap:5px;padding:14px 16px;border:0;border-bottom:1px solid #e8ebee;border-radius:0;background:transparent}
+.rule-picker-item:last-child{border-bottom:0}
+.rule-picker-item:hover:not(:disabled),.rule-picker-item:focus-visible{background:#fbfaf7;border-color:transparent;box-shadow:inset 3px 0 0 var(--gold);transform:none}
+.rule-picker-item>span{font-size:9px;letter-spacing:.1em}
+.rule-picker-item>b{font-size:13px;letter-spacing:-.01em}
+.rule-picker-item p{font-size:11px;line-height:1.55}
+
+@media(max-width:760px){
+ .archive-detail>header{padding:20px 22px 16px}
+ .archive-detail-tabs{padding:0 8px}
+ .archive-document-view{padding:27px 24px 32px!important}
+ .archive-detail-actions{padding:12px 20px}
+ .rule-picker>header{padding:20px 22px 14px}
+ .rule-picker .sheet-content{padding:0 22px calc(24px + env(safe-area-inset-bottom))}
+}

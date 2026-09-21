@@ -188,3 +188,18 @@ html{scrollbar-gutter:stable}
  .detail-sheet{height:min(88dvh,760px);padding-bottom:max(24px,env(safe-area-inset-bottom))}.settings-sheet{height:92dvh}
 }
 @media(prefers-color-scheme:dark){:root{--accent:#f2f2f4;--accent-pressed:#fff}.learning-shell .button.primary{background:#263d5c}.learning-shell .button.primary:hover{background:#304c70}}
+
+/* Quick Capture is a short learning record, not a generic card form. */
+.quick-capture-sheet{width:min(680px,calc(100vw - 32px));border-left:1px solid var(--separator)}
+.quick-capture-sheet>header{padding:28px 34px 19px;background:var(--surface)}
+.quick-capture-sheet>header .eyebrow{margin-bottom:7px;letter-spacing:.15em}
+.quick-capture-sheet>header h2{font-size:23px;letter-spacing:-.035em}
+.quick-capture-sheet .sheet-content{gap:0;padding:6px 34px 30px}
+.quick-capture-sheet label{gap:6px;padding:15px 0;border-bottom:1px solid var(--separator);font-size:11px;letter-spacing:.01em}
+.quick-capture-sheet input,.quick-capture-sheet select,.quick-capture-sheet textarea{border-color:transparent;background:var(--surface-secondary);border-radius:7px;box-shadow:inset 0 0 0 1px transparent}
+.quick-capture-sheet input:focus,.quick-capture-sheet select:focus,.quick-capture-sheet textarea:focus{background:var(--surface);box-shadow:inset 0 0 0 1px var(--gold)}
+.quick-capture-sheet textarea{min-height:82px;padding:12px 13px;line-height:1.6}
+.quick-capture-sheet .quick-capture-suggestion{margin:15px 0 0;padding:13px 14px;border-radius:8px;background:var(--surface-secondary);box-shadow:none}
+.quick-capture-sheet .quick-capture-suggestion b{font-size:11px}
+.quick-capture-sheet .button.primary:last-child{min-width:84px;margin-top:20px}
+@media(max-width:760px){.quick-capture-sheet>header{padding:20px 22px 14px}.quick-capture-sheet .sheet-content{padding:4px 22px calc(24px + env(safe-area-inset-bottom))}}
