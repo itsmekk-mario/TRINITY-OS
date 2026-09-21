@@ -1,0 +1,304 @@
+/*
+ * TRINITY OS — explicit light/dark theme layer
+ *
+ * Light mode preserves the existing UI baseline.
+ * Dark mode changes semantic colors only; no global layout/text-flow overrides.
+ */
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --background:#f5f5f7;--surface:#fff;--surface-secondary:#f0f1f3;--surface-raised:#f7f8fa;
+  --text-primary:#1d1d1f;--text-secondary:#626268;--text-tertiary:#686870;
+  --separator:rgba(29,29,31,.11);--navy:#101c2d;--navy-2:#17283f;--gold:#a9853f;
+  --gold-soft:#f5efe2;--success:#25735b;--danger:#a7443d;
+  --ink:var(--text-primary);--canvas:var(--background);--soft:var(--surface-secondary);
+  --line:var(--separator);--muted:var(--text-secondary);--white:var(--surface);
+  --accent:var(--navy);--accent-pressed:var(--navy-2);
+  --text:var(--text-primary);--border:var(--separator);--bg:var(--surface);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background:#0f1115;--surface:#191c22;--surface-secondary:#242830;--surface-raised:#20242b;
+  --text-primary:#f5f7fa;--text-secondary:#c0c7d1;--text-tertiary:#959eac;
+  --separator:rgba(255,255,255,.13);--navy:#131d2c;--navy-2:#1d2b40;--gold:#d5b56f;
+  --gold-soft:#3a3020;--success:#69caa2;--danger:#ff8d86;
+  --ink:var(--text-primary);--canvas:var(--background);--soft:var(--surface-secondary);
+  --line:var(--separator);--muted:var(--text-secondary);--white:var(--surface);
+  --accent:#dce7f5;--accent-pressed:#fff;
+  --text:var(--text-primary);--border:var(--separator);--bg:var(--surface);
+}
+
+/* Settings-only theme control */
+.theme-setting{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center}
+.theme-setting p{max-width:320px;margin:6px 0 0;color:var(--text-secondary);font-size:12px;line-height:1.6}
+.theme-options{display:flex;gap:4px;padding:4px;border:1px solid var(--separator);border-radius:12px;background:var(--surface-secondary)}
+.theme-options button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:38px;padding:0 11px;border:0;border-radius:9px;background:transparent;color:var(--text-secondary);font:inherit;font-size:11px;font-weight:700}
+.theme-options button.active{background:var(--surface);color:var(--text-primary);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+@media(max-width:620px){.theme-setting{grid-template-columns:1fr}.theme-options{width:100%}.theme-options button{flex:1}}
+
+/* Explicit light mode neutralizes legacy OS-dark media rules. */
+:root[data-theme="light"] html,
+:root[data-theme="light"] body,
+:root[data-theme="light"] .learning-shell>main{background:var(--background);color:var(--text-primary)}
+:root[data-theme="light"] .mobile-tab-bar{background:var(--surface)}
+:root[data-theme="light"] .segmented-control,
+:root[data-theme="light"] .timer-mode-tabs{background:#e8e9ec}
+:root[data-theme="light"] .learning-shell .card,
+:root[data-theme="light"] .learning-signal,
+:root[data-theme="light"] .interactive-card,
+:root[data-theme="light"] .detail-sheet{background:var(--surface)}
+:root[data-theme="light"] .learning-shell .button.primary{background:var(--navy);color:#fff}
+:root[data-theme="light"] .learning-shell .button.primary:hover{background:var(--navy-2)}
+:root[data-theme="light"] .coach-context-hero{background:var(--navy)!important;color:#fff}
+
+/* Dark canvas + common primitives */
+:root[data-theme="dark"] html,
+:root[data-theme="dark"] body,
+:root[data-theme="dark"] .app-shell,
+:root[data-theme="dark"] .learning-shell>main{background:var(--background);color:var(--text-primary)}
+:root[data-theme="dark"] .learning-shell .mobile-bar{background:var(--background);border-color:var(--separator);color:var(--text-primary)}
+:root[data-theme="dark"] .mobile-tab-bar{background:rgba(25,28,34,.96);border-color:var(--separator)}
+:root[data-theme="dark"] .mobile-tab-bar button{color:var(--text-secondary)}
+:root[data-theme="dark"] .mobile-tab-bar button.active{background:var(--surface-secondary);color:var(--text-primary)}
+
+:root[data-theme="dark"] .segmented-control,
+:root[data-theme="dark"] .timer-mode-tabs,
+:root[data-theme="dark"] .wrong-view-toggle,
+:root[data-theme="dark"] .plan-tabs,
+:root[data-theme="dark"] .subject-tabs,
+:root[data-theme="dark"] .filter-tabs,
+:root[data-theme="dark"] .analysis-tabs,
+:root[data-theme="dark"] .review-tabs,
+:root[data-theme="dark"] .trinity-view-tabs{background:var(--surface-secondary);border-color:var(--separator)}
+
+:root[data-theme="dark"] .segmented-indicator,
+:root[data-theme="dark"] .segmented-control button.active,
+:root[data-theme="dark"] .timer-mode-tabs button.active,
+:root[data-theme="dark"] .wrong-view-toggle button.active,
+:root[data-theme="dark"] .plan-tabs button.active,
+:root[data-theme="dark"] .subject-tabs button.active,
+:root[data-theme="dark"] .filter-tabs button.active,
+:root[data-theme="dark"] .analysis-tabs button.active,
+:root[data-theme="dark"] .review-tabs button.active,
+:root[data-theme="dark"] .trinity-view-tabs button.active{background:var(--surface);color:var(--text-primary)}
+
+:root[data-theme="dark"] .learning-shell .card:not(.coach-context-hero):not(.arena-hero):not(.arena-season):not(.mock-clock),
+:root[data-theme="dark"] .learning-signal,
+:root[data-theme="dark"] .interactive-card,
+:root[data-theme="dark"] .detail-sheet,
+:root[data-theme="dark"] .quick-capture-sheet,
+:root[data-theme="dark"] .review-row{background:var(--surface);border-color:var(--separator);color:var(--text-primary)}
+
+:root[data-theme="dark"] .learning-shell :where(input,textarea,select){border-color:var(--separator);background:var(--surface-secondary);color:var(--text-primary);-webkit-text-fill-color:var(--text-primary)}
+:root[data-theme="dark"] .learning-shell :where(input,textarea)::placeholder{color:var(--text-tertiary);opacity:1;-webkit-text-fill-color:var(--text-tertiary)}
+:root[data-theme="dark"] .learning-shell option{background:var(--surface);color:var(--text-primary)}
+
+:root[data-theme="dark"] .learning-shell .button:not(.primary),
+:root[data-theme="dark"] .learning-shell .icon-button,
+:root[data-theme="dark"] .learning-shell .settings-list>button{border-color:var(--separator);background:var(--surface-secondary);color:var(--text-primary)}
+:root[data-theme="dark"] .learning-shell .button.primary{border-color:#335174;background:#294565;color:#fff}
+:root[data-theme="dark"] .learning-shell .button.primary:hover{background:#35597f}
+:root[data-theme="dark"] .learning-shell .text-button{color:#d6e1ef}
+:root[data-theme="dark"] .learning-shell .empty{border-color:var(--separator);background:transparent;color:var(--text-secondary)}
+:root[data-theme="dark"] .sheet-backdrop{background:rgba(0,0,0,.48)}
+:root[data-theme="dark"] .backup-preview,
+:root[data-theme="dark"] .privacy-note{border-color:var(--separator);background:var(--surface-raised);color:var(--text-primary)}
+:root[data-theme="dark"] .backup-preview-actions button{border-color:var(--separator);background:var(--surface-secondary);color:var(--text-primary)}
+
+/* Today / Plan / Train / Test / Insights */
+:root[data-theme="dark"] .next-action,
+:root[data-theme="dark"] .feedback-action,
+:root[data-theme="dark"] .focus-surface,
+:root[data-theme="dark"] .today-resource-deadline article{border-color:var(--separator);background:var(--surface);color:var(--text-primary)}
+:root[data-theme="dark"] .focus-surface{background:var(--surface-secondary)}
+:root[data-theme="dark"] .today-plan-list>div,
+:root[data-theme="dark"] .compact-list>div,
+:root[data-theme="dark"] .execution-strip,
+:root[data-theme="dark"] .today-learning-compact,
+:root[data-theme="dark"] .today-learning-compact-row{border-color:var(--separator)}
+:root[data-theme="dark"] .today-learning-compact-row{background:transparent;color:var(--text-primary)}
+
+:root[data-theme="dark"] .timer-mode-tabs button{color:var(--text-secondary)}
+:root[data-theme="dark"] .manual-time-form label,
+:root[data-theme="dark"] .session-row small,
+:root[data-theme="dark"] .mock-duration{color:var(--text-secondary)}
+:root[data-theme="dark"] .manual-time-form input,
+:root[data-theme="dark"] .manual-time-form select,
+:root[data-theme="dark"] .mock-time-edit input,
+:root[data-theme="dark"] .mock-label-edit,
+:root[data-theme="dark"] .mock-row select{border-color:var(--separator);background:var(--surface-secondary);color:var(--text-primary)}
+:root[data-theme="dark"] .mock-row.active{border-color:#9c814b;background:#2a261d}
+:root[data-theme="dark"] .mock-notice{border-color:#665936;background:#30291b}
+:root[data-theme="dark"] .mock-notice p{color:#e2ce9c}
+:root[data-theme="dark"] .timer-ring:before{background:var(--surface)}
+:root[data-theme="dark"] .timer-actions button{border-color:var(--separator);background:var(--surface-secondary);color:var(--text-primary)}
+
+:root[data-theme="dark"] .insight-tabs button,
+:root[data-theme="dark"] .insight-time-points>div,
+:root[data-theme="dark"] .insight-calendar>div,
+:root[data-theme="dark"] .insight-calendar>button{border-color:var(--separator);background:var(--surface-secondary);color:var(--text-secondary)}
+:root[data-theme="dark"] .insight-tabs button.active{border-color:#a77a3f;background:#9c6e33;color:#fff}
+:root[data-theme="dark"] .insight-donut:after{background:var(--surface)}
+:root[data-theme="dark"] .insight-session-list>div,
+:root[data-theme="dark"] .insight-bars,
+:root[data-theme="dark"] .insight-week-bars,
+:root[data-theme="dark"] .insight-hours{border-color:var(--separator)}
+
+/* Learning Archive / Core Rules / Intelligence */
+:root[data-theme="dark"] .archive-tabs{border-color:var(--separator)}
+:root[data-theme="dark"] .archive-tabs button{color:var(--text-secondary)}
+:root[data-theme="dark"] .archive-tabs button.active{color:var(--text-primary)}
+
+:root[data-theme="dark"] .archive-document-list,
+:root[data-theme="dark"] .archive-list-head,
+:root[data-theme="dark"] .archive-document-row,
+:root[data-theme="dark"] .archive-group,
+:root[data-theme="dark"] .archive-group-header,
+:root[data-theme="dark"] .archive-document-view,
+:root[data-theme="dark"] .archive-detail-tabs,
+:root[data-theme="dark"] .archive-detail-actions,
+:root[data-theme="dark"] .rule-picker-item,
+:root[data-theme="dark"] .intelligence-overview,
+:root[data-theme="dark"] .intelligence-detail,
+:root[data-theme="dark"] .intelligence-summary span,
+:root[data-theme="dark"] .intelligence-subjects button,
+:root[data-theme="dark"] .active-rule-card,
+:root[data-theme="dark"] .linked-record-list article,
+:root[data-theme="dark"] .wrong-subject-groups>section,
+:root[data-theme="dark"] .wrong-subject-header{border-color:var(--separator);background:var(--surface);color:var(--text-primary)}
+
+:root[data-theme="dark"] .archive-list-head,
+:root[data-theme="dark"] .archive-detail-tabs,
+:root[data-theme="dark"] .archive-detail-actions,
+:root[data-theme="dark"] .wrong-subject-header{background:var(--surface-raised)}
+
+:root[data-theme="dark"] .archive-document-row:hover,
+:root[data-theme="dark"] .rule-picker-item:hover:not(:disabled),
+:root[data-theme="dark"] .rule-picker-item:focus-visible,
+:root[data-theme="dark"] .active-rule-card.selected{background:#232720}
+
+:root[data-theme="dark"] .archive-document-row small,
+:root[data-theme="dark"] .archive-document-links,
+:root[data-theme="dark"] .archive-document-meta small,
+:root[data-theme="dark"] .archive-detail-tabs button,
+:root[data-theme="dark"] .archive-linked-rule .archive-rule-title span,
+:root[data-theme="dark"] .question-metadata dt,
+:root[data-theme="dark"] .review-document-status p,
+:root[data-theme="dark"] .rule-picker-item>span,
+:root[data-theme="dark"] .rule-picker-item p,
+:root[data-theme="dark"] .intelligence-hero p,
+:root[data-theme="dark"] .active-rule-card p,
+:root[data-theme="dark"] .active-rule-subject,
+:root[data-theme="dark"] .active-rule-metrics,
+:root[data-theme="dark"] .linked-record-list span,
+:root[data-theme="dark"] .linked-record-list p,
+:root[data-theme="dark"] .evidence-list small{color:var(--text-secondary)}
+
+:root[data-theme="dark"] .archive-detail-tabs button.active,
+:root[data-theme="dark"] .intelligence-summary b,
+:root[data-theme="dark"] .linked-record-list strong{color:var(--text-primary)}
+
+:root[data-theme="dark"] .core-rule-detail-meta,
+:root[data-theme="dark"] .core-rule-linked-document,
+:root[data-theme="dark"] .core-rule-document-editor .core-rule-editor-meta,
+:root[data-theme="dark"] .document-section-title,
+:root[data-theme="dark"] .document-analysis-grid>div,
+:root[data-theme="dark"] .archive-linked-rule,
+:root[data-theme="dark"] .question-metadata>div,
+:root[data-theme="dark"] .intelligence-hero,
+:root[data-theme="dark"] .intelligence-actions,
+:root[data-theme="dark"] .intelligence-linked-records,
+:root[data-theme="dark"] .intelligence-evidence,
+:root[data-theme="dark"] .evidence-list article,
+:root[data-theme="dark"] .active-rule-card{border-color:var(--separator)}
+
+:root[data-theme="dark"] .core-rule-document-editor .field textarea{border-color:var(--separator);background:var(--surface-secondary);color:var(--text-primary)}
+:root[data-theme="dark"] .intelligence-summary{background:var(--separator);border-color:var(--separator)}
+:root[data-theme="dark"] .intelligence-subjects,
+:root[data-theme="dark"] .wrong-view-toggle{border-color:var(--separator)}
+:root[data-theme="dark"] .intelligence-subjects button.active,
+:root[data-theme="dark"] .wrong-view-toggle button.active{border-color:#496a91;background:#294565;color:#fff}
+:root[data-theme="dark"] .evidence-icon{background:var(--surface-secondary);color:var(--text-secondary)}
+
+:root[data-theme="dark"] .priority-status.archived{background:#2a2f38;color:#c3cad4}
+:root[data-theme="dark"] .priority-status.active{background:#432421;color:#ffaca6}
+:root[data-theme="dark"] .priority-status.watch{background:#40331c;color:#f1cb75}
+:root[data-theme="dark"] .priority-status.mastered{background:#17382d;color:#82d9b6}
+
+/* AI Coach */
+:root[data-theme="dark"] .coach-context-hero{background:#131d2c!important;border-color:rgba(255,255,255,.12);color:#fff}
+:root[data-theme="dark"] .coach-context-title h2,
+:root[data-theme="dark"] .coach-context-metrics b{color:#fff}
+:root[data-theme="dark"] .coach-context-title span,
+:root[data-theme="dark"] .coach-context-metrics span{color:#b4bfce}
+:root[data-theme="dark"] .coach-context-metrics{background:rgba(255,255,255,.12)}
+:root[data-theme="dark"] .coach-context-metrics>div{background:#131d2c}
+:root[data-theme="dark"] .daily-coach{border-color:var(--separator);background:var(--surface);color:var(--text-primary)}
+
+/* Arena: override its intentional light scope only in explicit dark mode. */
+:root[data-theme="dark"] .learning-shell .arena-page{
+  color-scheme:dark;
+  --surface:#191c22;--surface-secondary:#242830;
+  --text-primary:#f5f7fa;--text-secondary:#c0c7d1;--text-tertiary:#959eac;
+  --arena-ink:#f5f7fa;--arena-sub:#c0c7d1;--arena-line:rgba(255,255,255,.13);--arena-soft:#242830;
+  color:var(--text-primary)
+}
+
+:root[data-theme="dark"] .learning-shell .arena-page :where(.card:not(.arena-hero):not(.arena-season),.arena-onboarding,.arena-empty,.arena-tabs,.arena-table,.arena-alert){border-color:var(--arena-line);background:var(--surface);color:var(--text-primary)}
+:root[data-theme="dark"] .learning-shell .arena-page :where(.card:not(.arena-hero):not(.arena-season),.arena-onboarding,.arena-empty,.arena-tabs,.arena-table) :where(h1,h2,h3,h4,b,strong,label){color:var(--text-primary)}
+:root[data-theme="dark"] .learning-shell .arena-page :where(.card:not(.arena-hero):not(.arena-season),.arena-onboarding,.arena-empty,.arena-tabs,.arena-table) :where(p,small){color:var(--text-secondary)}
+:root[data-theme="dark"] .learning-shell .arena-page :where(input,textarea,select){border-color:var(--arena-line);background:var(--surface-secondary);color:var(--text-primary);-webkit-text-fill-color:var(--text-primary)}
+:root[data-theme="dark"] .learning-shell .arena-page :where(input,textarea)::placeholder{color:var(--text-tertiary);opacity:1;-webkit-text-fill-color:var(--text-tertiary)}
+:root[data-theme="dark"] .learning-shell .arena-page option{background:var(--surface);color:var(--text-primary)}
+:root[data-theme="dark"] .learning-shell .arena-page .button:not(.primary),
+:root[data-theme="dark"] .learning-shell .arena-page .arena-table button{background:var(--surface-secondary);color:var(--text-primary)}
+:root[data-theme="dark"] .learning-shell .arena-page .button.primary{background:#294565;color:#fff;-webkit-text-fill-color:#fff}
+:root[data-theme="dark"] .learning-shell .arena-page .arena-tabs button{color:var(--text-secondary)}
+:root[data-theme="dark"] .learning-shell .arena-page .arena-tabs button.active{background:var(--surface-secondary);color:var(--text-primary)}
+:root[data-theme="dark"] .learning-shell .arena-page :where(.arena-hero,.arena-season){background:#121820;color:#fff}
+:root[data-theme="dark"] .learning-shell .arena-page :where(.arena-hero,.arena-season) :where(h1,h2,h3,b,strong){color:#fff}
+:root[data-theme="dark"] .learning-shell .arena-page :where(.arena-hero,.arena-season) :where(p,small,span:not(.positive):not(.negative)){color:#c0c9d6}
+
+/* Workspace / Study Room / Feedback / Teacher */
+:root[data-theme="dark"] .notion-sidebar,
+:root[data-theme="dark"] .notion-editor,
+:root[data-theme="dark"] .notion-data-note{border-color:var(--separator);background:var(--surface);color:var(--text-primary)}
+:root[data-theme="dark"] .notion-sidebar nav button.active,
+:root[data-theme="dark"] .notion-block:hover{background:var(--surface-secondary);color:var(--text-primary)}
+
+:root[data-theme="dark"] .study-capacity,
+:root[data-theme="dark"] .study-room-code,
+:root[data-theme="dark"] .study-diagnostics,
+:root[data-theme="dark"] .study-room-notice,
+:root[data-theme="dark"] .study-controls button,
+:root[data-theme="dark"] .cam-mini-actions button{background:var(--surface-secondary);color:var(--text-primary)}
+:root[data-theme="dark"] .study-capacity button.active{background:var(--surface);color:var(--text-primary)}
+:root[data-theme="dark"] .study-controls,
+:root[data-theme="dark"] .cam-mini{border-color:var(--separator);background:color-mix(in srgb,var(--surface) 92%,transparent)}
+
+:root[data-theme="dark"] .team-record,
+:root[data-theme="dark"] .feedback-actions-text section,
+:root[data-theme="dark"] .subject-minutes span,
+:root[data-theme="dark"] .feedback-category label{border-color:var(--separator);background:var(--surface);color:var(--text-primary)}
+:root[data-theme="dark"] .feedback-status{background:var(--surface-secondary);color:var(--text-secondary)}
+:root[data-theme="dark"] .feedback-observation,
+:root[data-theme="dark"] .collab-overview p{color:var(--text-secondary)}
+
+:root[data-theme="dark"] .teacher-page,
+:root[data-theme="dark"] .teacher-dialog,
+:root[data-theme="dark"] .daily-detail-drawer,
+:root[data-theme="dark"] .daily-detail-header{background:var(--background);color:var(--text-primary)}
+:root[data-theme="dark"] .teacher-context,
+:root[data-theme="dark"] .teacher-insight,
+:root[data-theme="dark"] .teacher-workspace .card,
+:root[data-theme="dark"] .teacher-attention,
+:root[data-theme="dark"] .teacher-quick-links button,
+:root[data-theme="dark"] .teacher-calendar-card{border-color:var(--separator);background:var(--surface);color:var(--text-primary)}
+:root[data-theme="dark"] .teacher-calendar-grid>button,
+:root[data-theme="dark"] .daily-summary-grid>div,
+:root[data-theme="dark"] .daily-subject-breakdown span,
+:root[data-theme="dark"] .daily-note-card{background:var(--surface-secondary);color:var(--text-primary)}
+
+:root[data-theme="dark"] :where(button,input,textarea,select,a):focus-visible{outline-color:#d5b56f}
+:root[data-theme="dark"] ::selection{background:rgba(213,181,111,.28);color:#fff}
