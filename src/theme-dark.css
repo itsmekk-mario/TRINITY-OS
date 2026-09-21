@@ -44,10 +44,6 @@
 :root[data-theme="light"] .mobile-tab-bar{background:var(--surface)}
 :root[data-theme="light"] .segmented-control,
 :root[data-theme="light"] .timer-mode-tabs{background:#e8e9ec}
-:root[data-theme="light"] .learning-shell .card,
-:root[data-theme="light"] .learning-signal,
-:root[data-theme="light"] .interactive-card,
-:root[data-theme="light"] .detail-sheet{background:var(--surface)}
 :root[data-theme="light"] .learning-shell .button.primary{background:var(--navy);color:#fff}
 :root[data-theme="light"] .learning-shell .button.primary:hover{background:var(--navy-2)}
 :root[data-theme="light"] .coach-context-hero{background:var(--navy)!important;color:#fff}
@@ -82,13 +78,6 @@
 :root[data-theme="dark"] .analysis-tabs button.active,
 :root[data-theme="dark"] .review-tabs button.active,
 :root[data-theme="dark"] .trinity-view-tabs button.active{background:var(--surface);color:var(--text-primary)}
-
-:root[data-theme="dark"] .learning-shell .card:not(.coach-context-hero):not(.arena-hero):not(.arena-season):not(.mock-clock),
-:root[data-theme="dark"] .learning-signal,
-:root[data-theme="dark"] .interactive-card,
-:root[data-theme="dark"] .detail-sheet,
-:root[data-theme="dark"] .quick-capture-sheet,
-:root[data-theme="dark"] .review-row{background:var(--surface);border-color:var(--separator);color:var(--text-primary)}
 
 :root[data-theme="dark"] .learning-shell :where(input,textarea,select){border-color:var(--separator);background:var(--surface-secondary);color:var(--text-primary);-webkit-text-fill-color:var(--text-primary)}
 :root[data-theme="dark"] .learning-shell :where(input,textarea)::placeholder{color:var(--text-tertiary);opacity:1;-webkit-text-fill-color:var(--text-tertiary)}
@@ -302,3 +291,158 @@
 
 :root[data-theme="dark"] :where(button,input,textarea,select,a):focus-visible{outline-color:#d5b56f}
 :root[data-theme="dark"] ::selection{background:rgba(213,181,111,.28);color:#fff}
+
+/* -------------------------------------------------------------------------- */
+/* Legacy hard-coded light surfaces — targeted dark replacements only          */
+/* IMPORTANT: no generic .card rule here. Page-specific layout stays intact.   */
+/* -------------------------------------------------------------------------- */
+
+:root[data-theme="dark"] .calendar-card {
+  background: var(--surface);
+  border-color: var(--separator);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .calendar-head,
+:root[data-theme="dark"] .weekdays {
+  border-color: var(--separator);
+}
+
+:root[data-theme="dark"] .calendar-head h2,
+:root[data-theme="dark"] .calendar-grid b {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .calendar-head button,
+:root[data-theme="dark"] .weekdays span {
+  color: var(--text-tertiary);
+}
+
+:root[data-theme="dark"] .calendar-grid > button,
+:root[data-theme="dark"] .calendar-grid > span {
+  background: var(--surface);
+  border-right-color: var(--separator);
+  border-bottom-color: var(--separator);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .calendar-grid > button:hover {
+  background: var(--surface-secondary);
+}
+
+:root[data-theme="dark"] .calendar-grid > button.has-entry,
+:root[data-theme="dark"] .calendar-grid > button.has-plan {
+  background: #1d211f;
+}
+
+:root[data-theme="dark"] .calendar-grid small {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .calendar-grid .today b {
+  background: #d8e3f1;
+  color: #121820;
+}
+
+:root[data-theme="dark"] .calendar-study-time {
+  background: #17362e;
+  color: #8fd8bd;
+}
+
+:root[data-theme="dark"] .modal {
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .modal-head h2,
+:root[data-theme="dark"] .daily-plan-title b {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .modal-head button {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .daily-plan-row,
+:root[data-theme="dark"] .daily-log-editor,
+:root[data-theme="dark"] .new-plan-form {
+  border-color: var(--separator);
+}
+
+:root[data-theme="dark"] .daily-study-summary {
+  border-color: #315248;
+  background: #172b26;
+}
+
+:root[data-theme="dark"] .daily-study-summary > div:first-child,
+:root[data-theme="dark"] .daily-study-summary span strong {
+  color: #9bdcc4;
+}
+
+:root[data-theme="dark"] .daily-study-summary span small {
+  color: #a9bbb5;
+}
+
+/* Plan Overview is intentionally borderless. Never repaint its Card wrappers. */
+:root[data-theme="dark"] .hub-metric-grid .card,
+:root[data-theme="light"] .hub-metric-grid .card {
+  background: transparent;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] .hub-two-column > .card,
+:root[data-theme="light"] .hub-two-column > .card {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+/* Keep the borderless Overview hierarchy readable in dark mode. */
+:root[data-theme="dark"] .hub-metric-grid .card > span,
+:root[data-theme="dark"] .hub-metric-grid .card > small,
+:root[data-theme="dark"] .compact-list small,
+:root[data-theme="dark"] .compact-list em {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .hub-metric-grid strong,
+:root[data-theme="dark"] .hub-card-head h2,
+:root[data-theme="dark"] .compact-list b {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .compact-list > div {
+  border-color: var(--separator);
+}
+
+/* Common legacy white surfaces that are not Card primitives. */
+:root[data-theme="dark"] .execution-links button,
+:root[data-theme="dark"] .notion-add-block button,
+:root[data-theme="dark"] .notion-check,
+:root[data-theme="dark"] .review-tabs button.active {
+  border-color: var(--separator);
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .execution-links button:hover,
+:root[data-theme="dark"] .notion-sidebar nav button.active {
+  background: var(--surface-secondary);
+}
+
+/* Fixed light text colors inside legacy editor content. */
+:root[data-theme="dark"] .notion-title,
+:root[data-theme="dark"] .notion-block textarea,
+:root[data-theme="dark"] .notion-block.heading textarea {
+  color: var(--text-primary);
+  -webkit-text-fill-color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .notion-side-head,
+:root[data-theme="dark"] .notion-sidebar nav button,
+:root[data-theme="dark"] .notion-updated {
+  color: var(--text-secondary);
+}
