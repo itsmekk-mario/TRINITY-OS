@@ -1,4 +1,4 @@
-const CACHE = 'trinity-os-support-v1';
+const CACHE = 'trinity-os-support-v3-insights-dark';
 self.addEventListener('install', event => event.waitUntil(self.skipWaiting()));
 self.addEventListener('activate', event => event.waitUntil((async () => {
   const keys = await caches.keys();

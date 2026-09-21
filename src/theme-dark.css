@@ -446,3 +446,203 @@
 :root[data-theme="dark"] .notion-updated {
   color: var(--text-secondary);
 }
+
+/* ===== TRINITY INSIGHTS DARK FIX V3: START =====
+   Insights/Statistics-only color correction.
+   No layout, spacing, display, overflow, or sizing changes.
+*/
+:root[data-theme="dark"] .insight-page .page-header h1,
+:root[data-theme="dark"] .insight-page .section-title h2,
+:root[data-theme="dark"] .insight-page .insight-month header b {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .insight-page .page-description,
+:root[data-theme="dark"] .insight-page .section-title > span,
+:root[data-theme="dark"] .insight-page .insight-month header small,
+:root[data-theme="dark"] .insight-page .insight-weekdays span {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .insight-page .eyebrow {
+  color: var(--gold);
+}
+
+/* Summary */
+:root[data-theme="dark"] .insight-page .insight-summary .card {
+  border-color: var(--separator);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .insight-page .insight-summary span,
+:root[data-theme="dark"] .insight-page .insight-summary small {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .insight-page .insight-summary strong {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .insight-page .insight-summary .insight-total {
+  background: #152238;
+  border-color: #2a3a52;
+  color: #fff;
+}
+
+:root[data-theme="dark"] .insight-page .insight-total strong {
+  color: #f0c46b;
+}
+
+:root[data-theme="dark"] .insight-page .insight-total span,
+:root[data-theme="dark"] .insight-page .insight-total small {
+  color: #c7d1df;
+}
+
+/* Month heatmap */
+:root[data-theme="dark"] .insight-page .insight-calendar > button {
+  border-color: transparent;
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .insight-page .insight-calendar > button:hover,
+:root[data-theme="dark"] .insight-page .insight-calendar > button:focus-visible {
+  background: #303640;
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .insight-page .insight-calendar > button.has-study {
+  background: color-mix(in srgb, #d08a35 calc(var(--level) * 100%), var(--surface-secondary));
+  color: #fff4de;
+}
+
+:root[data-theme="dark"] .insight-page .insight-calendar > button b,
+:root[data-theme="dark"] .insight-page .insight-calendar > button small {
+  color: inherit;
+}
+
+:root[data-theme="dark"] .insight-page .insight-calendar > i {
+  background: transparent;
+}
+
+/* Subject ratio */
+:root[data-theme="dark"] .insight-page .insight-donut:after {
+  background: var(--surface);
+}
+
+:root[data-theme="dark"] .insight-page .insight-donut b {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .insight-page .insight-donut small {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .insight-page .insight-subjects p {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .insight-page .insight-subjects p b {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .insight-page .insight-subjects p small {
+  color: var(--text-tertiary);
+}
+
+/* Today's measured sessions — the main low-contrast area in the screenshot */
+:root[data-theme="dark"] .insight-page .insight-session-list > div {
+  border-bottom-color: var(--separator);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .insight-page .insight-session-list b {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .insight-page .insight-session-list span {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .insight-page .insight-session-list strong {
+  color: #e0bd72;
+}
+
+/* Start/end time cards */
+:root[data-theme="dark"] .insight-page .insight-time-points > div {
+  border: 1px solid var(--separator);
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .insight-page .insight-time-points svg {
+  color: var(--gold);
+}
+
+:root[data-theme="dark"] .insight-page .insight-time-points span {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .insight-page .insight-time-points b {
+  color: var(--text-primary);
+}
+
+/* Daily bars + lower analytics */
+:root[data-theme="dark"] .insight-page .insight-bars,
+:root[data-theme="dark"] .insight-page .insight-week-bars,
+:root[data-theme="dark"] .insight-page .insight-hours {
+  border-bottom-color: var(--separator);
+}
+
+:root[data-theme="dark"] .insight-page .insight-bars small,
+:root[data-theme="dark"] .insight-page .insight-week-bars span,
+:root[data-theme="dark"] .insight-page .insight-hours small {
+  color: var(--text-tertiary);
+}
+
+:root[data-theme="dark"] .insight-page .insight-week-bars b {
+  color: #d8bd8a;
+}
+
+:root[data-theme="dark"] .insight-page .capability-summary .card,
+:root[data-theme="dark"] .insight-page .capability-detail-grid .card,
+:root[data-theme="dark"] .insight-page .mock-performance {
+  border-color: var(--separator);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .insight-page .capability-summary span,
+:root[data-theme="dark"] .insight-page .capability-summary small,
+:root[data-theme="dark"] .insight-page .capability-rows small,
+:root[data-theme="dark"] .insight-page .capability-goals p,
+:root[data-theme="dark"] .insight-page .mock-performance-table small {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .insight-page .capability-summary strong,
+:root[data-theme="dark"] .insight-page .capability-rows b,
+:root[data-theme="dark"] .insight-page .capability-goals h3,
+:root[data-theme="dark"] .insight-page .mock-performance-table b,
+:root[data-theme="dark"] .insight-page .mock-performance-table strong {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .insight-page .mock-performance-table > div,
+:root[data-theme="dark"] .insight-page .mock-performance-table > button {
+  border-bottom-color: var(--separator);
+}
+
+:root[data-theme="dark"] .insight-page .mock-performance-table > div {
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .insight-page .mock-performance-table > button {
+  background: transparent;
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .insight-page .mock-performance-table > button:hover {
+  background: var(--surface-secondary);
+}
+/* ===== TRINITY INSIGHTS DARK FIX V3: END ===== */
