@@ -9,7 +9,6 @@ import './ui-polish.css';
 import './ui-system.css';
 import './teacher.css';
 import './study-room.css'; 
-import './theme.css';
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
 
