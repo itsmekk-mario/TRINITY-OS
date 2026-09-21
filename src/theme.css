@@ -11,3 +11,45 @@ html,body,.app-shell,.learning-shell>main{background:var(--theme-bg)!important;c
 .theme-setting{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center!important}.theme-setting p{max-width:300px}.theme-options{display:flex;gap:3px;padding:3px;border-radius:12px;background:var(--theme-fill)}.theme-options button{display:flex;align-items:center;gap:5px;height:35px;border:0;border-radius:9px;padding:0 10px;background:transparent;color:var(--theme-muted);font-size:11px;font-weight:700}.theme-options button.active{background:var(--theme-text);color:var(--theme-bg)}
 @media(max-width:620px){.theme-setting{grid-template-columns:1fr}.theme-options{width:100%}.theme-options button{flex:1;justify-content:center;padding:0 5px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}}
 .learning-shell :where(.document-lead,.document-analysis-grid p,.annotation-row p,.archive-empty-copy,.core-rule-preview,.core-rule-detail p,.core-rule-document-editor p,.mock-review p,.mock-overall p,.drill-chain p,.capability-card p,.monthly-goal-card p,.notion-block textarea,.notion-data-note p){white-space:pre-wrap!important;overflow:visible!important;overflow-wrap:anywhere;word-break:keep-all;-webkit-line-clamp:unset!important;display:block;line-height:1.7}.learning-shell :where(.page-description,.card p,.learning-signal p,.interactive-card p,.coach-evidence p,.coach-action p,.coach-precise p,.detail-sheet p){overflow-wrap:anywhere;word-break:keep-all;line-height:1.65}
+
+/* Overview: remove the boxed-in outer boundaries while preserving visual hierarchy. */
+.learning-shell :where(.dashboard-glance,.execution-hero,.execution-metrics,.execution-grid,.execution-side,.execution-links){background:transparent!important;border:0!important;box-shadow:none!important;outline:0!important}
+.learning-shell .dashboard-glance .card,.learning-shell .execution-metrics .card{border:0!important;border-radius:18px!important;box-shadow:0 1px 2px rgba(0,0,0,.025),0 8px 24px rgba(0,0,0,.035)!important;background:var(--theme-surface-solid)!important}
+.learning-shell .execution-focus{border:0!important;border-radius:18px!important;box-shadow:none!important;background:color-mix(in srgb,var(--theme-surface-solid) 82%,transparent)!important}
+.learning-shell :where(.today-plan-card,.drill-action){border:0!important;box-shadow:none!important;background:transparent!important;padding-left:2px!important;padding-right:2px!important}
+.learning-shell .today-plan-list>div{border-color:var(--theme-line)!important}
+.learning-shell .execution-links button{border:0!important;border-radius:14px!important;box-shadow:none!important;background:var(--theme-fill)!important;color:var(--theme-text)!important}
+.learning-shell .execution-links button:hover{background:var(--theme-fill-strong)!important;transform:none!important}
+:root[data-theme=dark] .learning-shell .dashboard-glance .card,:root[data-theme=dark] .learning-shell .execution-metrics .card{background:color-mix(in srgb,var(--theme-surface-solid) 86%,var(--theme-bg))!important;box-shadow:0 1px 2px rgba(0,0,0,.18),0 10px 28px rgba(0,0,0,.16)!important}
+:root[data-theme=dark] .learning-shell .execution-focus{background:color-mix(in srgb,var(--theme-surface-solid) 72%,var(--theme-bg))!important}
+@media(max-width:760px){.learning-shell :where(.today-plan-card,.drill-action){padding-left:0!important;padding-right:0!important}.learning-shell .dashboard-glance .card,.learning-shell .execution-metrics .card,.learning-shell .execution-focus{border-radius:16px!important}}
+
+/* ===== Overview borderless specificity fix ===== */
+.learning-shell .card.today-plan-card,
+.learning-shell .card.drill-action {
+  background: transparent !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+.learning-shell .card.execution-focus {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+.learning-shell .execution-grid,
+.learning-shell .execution-side {
+  background: transparent !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="dark"] .learning-shell .card.today-plan-card,
+:root[data-theme="dark"] .learning-shell .card.drill-action {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
