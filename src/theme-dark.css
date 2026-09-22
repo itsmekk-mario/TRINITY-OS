@@ -646,3 +646,12 @@
   background: var(--surface-secondary);
 }
 /* ===== TRINITY INSIGHTS DARK FIX V3: END ===== */
+
+/* Weekly outcomes must never switch a dark plan row back to a white surface. */
+:root[data-theme="dark"] .weekly-table,:root[data-theme="dark"] .weekly-table-head,:root[data-theme="dark"] .weekly-day-row,:root[data-theme="dark"] .weekly-task-row,:root[data-theme="dark"] .weekly-task-list,:root[data-theme="dark"] .plan-outcome button,:root[data-theme="dark"] .weekly-task-actions button{background:var(--surface);border-color:var(--separator);color:var(--text-primary)}
+:root[data-theme="dark"] .weekly-table-head,:root[data-theme="dark"] .weekly-date,:root[data-theme="dark"] .weekly-empty,:root[data-theme="dark"] .weekly-task-row small,:root[data-theme="dark"] .weekly-task-quantity{color:var(--text-secondary)}
+:root[data-theme="dark"] .weekly-task-row:has(.plan-outcome .partial.active){background:#2f2a1f}
+:root[data-theme="dark"] .weekly-task-row:has(.plan-outcome .failed.active){background:#302224}
+:root[data-theme="dark"] .plan-outcome button.active.partial{background:#493b1f;color:#ffd27e;border-color:#b98731}
+:root[data-theme="dark"] .plan-outcome button.active.failed{background:#48272a;color:#ffb4ab;border-color:#d87972}
+:root[data-theme="dark"] .plan-outcome button.active.achieved{background:#203d32;color:#9de2bd;border-color:#579b75}

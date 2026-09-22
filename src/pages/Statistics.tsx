@@ -9,7 +9,7 @@ import { deriveLearningSignals } from '../lib/learningSignals';
 import { asTeacherData } from '../lib/teacherAnalytics';
 import { DailyLearningDetailSheet } from '../components/teacher/DailyLearningDetail';
 
-const COLOR: Record<Subject, string> = { 국어: '#52647d', 수학: '#d08a35', 영어: '#64a486', 탐구: '#9172a4' };
+const COLOR: Record<Subject, string> = { 국어: '#52647d', 수학: '#d08a35', 영어: '#64a486', 통사: '#9172a4', 통과: '#557fa4', 탐구: '#9172a4' };
 const DAY = ['일', '월', '화', '수', '목', '금', '토'];
 const monthKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 const compact = (seconds: number) => seconds >= 3600 ? `${Math.floor(seconds / 3600)}시간 ${Math.round(seconds % 3600 / 60)}분` : `${Math.round(seconds / 60)}분`;

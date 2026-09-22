@@ -144,3 +144,8 @@
  .rule-picker>header{padding:20px 22px 14px}
  .rule-picker .sheet-content{padding:0 22px calc(24px + env(safe-area-inset-bottom))}
 }
+
+/* Prevent tablet-width panels from compressing Korean labels into one letter per line. */
+@media (max-width:1180px){.intelligence-workspace{grid-template-columns:1fr}.intelligence-overview{position:static}.intelligence-rule-list{max-height:340px}.intelligence-action-buttons,.intelligence-head-actions{justify-content:flex-start}}
+@media (max-width:900px){.settings-sheet,.detail-sheet{width:min(680px,calc(100vw - 24px))!important}.theme-setting{display:grid!important;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px}.theme-options{width:auto!important;grid-template-columns:repeat(3,minmax(74px,1fr))!important}.intelligence-detail-head{display:block}.intelligence-head-actions{margin-top:12px}}
+@media (max-width:620px){.theme-setting{grid-template-columns:1fr!important}.theme-options{width:100%!important}.intelligence-actions{grid-template-columns:1fr}.intelligence-action-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.intelligence-action-buttons .button{width:100%;white-space:nowrap}}

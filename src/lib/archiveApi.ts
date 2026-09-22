@@ -1,5 +1,5 @@
 import { loadCloudflareConfig } from './cloudflare';
-export type ArchiveSubject='korean'|'math'|'english';
+export type ArchiveSubject='korean'|'math'|'english'|'social_studies'|'integrated_science';
 export type MasteryStatus='input'|'understanding'|'reproduction'|'automated';
 export type Annotation={id:string;archiveEntryId:string;color:string;type:string;text:string;order:number};
 export type RuleRelation='derived'|'applied'|'failed'|'reinforced';

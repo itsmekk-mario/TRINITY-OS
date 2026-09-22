@@ -5,19 +5,20 @@ import { SUBJECTS } from '../data/config';
 import { Card, Empty, Field, PageHeader, SaveButton, TextArea } from '../components/Ui';
 import { toDateKey, uid } from '../lib/date';
 
-const SCORE_SUBJECTS: MockExamSubject[] = ['국어', '수학', '영어'];
+type ScoreSubject = '국어' | '수학' | '영어';
+const SCORE_SUBJECTS: ScoreSubject[] = ['국어', '수학', '영어'];
 const scoreKey = { 국어: 'korean', 수학: 'math', 영어: 'english' } as const;
 const emptyReview = (): MockExamReview => ({ score: undefined, duration: undefined, wrongQuestions: '', observation: '', improvement: '' });
 const blank = (): ScoreEntry => ({ id: '', name: '', date: toDateKey(), subject: '국어', duration: 0, errorType: '', cause: '', nextAction: '', reviews: { 국어: emptyReview(), 수학: emptyReview(), 영어: emptyReview() }, overallReview: '' });
 type Point = { id: string; date: string; name: string; score: number };
 
-function reviewOf(entry: ScoreEntry, subject: MockExamSubject): MockExamReview {
+function reviewOf(entry: ScoreEntry, subject: ScoreSubject): MockExamReview {
   const modern = entry.reviews?.[subject];
   if (modern) return modern;
   const legacyScore = entry[scoreKey[subject]];
   return { score: legacyScore, duration: entry.subject === subject ? entry.duration : undefined, wrongQuestions: '', observation: entry.subject === subject ? entry.cause : '', improvement: entry.subject === subject ? entry.nextAction : '' };
 }
-function getPoints(scores: ScoreEntry[], subject: MockExamSubject): Point[] {
+function getPoints(scores: ScoreEntry[], subject: ScoreSubject): Point[] {
   return scores.map((entry) => ({ id: entry.id, date: entry.date, name: entry.name, score: reviewOf(entry, subject).score }))
     .filter((entry): entry is Point => typeof entry.score === 'number').sort((a, b) => a.date.localeCompare(b.date));
 }
@@ -35,7 +36,7 @@ function ScoreTrend({ points, subject }: { points: Point[]; subject: string }) {
 }
 
 export default function ScoreTracker({ data, update }: { data: AppData; update: (fn: (value: AppData) => AppData) => void }) {
-  const [open, setOpen] = useState(false); const [draft, setDraft] = useState(blank()); const [subject, setSubject] = useState<MockExamSubject>('국어'); const [bottleneckSubject, setBottleneckSubject] = useState<Subject | '전체'>('전체'); const [formError, setFormError] = useState('');
+  const [open, setOpen] = useState(false); const [draft, setDraft] = useState(blank()); const [subject, setSubject] = useState<ScoreSubject>('국어'); const [bottleneckSubject, setBottleneckSubject] = useState<Subject | '전체'>('전체'); const [formError, setFormError] = useState('');
   const points = useMemo(() => getPoints(data.scores, subject), [data.scores, subject]); const latest = points.at(-1); const change = points.length > 1 && latest ? latest.score - points.at(-2)!.score : undefined;
   const bottleneckCounts = useMemo(() => data.wrongAnswerDrills.filter((item) => bottleneckSubject === '전체' || item.subject === bottleneckSubject).reduce<Record<string, number>>((result, item) => ({ ...result, [item.bottleneck ?? '미분류']: (result[item.bottleneck ?? '미분류'] ?? 0) + 1 }), {}), [data.wrongAnswerDrills, bottleneckSubject]);
   const bottleneckItems = useMemo(() => Object.entries(bottleneckCounts).sort((a, b) => b[1] - a[1]), [bottleneckCounts]);

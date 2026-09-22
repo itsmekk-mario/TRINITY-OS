@@ -1,4 +1,4 @@
-export type Subject = '국어' | '수학' | '영어' | '탐구';
+export type Subject = '국어' | '수학' | '영어' | '통사' | '통과' | '탐구';
 export type InquiryTrack = '통사' | '통과';
 export type PlanOutcome = 'achieved' | 'partial' | 'failed';
 export type CalendarPlan = { id: string; subject: Subject | '생활'; inquiryTrack?: InquiryTrack; title: string; detail: string; quantity: string; done: boolean; outcome?: PlanOutcome };
@@ -6,7 +6,7 @@ export type CalendarEntry = { date: string; study: string; minutes: number; exam
 export type TimerSession = { id: string; date: string; subject: Subject; inquiryTrack?: InquiryTrack; seconds: number; note?: string; startedAt?: string; endedAt?: string; segments?: { start: string; end: string; kind: 'focus' | 'break' }[]; focusDrops?: string[] };
 export type MockScheduleItem = { id: string; label: string; start: string; end: string; kind: 'exam' | 'break' | 'admin'; subject?: Subject; questions?: number };
 export type JournalEntry = { date: string; studied: string; wins: string; blocked: string; cause: string; hypothesis: string; action: string; event: string };
-export type MockExamSubject = '국어' | '수학' | '영어';
+export type MockExamSubject = Subject;
 export type MockExamReview = { score?: number; duration?: number; wrongQuestions: string; observation: string; improvement: string };
 export type ScoreEntry = { id: string; name: string; date: string; subject: Subject; korean?: number; math?: number; english?: number; duration: number; errorType: string; cause: string; nextAction: string; reviews?: Partial<Record<MockExamSubject, MockExamReview>>; overallReview?: string };
 export type Resource = { id: string; subject: Subject; inquiryTrack?: InquiryTrack; group: string; name: string; total: number; done: number; dueDate?: string };

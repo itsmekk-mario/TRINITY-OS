@@ -5,6 +5,7 @@ import { Empty, SectionTitle } from '../Ui';
 import SegmentedControl from '../navigation/SegmentedControl';
 import { FeedbackComposer, FeedbackHistory, Insight, SignalCards, StatusBadge, TeacherDialog, type EvidenceTarget } from './shared';
 import type { TeacherDashboardProps } from './types';
+import type { Subject } from '../../types';
 import { ResourcesPanel } from './MathPanels';
 import ArenaReviewPanel from './ArenaReviewPanel';
 import { EffortOutcomePanel, ExecutionPanel, SubjectStatus, WeeklyGoalsPanel } from './LearningPanels';
@@ -12,7 +13,7 @@ import DailyLearningDetail from './DailyLearningDetail';
 const tabs=['Overview','Daily Detail','Execution','Subjects','Weekly Goals','Teacher Signals','Schedule / Load','Trends','Resources','ARENA','Feedback'] as const;
 type Tab=typeof tabs[number];
 export default function LearningManagerDashboard({data,range,feedback,busy,canFeedback,onFeedback,onSignalAction}:TeacherDashboardProps) {
-  const [tab,setTab]=useState<Tab>('Overview'),[request,setRequest]=useState<EvidenceTarget>(),[requestSubject,setRequestSubject]=useState<'국어'|'수학'|'영어'|'탐구'>('수학');
+  const [tab,setTab]=useState<Tab>('Overview'),[request,setRequest]=useState<EvidenceTarget>(),[requestSubject,setRequestSubject]=useState<Subject>('수학');
   const analysis=useMemo(()=>learningAnalytics(data,range),[data,range]);
   const [evidence,setEvidence]=useState<string>();
   const signalCards=<SignalCards items={feedback} role="academic_manager" onAction={onSignalAction} onEvidence={setEvidence} busy={busy||!canFeedback}/>;

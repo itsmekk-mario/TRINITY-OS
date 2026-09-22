@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS archive_entries (
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  subject TEXT NOT NULL CHECK(subject IN ('korean','math','english')),
+  subject TEXT NOT NULL CHECK(subject IN ('korean','math','english','social_studies','integrated_science')),
   year INTEGER NOT NULL CHECK(year BETWEEN 2000 AND 2100),
   month INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12),
   institution TEXT NOT NULL CHECK(institution IN ('KICE','education_office','EBS','private','textbook','custom')),
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS archive_annotations (
 );
 CREATE TABLE IF NOT EXISTS core_rules (
   id TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  subject TEXT NOT NULL CHECK(subject IN ('korean','math','english')), title TEXT NOT NULL, content TEXT NOT NULL,
+  subject TEXT NOT NULL CHECK(subject IN ('korean','math','english','social_studies','integrated_science')), title TEXT NOT NULL, content TEXT NOT NULL,
   tags_json TEXT NOT NULL DEFAULT '[]', mastery_status TEXT NOT NULL CHECK(mastery_status IN ('input','understanding','reproduction','automated')),
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );

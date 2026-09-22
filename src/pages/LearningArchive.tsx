@@ -7,7 +7,7 @@ import ArchiveExplorer,{AnnotationLegend,type ArchiveBrowseMode} from '../compon
 import CoreRuleIntelligencePanel from '../components/learning/CoreRuleIntelligencePanel';
 import type { AppData } from '../types';
 import { getCurrentStudyDay } from '../lib/date';
-const subjects:{id:ArchiveSubject;label:string}[]=[{id:'korean',label:'국어'},{id:'math',label:'수학'},{id:'english',label:'영어'}];
+const subjects:{id:ArchiveSubject;label:string}[]=[{id:'korean',label:'국어'},{id:'math',label:'수학'},{id:'english',label:'영어'},{id:'social_studies',label:'통사'},{id:'integrated_science',label:'통과'}];
 const mastery:{id:MasteryStatus;label:string}[]=[{id:'input',label:'입력'},{id:'understanding',label:'이해'},{id:'reproduction',label:'재현'},{id:'automated',label:'자동화'}];
 const relationLabel:Record<RuleRelation,string>={derived:'도출',applied:'적용',failed:'적용 실패',reinforced:'강화'};
 const today=()=>getCurrentStudyDay();

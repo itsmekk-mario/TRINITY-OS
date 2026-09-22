@@ -7,7 +7,7 @@ import { compareArchiveEntries, compareArchiveExams, normalizeArchiveExam } from
 export type ArchiveBrowseMode = 'recent' | 'exam' | 'subject';
 const colors = ['black', 'blue', 'green', 'red'] as const;
 const colorNames: Record<string, string> = { black: '검정', blue: '파랑', green: '초록', red: '빨강' };
-const subjectNames: Record<string, string> = { korean: '국어', math: '수학', english: '영어' };
+const subjectNames: Record<string, string> = { korean: '국어', math: '수학', english: '영어', social_studies: '통사', integrated_science: '통과' };
 const koreanPriorityArea = (entry: ArchiveEntry) => {
   const text = `${entry.category} ${entry.subcategory}`.replace(/\s+/g, ' ').trim();
   if (/비문학|독서/.test(text)) return '비문학';
@@ -87,7 +87,7 @@ export default function ArchiveExplorer({ entries, mode, onEntry }: { entries: A
     if (mode === 'exam') {
       const exams = new Map<string, { exam: ReturnType<typeof normalizeArchiveExam>; group: Group }>();
       entries.forEach(entry => { const normalized = normalizeArchiveExam(entry), current = exams.get(normalized.groupKey) || { exam: normalized, group: { id: normalized.groupKey, label: normalized.displayName, entries: [] } }; current.group.entries.push(entry); exams.set(normalized.groupKey, current); });
-      const subjectOrder = ['korean', 'math', 'english'];
+      const subjectOrder = ['korean', 'math', 'english', 'social_studies', 'integrated_science'];
       return [...exams.values()].sort((left, right) => compareArchiveExams(left.exam, right.exam)).map(({ group }) => {
         const ordered = [...group.entries].sort(compareArchiveEntries);
         const children = groupBy(ordered, entry => ({ id: `${group.id}:subject:${entry.subject}`, label: subjectNames[entry.subject] })).sort((left, right) => subjectOrder.indexOf(left.id.split(':').pop()!) - subjectOrder.indexOf(right.id.split(':').pop()!)).map(child => ({ ...child, entries: [...child.entries].sort(compareArchiveEntries) }));

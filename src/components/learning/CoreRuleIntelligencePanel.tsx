@@ -18,11 +18,13 @@ const subjects:{id:''|ArchiveSubject;label:string}[]=[
   {id:'korean',label:'국어'},
   {id:'math',label:'수학'},
   {id:'english',label:'영어'},
+  {id:'social_studies',label:'통사'},
+  {id:'integrated_science',label:'통과'},
 ];
 const statusCopy:Record<CoreRuleStatus,string>={ACTIVE:'우선 교정',WATCH:'관찰',MASTERED:'체화',ARCHIVED:'낮은 우선순위'};
 const relationLabel:Record<RuleRelation,string>={derived:'도출',applied:'적용',failed:'적용 실패',reinforced:'강화'};
 const sourceLabel:Record<CoreRuleEvidence['sourceType'],string>={archive:'Archive',wrong_answer:'Wrong Answer',drill:'Drill',review:'Review'};
-const subjectLabel:Record<ArchiveSubject,string>={korean:'국어',math:'수학',english:'영어'};
+const subjectLabel:Record<ArchiveSubject,string>={korean:'국어',math:'수학',english:'영어',social_studies:'통사',integrated_science:'통과'};
 
 const formatDate=(value:string|null|undefined)=>{
   if(!value)return '—';
