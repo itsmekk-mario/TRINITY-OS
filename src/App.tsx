@@ -59,6 +59,7 @@ const pageFromLocation = (): Page => {
 const queryView = () => new URLSearchParams(window.location.search).get('view');
 type ThemePreference = 'system' | 'light' | 'dark';
 const THEME_KEY = 'trinity-os:theme-preference';
+const BEGINNER_KEY = 'trinity-os:beginner-mode';
 const getThemePreference = (): ThemePreference => {
   const value = localStorage.getItem(THEME_KEY);
   return value === 'light' || value === 'dark' || value === 'system' ? value : 'system';
@@ -70,6 +71,7 @@ const resolveTheme = (preference: ThemePreference) =>
 
 function StudentApp() {
   const [page, setPage] = useState<Page>(pageFromLocation);
+  const [beginnerMode,setBeginnerMode]=useState(()=>localStorage.getItem(BEGINNER_KEY)==='true');
   const [planView, setPlanView] = useState<PlanView>(() => (['overview', 'calendar', 'weekly', 'routine'].includes(queryView() ?? '') ? queryView() as PlanView : 'overview'));
   const [trainView, setTrainView] = useState<TrainView>(() => (['timer', 'drill', 'wrong', 'resources'].includes(queryView() ?? '') ? queryView() as TrainView : 'timer'));
   const [insightsView, setInsightsView] = useState<InsightsView>(() => (['overview', 'performance', 'bottlenecks', 'review'].includes(queryView() ?? '') ? queryView() as InsightsView : 'overview'));
@@ -93,6 +95,7 @@ function StudentApp() {
     media.addEventListener('change', onSystemThemeChange);
     return () => media.removeEventListener('change', onSystemThemeChange);
   }, [themePreference]);
+  useEffect(()=>{document.documentElement.dataset.beginner=beginnerMode?'true':'false';localStorage.setItem(BEGINNER_KEY,String(beginnerMode));},[beginnerMode]);
   useEffect(() => { if (identity) saveData(identity.userId, data); }, [data, identity]);
   useEffect(() => { const retry = () => { if (identity) setData((value) => ({ ...value })); }; window.addEventListener('online', retry); return () => window.removeEventListener('online', retry); }, [identity]);
   useEffect(() => { if (!authenticated) { setIdentity(null); return; } void validateSession().then((profile) => { if (!profile) { logoutLocal(); setAuthenticated(false); return; } setPasswordRequired(Boolean(profile.mustChangePassword)); setData(loadData(profile.userId)); setIdentity(profile); }); }, [authenticated]);
