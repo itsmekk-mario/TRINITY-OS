@@ -7,6 +7,7 @@ import './auth.css';
 import './timer-enhanced.css';
 import './ui-polish.css';
 import './ui-system.css';
+import './math-record.css';
 import './teacher.css';
 import './study-room.css'; 
 import './theme-dark.css';

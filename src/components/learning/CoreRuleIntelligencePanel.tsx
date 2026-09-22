@@ -1,6 +1,6 @@
 import { useEffect,useMemo,useRef,useState } from 'react';
 import { Activity,AlertTriangle,BookOpen,CheckCircle2,Clock3,FileSearch,RefreshCw,Target } from 'lucide-react';
-import { Card,Empty } from '../Ui';
+import { Card,Empty,RichMathText } from '../Ui';
 import {
   archiveApi,
   type ActiveCoreRule,
@@ -111,7 +111,7 @@ export default function CoreRuleIntelligencePanel({onEditRule,onOpenReviewQueue}
           <span className={`priority-status ${rule.status.toLowerCase()}`}>{rule.status} · {rule.priorityScore}</span>
           <span className="active-rule-subject">{subjectLabel[rule.subject]} · {statusCopy[rule.status]}</span>
           <b>{rule.title}</b>
-          <p>{rule.content}</p>
+          <div className="math-record-output compact"><RichMathText value={rule.content}/></div>
           <span className="active-rule-metrics">7일 실패 {rule.stats.failures7d} · 오답 {rule.stats.wrongAnswerCount} · Review 실패 {rule.stats.reviewFailureCount}</span>
         </button>)}
       </div>:<Empty title="분석할 Core Rule이 없습니다." description="Archive나 Wrong Answer에서 Core Rule을 연결하면 우선순위를 계산합니다."/>}
@@ -124,7 +124,7 @@ export default function CoreRuleIntelligencePanel({onEditRule,onOpenReviewQueue}
           <div>
             <span className={`priority-status ${detail.status.toLowerCase()}`}>{detail.status} · {detail.priorityScore}</span>
             <h2>{detail.coreRule.title}</h2>
-            <p>{detail.coreRule.content}</p>
+            <div className="math-record-output"><RichMathText value={detail.coreRule.content}/></div>
           </div>
           <div className="intelligence-head-actions"><button className="button" onClick={()=>detail.coreRule&&onEditRule(detail.coreRule)}>규칙 수정</button></div>
         </header>
@@ -137,8 +137,8 @@ export default function CoreRuleIntelligencePanel({onEditRule,onOpenReviewQueue}
             <button className="button" onClick={()=>evidenceRef.current?.scrollIntoView({behavior:'smooth',block:'start'})}><BookOpen size={14}/>Evidence</button>
           </div>
         </section>
-        {actionPanel==='wrongAnswers'&&<section className="intelligence-linked-records"><div className="section-title"><h3>관련 Wrong Answer</h3><span>{detail.wrongAnswers.length}개</span></div>{detail.wrongAnswers.length?<div className="linked-record-list">{detail.wrongAnswers.map(item=><article key={item.id}><span>{item.date} · {item.source}</span><b>{item.question||'문항 미입력'}</b><p><strong>잘못된 판단</strong> {item.wrongJudgment||'미기록'}</p><p><strong>놓친 단서</strong> {item.missedCue||'미기록'}</p><p><strong>교정 행동</strong> {item.correction||'미기록'}</p></article>)}</div>:<p className="archive-empty-copy">이 Rule에 연결된 Wrong Answer가 없습니다.</p>}</section>}
-        {actionPanel==='drills'&&<section className="intelligence-linked-records"><div className="section-title"><h3>관련 Drill</h3><span>{detail.drills.length}개</span></div>{detail.drills.length?<div className="linked-record-list">{detail.drills.map(item=><article key={item.id}><span>{item.date} · {item.minutes}분 · {item.done?'실행 완료':'미완료'}</span><b>{item.title||'Drill'}</b><p><strong>교정 행동</strong> {item.action||'미기록'}</p><p><strong>성공 기준</strong> {item.successCriterion||'미기록'}</p></article>)}</div>:<p className="archive-empty-copy">이 Rule에 연결된 Drill이 없습니다.</p>}</section>}
+        {actionPanel==='wrongAnswers'&&<section className="intelligence-linked-records"><div className="section-title"><h3>관련 Wrong Answer</h3><span>{detail.wrongAnswers.length}개</span></div>{detail.wrongAnswers.length?<div className="linked-record-list">{detail.wrongAnswers.map(item=><article key={item.id}><span>{item.date} · {item.source}</span><b>{item.question||'문항 미입력'}</b><div className="math-record-output linked"><strong>잘못된 판단</strong><RichMathText value={item.wrongJudgment} fallback="미기록"/></div><div className="math-record-output linked"><strong>놓친 단서</strong><RichMathText value={item.missedCue} fallback="미기록"/></div><div className="math-record-output linked"><strong>교정 행동</strong><RichMathText value={item.correction} fallback="미기록"/></div></article>)}</div>:<p className="archive-empty-copy">이 Rule에 연결된 Wrong Answer가 없습니다.</p>}</section>}
+        {actionPanel==='drills'&&<section className="intelligence-linked-records"><div className="section-title"><h3>관련 Drill</h3><span>{detail.drills.length}개</span></div>{detail.drills.length?<div className="linked-record-list">{detail.drills.map(item=><article key={item.id}><span>{item.date} · {item.minutes}분 · {item.done?'실행 완료':'미완료'}</span><b>{item.title||'Drill'}</b><div className="math-record-output linked"><strong>교정 행동</strong><RichMathText value={item.action} fallback="미기록"/></div><div className="math-record-output linked"><strong>성공 기준</strong><RichMathText value={item.successCriterion} fallback="미기록"/></div></article>)}</div>:<p className="archive-empty-copy">이 Rule에 연결된 Drill이 없습니다.</p>}</section>}
         <div className="intelligence-stat-grid">
           <Card><span>최근 7일 실패</span><b>{detail.stats.failures7d}</b></Card>
           <Card><span>최근 30일 실패</span><b>{detail.stats.failures30d}</b></Card>

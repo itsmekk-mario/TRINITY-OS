@@ -1,0 +1,35 @@
+--- /dev/null
++++ b/src/beginner-mode-control.ts
+@@ -0,0 +1,32 @@
++const BEGINNER_KEY = 'trinity-os:beginner-mode';
++
++function installBeginnerModeControl() {
++  const sheet = document.querySelector<HTMLElement>('.settings-sheet .sheet-content');
++  if (!sheet || sheet.querySelector('[data-beginner-mode-control]')) return;
++
++  const enabled = localStorage.getItem(BEGINNER_KEY) === 'true';
++  const section = document.createElement('section');
++  section.className = 'theme-setting beginner-mode-setting';
++  section.dataset.beginnerModeControl = 'true';
++  section.innerHTML = `
++    <div>
++      <b id="beginner-mode-title">초보자용 화면</b>
++      <p>Today·Plan·Train·Insights와 Learning Archive만 남겨 학습 흐름을 단순하게 표시합니다. 기존 기록은 바뀌지 않습니다.</p>
++    </div>
++    <button type="button" class="beginner-mode-toggle${enabled ? ' active' : ''}" aria-pressed="${enabled}">
++      <span aria-hidden="true"></span>${enabled ? '사용 중' : '사용 안 함'}
++    </button>`;
++  const button = section.querySelector<HTMLButtonElement>('.beginner-mode-toggle')!;
++  button.addEventListener('click', () => {
++    const next = button.getAttribute('aria-pressed') !== 'true';
++    localStorage.setItem(BEGINNER_KEY, String(next));
++    window.dispatchEvent(new CustomEvent<boolean>('trinity:beginner-mode', { detail: next }));
++    button.classList.toggle('active', next);
++    button.setAttribute('aria-pressed', String(next));
++    button.lastChild!.textContent = next ? '사용 중' : '사용 안 함';
++  });
++  sheet.querySelector('.inline-settings')?.before(section);
++}
++
++new MutationObserver(installBeginnerModeControl).observe(document.documentElement, { childList: true, subtree: true });
++installBeginnerModeControl();
