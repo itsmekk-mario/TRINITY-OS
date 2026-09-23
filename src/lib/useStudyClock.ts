@@ -34,5 +34,5 @@ export function useStudyClock(save: (session: TimerSession) => void) {
     put(null);
   };
   const seconds = clock ? studyClockElapsedSeconds(clock, now) : 0;
-  return { subject, setSubject: (s: Subject) => { if (!clock) chooseSubject(s); }, seconds, running: !!clock?.running, start, pause, stop, reset, startedAt: clock?.startedAt };
+  return { subject, setSubject: (s: Subject) => { if (!clock) chooseSubject(s); }, seconds, running: !!clock?.running, start, pause, stop, reset, startedAt: clock?.startedAt, since: clock?.since };
 }

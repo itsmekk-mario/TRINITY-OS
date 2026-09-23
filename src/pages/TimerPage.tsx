@@ -8,6 +8,7 @@ import { formatMinutes, toDateKey, uid, weekStartKey } from '../lib/date';
 import { studyTotals } from '../lib/studyTotals';
 import { useStudyClock } from '../lib/useStudyClock';
 import { getYptStatus, resolveYpt, startYpt, stopYpt, type YptStatus } from '../lib/ypt';
+import { yptClockMismatch } from '../lib/yptClock';
 
 const fmt = (seconds: number) => [Math.floor(seconds / 3600), Math.floor(seconds % 3600 / 60), seconds % 60].map(v => String(Math.max(v, 0)).padStart(2, '0')).join(':');
 const clockMinutes = (time: string) => { const [h, m] = time.split(':').map(Number); return h * 60 + m; };
@@ -15,11 +16,12 @@ const duration = (item: MockScheduleItem) => Math.max(0, clockMinutes(item.end) 
 
 export default function TimerPage({ data, update }: { data: AppData; update: (fn: (value: AppData) => AppData) => void }) {
   const [mode, setMode] = useState<'study' | 'mock'>('study');
-  const { subject, setSubject, seconds, running, start: startClock, pause, stop, reset, startedAt } = useStudyClock(session => update(value => ({ ...value, sessions: [...value.sessions, session] })));
+  const { subject, setSubject, seconds, running, start: startClock, pause, stop, reset, startedAt, since } = useStudyClock(session => update(value => ({ ...value, sessions: [...value.sessions, session] })));
   const [ypt, setYpt] = useState<YptStatus | null>(null);
   const [yptError, setYptError] = useState('');
   const [yptBusy, setYptBusy] = useState(false);
   const yptBusyRef = useRef(false);
+  const yptMismatch = ypt ? yptClockMismatch(ypt, { running, subject, since }) : false;
   useEffect(() => {
     let live = true;
     const refresh = () => { void getYptStatus().then(next => { if (live) { setYpt(next); setYptError(''); } }).catch(() => { if (live) { setYpt(null); setYptError('열품타 연결 상태를 확인할 수 없습니다.'); } }); };
@@ -41,7 +43,7 @@ export default function TimerPage({ data, update }: { data: AppData; update: (fn
         return;
       }
       if (remote.state === 'uncertain' || remote.state === 'starting' || remote.state === 'stopping') throw new Error('열품타 작업 결과를 확인해야 합니다. 앱에서 타이머 상태를 확인해 주세요.');
-      if (running !== (remote.state === 'running')) throw new Error('TRINITY와 열품타 타이머 상태가 다릅니다. 열품타 앱에서 정지 여부를 확인해 주세요.');
+      if (yptClockMismatch(remote, { running, subject, since })) throw new Error('TRINITY와 열품타 타이머 구간이 다릅니다. 다른 탭과 열품타 앱에서 상태를 확인해 주세요.');
       if (action === 'start') {
         if (remote.state !== 'idle') throw new Error('열품타 타이머가 이미 실행 중입니다.');
         const result = await startYpt(subject);
@@ -101,7 +103,7 @@ export default function TimerPage({ data, update }: { data: AppData; update: (fn
       <p className="ypt-timer-status">열품타: {!ypt ? '연결 확인 중' : !ypt.connected ? '연동 안 함' : ypt.state === 'idle' ? '정지' : ypt.state === 'running' ? '공부 중' : '상태 확인 필요'}</p>
       {yptError && <p role="alert" className="ypt-error">{yptError}</p>}
       {!ypt && <button type="button" onClick={() => void getYptStatus().then(next => { setYpt(next); setYptError(''); }).catch(() => setYptError('열품타 연결 상태를 확인할 수 없습니다.'))}>연결 다시 확인</button>}
-      {ypt?.connected && (['starting', 'stopping', 'uncertain'].includes(ypt.state) || running !== (ypt.state === 'running')) && <button type="button" disabled={yptBusy} onClick={() => void recover()}>열품타 앱에서 정지 후 복구</button>}
+      {ypt?.connected && (['starting', 'stopping', 'uncertain'].includes(ypt.state) || yptMismatch) && <button type="button" disabled={yptBusy} onClick={() => void recover()}>열품타 앱에서 정지 후 복구</button>}
       <div className="timer-layout"><Card className="timer-card"><div className={`timer-ring ${running ? 'running' : ''}`}><div><span>{subject}</span><strong>{fmt(seconds)}</strong><small>{running ? '집중 세션 진행 중' : seconds ? '일시정지' : 'READY'}</small></div></div><div className="subject-tabs">{SUBJECTS.map(s => <button className={subject === s ? 'active' : ''} disabled={running || seconds > 0 || yptBusy} onClick={() => setSubject(s)} key={s}>{s}</button>)}</div><div className="timer-actions">{!running ? <button className="timer-main" disabled={!ypt || yptBusy} onClick={() => void transition('start')}><Play fill="currentColor" />{seconds ? '계속' : '시작'}</button> : <button className="timer-main" disabled={!ypt || yptBusy} onClick={() => void transition('pause')}><Pause fill="currentColor" />일시정지</button>}<button onClick={() => void transition('stop')} disabled={!ypt || yptBusy || !seconds}><Square size={20} />정지·저장</button><button onClick={() => void transition('reset')} disabled={!ypt || yptBusy || !seconds}><RotateCcw size={20} />초기화</button></div></Card>
         <div><SectionTitle title="오늘 순공" meta={formatMinutes(Object.values(todayBySubject).reduce((a,b)=>a+b,0) / 60)} />{SUBJECTS.map(s => <Card className="subject-time" key={s}><div><span className={`subject-dot ${s}`} /><b>{s}</b></div><strong>{formatMinutes(todayBySubject[s] / 60)}</strong><Progress value={todayBySubject[s]} max={Math.max(...Object.values(todayBySubject), 1)} /></Card>)}<Card className="weekly-total"><span>이번 주 누적</span><strong>{formatMinutes(weekly / 60)}</strong></Card></div>
       </div>
