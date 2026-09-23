@@ -20,3 +20,4 @@ dist/
 *.tsbuildinfo
 *.pre-core-wrong.bak
 .worker-dist/
+.ypt-local/
