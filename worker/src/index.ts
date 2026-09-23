@@ -9,6 +9,7 @@ import { connectStudyRoomWebSocket, handleStudyRoomApi } from './study-room/rout
 import { archive } from './archive.ts';
 import { learningIntelligence } from './learning-intelligence.ts';
 import { syncLearningProjection } from './learning-graph.ts';
+import { handleYptApi } from './ypt.ts';
 
 export { StudyRoomDurableObject };
 
@@ -23,6 +24,7 @@ export interface Env {
   LIVEKIT_URL?: string;
   LIVEKIT_API_KEY?: string;
   LIVEKIT_API_SECRET?: string;
+  YPT_ENCRYPTION_KEY?: string;
 }
 const json = (body: unknown, status = 200, origin = '', extra: HeadersInit = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', ...(origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}), 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Setup-Token', 'Access-Control-Allow-Methods': 'GET, PUT, POST, PATCH, DELETE, OPTIONS', 'Cache-Control': 'no-store', ...extra } });
 async function ensureTables(db: D1Database) { await db.batch([
@@ -38,6 +40,7 @@ async function ensureTables(db: D1Database) { await db.batch([
   db.prepare("CREATE TABLE IF NOT EXISTS security_audit_logs (id TEXT PRIMARY KEY,actor_type TEXT NOT NULL,actor_id TEXT,action TEXT NOT NULL,target_type TEXT,target_id TEXT,created_at TEXT NOT NULL,metadata_json TEXT NOT NULL DEFAULT '{}')"),
   db.prepare('CREATE TABLE IF NOT EXISTS study_rooms (id TEXT PRIMARY KEY,invite_code TEXT NOT NULL UNIQUE,name TEXT NOT NULL,owner_user_id INTEGER NOT NULL REFERENCES users(id),created_at TEXT NOT NULL,is_active INTEGER NOT NULL DEFAULT 1,max_participants INTEGER NOT NULL DEFAULT 10 CHECK(max_participants BETWEEN 2 AND 10))'),
   db.prepare('CREATE TABLE IF NOT EXISTS study_room_members (room_id TEXT NOT NULL REFERENCES study_rooms(id) ON DELETE CASCADE,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,connection_id TEXT NOT NULL,joined_at TEXT NOT NULL,left_at TEXT,PRIMARY KEY(room_id,user_id,joined_at))'),
+  db.prepare("CREATE TABLE IF NOT EXISTS ypt_connections (user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, encrypted_jwt TEXT NOT NULL, subjects_json TEXT NOT NULL, mapping_json TEXT NOT NULL DEFAULT '{}', state TEXT NOT NULL DEFAULT 'idle' CHECK (state IN ('idle','starting','running','stopping','uncertain')), active_started_at INTEGER, active_subject TEXT, pending_id TEXT, connected_at TEXT NOT NULL, updated_at TEXT NOT NULL)"),
 ]); await db.batch([
   db.prepare('CREATE INDEX IF NOT EXISTS api_tokens_user_active ON api_tokens(user_id, revoked_at)'),
   db.prepare('CREATE INDEX IF NOT EXISTS learning_state_history_user_saved ON learning_state_history(user_id, saved_at DESC)'),
@@ -201,6 +204,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
   }
   const auth = await authContext(request, env), user=auth?.user??null;
   const sessionUser=auth?.authType==='session'?user:null;
+  if (url.pathname.startsWith('/api/ypt/')) return handleYptApi(request, env, sessionUser?.id ?? null, origin, json);
   const extra = await support(request, env, sessionUser?.is_admin === 1, origin, { json, sha256, passwordHash, secretMatches, randomHex,boundedJson }, sessionUser);
   if (extra) return extra;
   const arenaResponse = await arena(request, env, sessionUser, origin, { json, randomHex,boundedJson });

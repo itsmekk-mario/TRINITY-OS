@@ -1,5 +1,46 @@
 # TRINITY OS Worker
 
+## YPT timer bridge
+
+YPT uses an undocumented third-party API. The bridge is opt-in and applies only to
+the regular study timer. TRINITY's browser sends its own Bearer session to this
+Worker; the Worker stores the YPT JWT encrypted with AES-GCM in D1. The YPT
+password is used for sign-in and is never stored.
+
+Before deploying the YPT UI, configure the Worker. Generate 32 random bytes,
+base64 encode them, and enter the result interactively when Wrangler prompts:
+
+```sh
+cd worker
+npx wrangler secret put YPT_ENCRYPTION_KEY --config wrangler.toml
+npx wrangler d1 execute trinity-os-db --remote --file=./migrations/0021_ypt_connections.sql --config wrangler.toml
+npx wrangler deploy --config wrangler.toml
+```
+
+Keep the key in the Worker secret store. Losing or rotating it without a planned
+credential migration makes stored YPT JWTs unreadable; users must reconnect.
+Apply the migration and Worker before publishing the matching browser UI. This
+repository's Pages workflow publishes the UI from `main`, while Worker deployment
+is a separate operation.
+
+The `GET /api/ypt/status`, `POST/DELETE /api/ypt/connect`, `PUT /api/ypt/mapping`,
+`POST /api/ypt/start`, `POST /api/ypt/stop`, and `POST /api/ypt/resolve` routes
+require a TRINITY login session. API tokens cannot use them. `start` and `stop`
+return the Worker transition timestamp so the local clock can use the same time.
+Network ambiguity locks the connection in an unresolved state. The user checks
+and stops the timer in the YPT app, then explicitly resolves it; no automatic
+retry can fabricate a second study interval. A refreshed login can replace an
+expired JWT while keeping an active interval's start timestamp.
+
+Local checks:
+
+```sh
+node --experimental-loader ./tests/cloudflare-loader.mjs --experimental-transform-types --test tests/ypt-worker.test.mjs tests/ypt-auth.test.mjs
+npm run build
+cd worker
+npx wrangler deploy --dry-run --config wrangler.toml --outdir ../.worker-dist
+```
+
 ## CAM Study Room / self-hosted LiveKit SFU
 
 CAM Study Room uses one self-hosted LiveKit SFU session (one

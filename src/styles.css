@@ -149,3 +149,10 @@
 @media (max-width:1180px){.intelligence-workspace{grid-template-columns:1fr}.intelligence-overview{position:static}.intelligence-rule-list{max-height:340px}.intelligence-action-buttons,.intelligence-head-actions{justify-content:flex-start}}
 @media (max-width:900px){.settings-sheet,.detail-sheet{width:min(680px,calc(100vw - 24px))!important}.theme-setting{display:grid!important;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px}.theme-options{width:auto!important;grid-template-columns:repeat(3,minmax(74px,1fr))!important}.intelligence-detail-head{display:block}.intelligence-head-actions{margin-top:12px}}
 @media (max-width:620px){.theme-setting{grid-template-columns:1fr!important}.theme-options{width:100%!important}.intelligence-actions{grid-template-columns:1fr}.intelligence-action-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.intelligence-action-buttons .button{width:100%;white-space:nowrap}}
+.ypt-settings { margin: 1rem 0; padding: 1rem; border: 1px solid var(--border, #7775); border-radius: 14px; }
+.ypt-settings h3 { margin: 0 0 .5rem; }
+.ypt-connect-form, .ypt-mapping { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .75rem; margin: .75rem 0; }
+.ypt-connect-form label, .ypt-mapping label { display: grid; gap: .25rem; }
+.ypt-connect-form input, .ypt-mapping select { width: 100%; min-width: 0; padding: .55rem; }
+.ypt-settings-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.ypt-error { color: #b62f3b; }
