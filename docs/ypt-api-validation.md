@@ -1,7 +1,7 @@
 # 열품타 API 사전 검증
 
 제품 연동 전에 로그인·과목 조회·실제 시작/정지·휴식 제외를 검증한다.
-현재 상태: 테스트 도구와 모의 검증 완료. **인증된 실제 API 테스트 결과는 아직 없다.**
+현재 상태: 인증된 실제 API 테스트 통과. 민감정보를 제외한 원본 근거는 Git에서 제외된 `.ypt-local/api-probe.json`에 보관한다.
 
 ## 실행
 
@@ -26,7 +26,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-ypt-api.ps1
 - 검증 중 열품타의 기록 날짜가 바뀌지 않음.
 
 민감정보를 제외한 결과는 Git에서 제외된 `.ypt-local/api-probe.json`에 기록된다.
-`passed: true`여야 제품 연동 단계로 진행한다. 이 검증만으로 원격 활성 타이머의 자동 복구 가능성이 입증되지는 않는다.
+2026-09-23 실측 결과: `passed: true`, 공부 구간 30.076초 + 30.043초, 열품타 기록 증가 60.136초, 휴식 증가 0초, 시작·정지 각각 2회 성공. 모든 정지 요청이 완료되어 `stopConfirmed: true`다. 이 검증만으로 원격 활성 타이머의 자동 복구 가능성이 입증되지는 않는다.
 
 ## 오류와 중단
 
@@ -46,6 +46,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-ypt-api.ps1
 - 프론트 `npm run build` 통과. 기존 대형 번들 경고 있음.
 - Worker `wrangler deploy --dry-run` 통과. 실제 Worker 배포와 운영 D1 변경은 하지 않음.
 - PowerShell 파서 검사와 `git diff --check` 통과.
+- 인증된 실제 API: 이메일 로그인, 과목 조회, 두 번의 시작·정지, 휴식 제외 통과. 응답의 `dl`에는 기록 시각 관련 필드가 있지만 원격 활성 상태를 안정적으로 판별하는 계약은 확인되지 않았다. 불확실 상태는 앱에서 직접 확인하고 수동 복구한다.
 
 모의 테스트 재실행:
 

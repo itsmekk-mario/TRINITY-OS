@@ -39,6 +39,7 @@ import Dashboard from "./pages/Dashboard";
 import ScoreTracker from "./pages/ScoreTracker";
 import NotionWorkspace from "./pages/NotionWorkspace";
 import CloudflareSync from "./components/CloudflareSync";
+import YptSettings from "./components/YptSettings";
 import LoginPage from "./components/LoginPage";
 import { logoutLocal, type SessionIdentity, validateSession } from "./lib/auth";
 import { autoSyncCloudflareData, loadCloudflareConfig } from "./lib/cloudflare";
@@ -751,6 +752,7 @@ function StudentApp() {
                 </label>
               </div>
               <CloudflareSync data={data} update={update} />
+              <YptSettings />
               <div className="settings-list">
                 <button
                   onClick={() => {
