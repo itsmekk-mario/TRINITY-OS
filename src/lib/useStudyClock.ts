@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Subject, TimerSession } from '../types';
 import { toDateKey, uid } from './date';
 import { loadCloudflareConfig } from './cloudflare';
+import { SUBJECTS } from '../data/config';
 
 export type ActiveStudyClock = { subject: Subject; startedAt: string; since: string; running: boolean; segments: NonNullable<TimerSession['segments']> };
 type Clock = ActiveStudyClock;
@@ -11,7 +12,7 @@ const key = () => {
 };
 export const STUDY_CLOCK_EVENT = 'trinity-study-clock-change';
 function load(): Clock | null {
-  try { const storageKey = key(); const v = JSON.parse(storageKey ? localStorage.getItem(storageKey) || 'null' : 'null'); return v && Array.isArray(v.segments) && ['국어','수학','영어','탐구'].includes(v.subject) && Number.isFinite(Date.parse(v.since)) ? v : null; } catch { return null; }
+  try { const storageKey = key(); const v = JSON.parse(storageKey ? localStorage.getItem(storageKey) || 'null' : 'null'); return v && Array.isArray(v.segments) && SUBJECTS.includes(v.subject as Subject) && Number.isFinite(Date.parse(v.since)) ? v : null; } catch { return null; }
 }
 export const readStudyClock = () => load();
 export const studyClockElapsedSeconds = (clock: ActiveStudyClock, now = Date.now()) => Math.floor((clock.segments.filter(s => s.kind === 'focus').reduce((sum, s) => sum + Date.parse(s.end) - Date.parse(s.start), 0) + (clock.running ? Math.max(0, now - Date.parse(clock.since)) : 0)) / 1000);

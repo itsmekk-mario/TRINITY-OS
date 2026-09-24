@@ -14,8 +14,8 @@ const outcomeLabel:Record<PlanOutcome,string>={achieved:'달성',partial:'세모
 const dateLabel = (date: string) => new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' }).format(new Date(`${date}T00:00:00`));
 const weekDates = (start: string) => Array.from({ length: 7 }, (_, index) => { const date = new Date(`${start}T00:00:00`); date.setDate(date.getDate() + index); return toDateKey(date); });
 
-export default function PlanningPage({ data, update }: { data: AppData; update: (fn: (value: AppData) => AppData) => void }) {
-  const [tab, setTab] = useState<'weekly' | 'monthly'>('weekly');
+export default function PlanningPage({ data, update, initialTab = 'weekly' }: { data: AppData; update: (fn: (value: AppData) => AppData) => void; initialTab?: 'weekly' | 'monthly' }) {
+  const [tab, setTab] = useState<'weekly' | 'monthly'>(initialTab);
   const [weekStart, setWeekStart] = useState(weekStartKey());
   const currentWeekRef = useRef(weekStartKey());
   const [month, setMonth] = useState(toDateKey().slice(0, 7));

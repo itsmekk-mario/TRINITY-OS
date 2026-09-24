@@ -4,8 +4,8 @@ import { dateKeyDaysAgo, normalizeLearningText } from './context.ts';
 import { diagnoseLearning } from './rules.ts';
 import type { BottleneckTrend, LearningAnalysis, LearningAnalysisCore, Trend } from './types.ts';
 import { parsePlannedMinutes } from '../plannedTime.ts';
+import { SUBJECTS } from '../../data/config';
 
-const SUBJECTS: Subject[] = ['국어', '수학', '영어', '탐구'];
 
 function scoreFor(entry: ScoreEntry, subject: Subject): number | undefined {
   if (subject === '탐구') return undefined;

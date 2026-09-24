@@ -34,7 +34,7 @@ import {
   saveData,
   type ParsedBackup,
 } from "./lib/storage";
-import { APP_VERSION } from "./data/config";
+import { APP_VERSION, addCustomSubject } from "./data/config";
 import Dashboard from "./pages/Dashboard";
 import ScoreTracker from "./pages/ScoreTracker";
 import NotionWorkspace from "./pages/NotionWorkspace";
@@ -84,12 +84,10 @@ const primaryNav = [
   { id: "insights", label: "Insights", icon: ChartNoAxesCombined },
 ] as const;
 const utilityNav = [
-  { id: "archive", label: "Learning Archive", icon: BookMarked },
   { id: "study-room", label: "Study Room", icon: Video },
-  { id: "coach", label: "AI Coach", icon: BrainCircuit },
   { id: "feedback", label: "Teacher Feedback", icon: MessageSquareText },
   { id: "profile", label: "Arena", icon: Swords },
-  { id: "workspace", label: "Workspace", icon: NotebookTabs },
+  { id: "workspace", label: "일정", icon: NotebookTabs },
 ] as const;
 const beginnerPages = new Set<Page>([
   "today",
@@ -144,7 +142,7 @@ function StudentApp() {
     () => localStorage.getItem(BEGINNER_KEY) === "true",
   );
   const [planView, setPlanView] = useState<PlanView>(() =>
-    ["overview", "calendar", "weekly", "routine"].includes(queryView() ?? "")
+    ["overview", "calendar", "weekly", "monthly", "routine"].includes(queryView() ?? "")
       ? (queryView() as PlanView)
       : "overview",
   );
@@ -169,6 +167,7 @@ function StudentApp() {
     Boolean(loadCloudflareConfig().mustChangePassword),
   );
   const [toast, setToast] = useState("");
+  const [subjectDraft, setSubjectDraft] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const [authenticated, setAuthenticated] = useState(
     Boolean(loadCloudflareConfig().token),
@@ -278,7 +277,7 @@ function StudentApp() {
       const target = pageFromLocation();
       const view = queryView();
       const plan =
-        view && ["overview", "calendar", "weekly", "routine"].includes(view)
+        view && ["overview", "calendar", "weekly", "monthly", "routine"].includes(view)
           ? (view as PlanView)
           : "overview";
       const train =
@@ -454,7 +453,7 @@ function StudentApp() {
     ? primaryNav.filter(({ id }) => id !== "test")
     : primaryNav;
   const visibleUtilityNav = beginnerMode
-    ? utilityNav.filter(({ id }) => id === "archive")
+    ? utilityNav.filter(({ id }) => id === "workspace")
     : utilityNav;
   const screen =
     page === "today" ? (
@@ -725,7 +724,20 @@ function StudentApp() {
               {beginnerMode ? '사용 중' : '사용 안 함'}
             </button>
           </section>
-          <div className="inline-settings">
+              <div className="inline-settings">
+                <label>
+                  <span>과목 추가</span>
+                  <div className="subject-add-row">
+                    <input value={subjectDraft} maxLength={24} placeholder="예: 제2외국어" onChange={(event) => setSubjectDraft(event.target.value)} />
+                    <button className="button" type="button" onClick={() => {
+                      const added = addCustomSubject(subjectDraft);
+                      if (added) { setToast(`${subjectDraft.trim()} 과목을 추가했습니다.`); setSubjectDraft(""); window.setTimeout(() => setToast(""), 2500); }
+                      else if (!subjectDraft.trim()) setToast("과목명을 입력해 주세요.");
+                      else setToast("이미 있거나 추가할 수 없는 과목입니다.");
+                    }}>과목 추가</button>
+                  </div>
+                  <small>추가한 과목은 학습·기록 화면의 과목 선택 메뉴에 반영됩니다.</small>
+                </label>
                 <label>
                   <span>수능 날짜</span>
                   <input

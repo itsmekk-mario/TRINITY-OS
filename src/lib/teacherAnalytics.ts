@@ -1,6 +1,7 @@
 import type { AppData, Subject } from '../types';
 import { parsePlannedMinutes } from './plannedTime.ts';
 export type TeacherData = Pick<AppData, 'sessions' | 'wrongAnswerDrills' | 'weeklyCapabilityGoals' | 'dailyDrills' | 'resources'> & {
+  monthlyPlans?: AppData['monthlyPlans'];
   arena?: { snapshots: {id:string;week_start:string;score:number;execution:number;mastery:number;performance:number;consistency:number;growth:number;score_version:number;calculated_at:string;season:string}[]; achievements:{id:string;title:string;description:string;awarded_at:string}[]; groups:{id:string;name:string;type:string}[] };
   scores: (Partial<AppData['scores'][number]> & { id: string; date: string; name: string; subject?: Subject; score?: number })[];
   access?: { sessions:boolean; scores:boolean; wrongAnswers:boolean; weeklyGoals:boolean; drills:boolean; trinity:boolean };

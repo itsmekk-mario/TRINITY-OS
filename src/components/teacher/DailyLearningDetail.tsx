@@ -6,8 +6,8 @@ import { toDateKey } from '../../lib/date';
 import { studyTotals, studyTotalsBySubject } from '../../lib/studyTotals';
 import { Empty, SectionTitle } from '../Ui';
 import type { Subject } from '../../types';
+import { SUBJECTS } from '../../data/config';
 
-const SUBJECTS = ['국어', '수학', '영어', '탐구'] as const;
 const dateAtSeoulNoon = (key: string) => new Date(`${key}T12:00:00+09:00`);
 const dateLabel = (key: string) => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' }).format(dateAtSeoulNoon(key));
 const monthLabel = (year: number, month: number) => `${year}년 ${month + 1}월`;

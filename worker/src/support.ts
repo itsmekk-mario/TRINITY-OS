@@ -60,6 +60,22 @@ export async function support(request:Request, env:Env, owner:boolean, origin:st
   if(!owner&&!account&&!studentActor)return out({error:'로그인이 필요합니다.'},401);
   const collab=await collaboration(request,env,owner,account,origin,h,studentActor); if(collab)return collab;
   if(path==='/api/support/logout'&&method==='POST'){await env.DB.prepare('DELETE FROM support_sessions WHERE token_hash=?').bind(await h.sha256(bearer)).run();return out({ok:true});}
+  if(path==='/api/support/change-password'&&method==='POST'){
+   if(!account)return out({error:'전용 계정으로 로그인하세요.'},403);
+   const b=await h.boundedJson<any>(request),currentPassword=typeof b.currentPassword==='string'?b.currentPassword:'',newPassword=typeof b.newPassword==='string'?b.newPassword:'';
+   if(!currentPassword||newPassword.length<12||newPassword.length>256)return out({error:'현재 비밀번호와 12자 이상의 새 비밀번호를 입력하세요.'},400);
+   const credential=await env.DB.prepare('SELECT salt,password_hash,COALESCE(password_iterations,100000) AS password_iterations FROM support_accounts WHERE id=? AND active=1').bind(account.id).first<{salt:string;password_hash:string;password_iterations:number}>();
+   if(!credential)return out({error:'계정을 확인할 수 없습니다.'},404);
+   const currentHash=await h.passwordHash(currentPassword,credential.salt,credential.password_iterations);
+   if(!await h.secretMatches(currentHash,credential.password_hash))return out({error:'현재 비밀번호가 올바르지 않습니다.'},401);
+   const salt=h.randomHex(16),tokenHash=await h.sha256(bearer),now=new Date().toISOString();
+   await env.DB.batch([
+    env.DB.prepare('UPDATE support_accounts SET salt=?,password_hash=?,password_iterations=? WHERE id=?').bind(salt,await h.passwordHash(newPassword,salt,PASSWORD_HASH_ITERATIONS),PASSWORD_HASH_ITERATIONS,account.id),
+    env.DB.prepare('DELETE FROM support_sessions WHERE account_id=? AND token_hash<>?').bind(account.id,tokenHash),
+    env.DB.prepare('INSERT INTO security_audit_logs(id,actor_type,actor_id,action,target_type,target_id,created_at,metadata_json) VALUES(?,?,?,?,?,?,?,?)').bind(h.randomHex(16),'support_account',account.id,'support_account.password_change','support_account',account.id,now,'{}'),
+   ]);
+   return out({ok:true});
+  }
   if(path==='/api/support/accounts'){
    if(!owner)return out({error:'학생만 계정을 관리할 수 있습니다.'},403);
    if(method==='GET')return out({accounts:(await env.DB.prepare("SELECT id,username,COALESCE(collaboration_role,CASE role WHEN 'tutor' THEN 'subject_teacher' ELSE role END) AS role,active FROM support_accounts ORDER BY created_at").all()).results});
