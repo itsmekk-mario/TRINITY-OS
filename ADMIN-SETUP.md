@@ -24,7 +24,7 @@ npx wrangler d1 execute trinity-os-db --remote --file=./schema.sql
 
 1. 학생(소유자) 계정으로 앱에 로그인하고 Cloudflare 동기화를 한 번 저장합니다.
 2. `?portal=owner` 주소를 엽니다.
-3. **공유 계정 생성**에서 tutor 또는 parent 역할, 아이디, 12자 이상의 임시 비밀번호를 입력합니다.
+3. **공유 계정 생성**에서 tutor 또는 parent 역할, 아이디, 9자 이상의 임시 비밀번호를 입력합니다.
 4. 선생님과 학부모는 각각 `?portal=tutor`, `?portal=parent`에서 로그인합니다.
 
 튜터는 수학 학습의 상세 분석과 기출 PDF를 볼 수 있고, 학부모는 진도·점수의 축약된

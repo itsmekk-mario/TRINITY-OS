@@ -9,6 +9,7 @@ import './ui-polish.css';
 import './ui-system.css';
 import './math-record.css';
 import './teacher.css';
+import './homeroom.css';
 import './study-room.css'; 
 import './theme-dark.css';
 

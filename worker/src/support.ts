@@ -63,7 +63,7 @@ export async function support(request:Request, env:Env, owner:boolean, origin:st
   if(path==='/api/support/change-password'&&method==='POST'){
    if(!account)return out({error:'전용 계정으로 로그인하세요.'},403);
    const b=await h.boundedJson<any>(request),currentPassword=typeof b.currentPassword==='string'?b.currentPassword:'',newPassword=typeof b.newPassword==='string'?b.newPassword:'';
-   if(!currentPassword||newPassword.length<12||newPassword.length>256)return out({error:'현재 비밀번호와 12자 이상의 새 비밀번호를 입력하세요.'},400);
+   if(!currentPassword||newPassword.length<9||newPassword.length>256)return out({error:'현재 비밀번호와 9자 이상의 새 비밀번호를 입력하세요.'},400);
    const credential=await env.DB.prepare('SELECT salt,password_hash,COALESCE(password_iterations,100000) AS password_iterations FROM support_accounts WHERE id=? AND active=1').bind(account.id).first<{salt:string;password_hash:string;password_iterations:number}>();
    if(!credential)return out({error:'계정을 확인할 수 없습니다.'},404);
    const currentHash=await h.passwordHash(currentPassword,credential.salt,credential.password_iterations);
@@ -82,7 +82,7 @@ export async function support(request:Request, env:Env, owner:boolean, origin:st
    const b=await h.boundedJson<any>(request);
    if(method==='PUT'){const id=strings(b.id),now=new Date().toISOString();await env.DB.batch([env.DB.prepare('UPDATE support_accounts SET active=0 WHERE id=?').bind(id),env.DB.prepare('DELETE FROM support_sessions WHERE account_id=?').bind(id),env.DB.prepare('INSERT INTO security_audit_logs(id,actor_type,actor_id,action,target_type,target_id,created_at,metadata_json) VALUES(?,?,?,?,?,?,?,?)').bind(h.randomHex(16),'student_admin',studentActor?String(studentActor.id):null,'support_account.disable','support_account',id,now,'{}')]);return out({ok:true});}
    if(method==='POST'){
-    const username=strings(b.username,40), requestedRole=strings(b.role,30), collaborationRole=requestedRole==='tutor'?'subject_teacher':requestedRole;if(!username||!['tutor','parent','subject_teacher','academic_manager','admin'].includes(requestedRole)||typeof b.password!=='string'||b.password.length<12||b.password.length>256)return out({error:'아이디와 12자 이상의 비밀번호, 역할을 확인하세요.'},400);
+    const username=strings(b.username,40), requestedRole=strings(b.role,30), collaborationRole=requestedRole==='tutor'?'subject_teacher':requestedRole;if(!username||!['tutor','parent','subject_teacher','academic_manager','admin'].includes(requestedRole)||typeof b.password!=='string'||b.password.length<9||b.password.length>256)return out({error:'아이디와 9자 이상의 비밀번호, 역할을 확인하세요.'},400);
     if(await env.DB.prepare('SELECT id FROM support_accounts WHERE username=?').bind(username).first())return out({error:'이미 사용 중인 아이디입니다.'},409);
     const salt=h.randomHex(16);
     const id=h.randomHex(16),now=new Date().toISOString();await env.DB.batch([env.DB.prepare('INSERT INTO support_accounts(id,username,role,collaboration_role,password_hash,salt,password_iterations,created_at) VALUES(?,?,?,?,?,?,?,?)').bind(id,username,collaborationRole==='parent'?'parent':'tutor',collaborationRole,await h.passwordHash(b.password,salt,PASSWORD_HASH_ITERATIONS),salt,PASSWORD_HASH_ITERATIONS,now),env.DB.prepare('INSERT INTO security_audit_logs(id,actor_type,actor_id,action,target_type,target_id,created_at,metadata_json) VALUES(?,?,?,?,?,?,?,?)').bind(h.randomHex(16),'student_admin',studentActor?String(studentActor.id):null,'support_account.create','support_account',id,now,JSON.stringify({role:collaborationRole}))]);return out({ok:true},201);
