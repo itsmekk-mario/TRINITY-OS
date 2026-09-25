@@ -82,6 +82,7 @@ const primaryNav = [
   { id: "train", label: "Train", icon: Target },
   { id: "test", label: "Test", icon: Gauge },
   { id: "insights", label: "Insights", icon: ChartNoAxesCombined },
+  { id: "archive", label: "Learning Archive", icon: BookMarked },
 ] as const;
 const utilityNav = [
   { id: "study-room", label: "Study Room", icon: Video },
