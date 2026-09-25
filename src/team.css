@@ -48,6 +48,12 @@
   background: #9a7b3e;
 }
 
+.teacher-navigation{display:grid;gap:7px;min-width:0;margin-left:auto;width:min(100%,760px)}
+.teacher-navigation .teacher-tabs{margin:0}
+.teacher-navigation .teacher-subtabs{justify-self:start;max-width:100%;background:transparent;border:0;box-shadow:none}
+.teacher-navigation .teacher-subtabs button{font-size:11px;padding:6px 9px}
+@media(max-width:760px){.teacher-navigation{width:100%;margin-left:0}.teacher-navigation .teacher-tabs,.teacher-navigation .teacher-subtabs{overflow-x:auto;max-width:100%;scrollbar-width:thin}}
+
 @media (max-width: 560px) {
   .beginner-mode-setting {
     align-items: flex-start;
