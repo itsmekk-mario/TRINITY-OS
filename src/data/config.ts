@@ -21,4 +21,13 @@ export function addCustomSubject(value: string) {
   try { localStorage.setItem(CUSTOM_SUBJECTS_KEY, JSON.stringify(SUBJECTS.filter(item => !baseSubjects.includes(item)))); } catch { /* Keep this session's selection. */ }
   return true;
 }
+export function removeCustomSubject(value: string) {
+  const subject = value.trim() as Subject;
+  if (baseSubjects.includes(subject)) return false;
+  const index = SUBJECTS.indexOf(subject);
+  if (index < 0) return false;
+  SUBJECTS.splice(index, 1);
+  try { localStorage.setItem(CUSTOM_SUBJECTS_KEY, JSON.stringify(SUBJECTS.filter(item => !baseSubjects.includes(item)))); } catch { /* Keep this session's selection. */ }
+  return true;
+}
 export const ERROR_TYPES = ['개념 부족', '조건 해석 실패', '표상 실패', '매핑 실패', '계산 오류', '시간 부족', '멘탈'] as const;

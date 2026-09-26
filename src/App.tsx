@@ -19,6 +19,7 @@ import {
   Sun,
   Swords,
   Target,
+  Trash2,
   Upload,
   UserRound,
   Video,
@@ -34,7 +35,7 @@ import {
   saveData,
   type ParsedBackup,
 } from "./lib/storage";
-import { APP_VERSION, addCustomSubject } from "./data/config";
+import { APP_VERSION, addCustomSubject, removeCustomSubject, SUBJECTS } from "./data/config";
 import Dashboard from "./pages/Dashboard";
 import ScoreTracker from "./pages/ScoreTracker";
 import NotionWorkspace from "./pages/NotionWorkspace";
@@ -738,6 +739,19 @@ function StudentApp() {
                     }}>과목 추가</button>
                   </div>
                   <small>추가한 과목은 학습·기록 화면의 과목 선택 메뉴에 반영됩니다.</small>
+                  <div className="subject-custom-list" aria-label="추가한 과목 목록">
+                    {SUBJECTS.filter((subject) => !['국어', '수학', '영어', '통사', '통과'].includes(subject)).map((subject) => (
+                      <div className="subject-custom-item" key={subject}>
+                        <span>{subject}</span>
+                        <button className="icon-button danger" type="button" aria-label={`${subject} 과목 삭제`} onClick={() => {
+                          if (removeCustomSubject(subject)) {
+                            setToast(`${subject} 과목을 삭제했습니다.`);
+                            window.setTimeout(() => setToast(""), 2500);
+                          }
+                        }}><Trash2 size={15} /></button>
+                      </div>
+                    ))}
+                  </div>
                 </label>
                 <label>
                   <span>수능 날짜</span>
