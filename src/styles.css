@@ -149,3 +149,15 @@
 @media (max-width:1180px){.intelligence-workspace{grid-template-columns:1fr}.intelligence-overview{position:static}.intelligence-rule-list{max-height:340px}.intelligence-action-buttons,.intelligence-head-actions{justify-content:flex-start}}
 @media (max-width:900px){.settings-sheet,.detail-sheet{width:min(680px,calc(100vw - 24px))!important}.theme-setting{display:grid!important;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px}.theme-options{width:auto!important;grid-template-columns:repeat(3,minmax(74px,1fr))!important}.intelligence-detail-head{display:block}.intelligence-head-actions{margin-top:12px}}
 @media (max-width:620px){.theme-setting{grid-template-columns:1fr!important}.theme-options{width:100%!important}.intelligence-actions{grid-template-columns:1fr}.intelligence-action-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.intelligence-action-buttons .button{width:100%;white-space:nowrap}}
+
+/* Keep long Learning Archive fields inside the document sheet and allow them to scroll. */
+.archive-detail-backdrop .archive-detail{height:min(90vh,860px);max-height:min(90vh,860px);min-height:0}
+.archive-detail-backdrop .archive-detail>.sheet-content{flex:1 1 0;min-height:0;max-height:none;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}
+.archive-document-view,.archive-document-view section,.archive-document-view .document-lead,.archive-document-view .math-record-output,.archive-document-view .math-rich-text,.archive-document-view .math-plain-text{min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:normal}
+.archive-document-view .document-analysis-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.archive-document-view .document-analysis-grid>div,.archive-document-view .question-metadata>div{min-width:0;overflow-wrap:anywhere}
+.archive-document-view .document-analysis-grid p,.archive-document-view .question-metadata dd,.archive-document-view .annotation-row,.archive-document-view .archive-linked-rule,.archive-document-view .archive-rule-title,.archive-document-view .review-document-status,.archive-document-view .archive-review-note{min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:normal}
+.archive-document-view .archive-linked-rule{grid-template-columns:minmax(0,1fr) auto}
+.archive-document-view .archive-linked-rule .archive-rule-title{white-space:normal}
+.archive-document-view .annotation-row-head{flex-wrap:wrap}
+@media(max-width:760px){.archive-detail-backdrop .archive-detail{height:min(94vh,900px);max-height:94vh}.archive-document-view .document-analysis-grid,.archive-document-view .question-metadata{grid-template-columns:minmax(0,1fr)}.archive-document-view .archive-linked-rule{grid-template-columns:minmax(0,1fr)}}
