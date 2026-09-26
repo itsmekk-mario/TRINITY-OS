@@ -37,7 +37,15 @@ export default function Statistics({ data }: { data: AppData }) {
   const subjects = SUBJECTS.reduce((out, subject) => ({ ...out, [subject]: dates.reduce((sum, date) => sum + byDay[date][subject], 0) }), {} as Record<Subject, number>);
   const timed = data.sessions.filter((s): s is TimerSession & { startedAt: string; endedAt: string } => dates.includes(s.date) && !!s.startedAt && !!s.endedAt && Number.isFinite(Date.parse(s.startedAt)) && Number.isFinite(Date.parse(s.endedAt)));
   const startMinutes = timed.map(s => new Date(s.startedAt).getHours() * 60 + new Date(s.startedAt).getMinutes()); const endMinutes = timed.map(s => new Date(s.endedAt).getHours() * 60 + new Date(s.endedAt).getMinutes());
-  const averageTime = (values: number[]) => values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null;
+  const averageTime = (values: number[]) => {
+    if (!values.length) return null;
+    const angles = values.map((minutes) => minutes / 1440 * Math.PI * 2);
+    const x = angles.reduce((sum, angle) => sum + Math.cos(angle), 0);
+    const y = angles.reduce((sum, angle) => sum + Math.sin(angle), 0);
+    if (Math.hypot(x, y) < 1e-6) return null;
+    const angle = (Math.atan2(y, x) + Math.PI * 2) % (Math.PI * 2);
+    return Math.round(angle / (Math.PI * 2) * 1440) % 1440;
+  };
   const timeText = (value: number | null) => value === null ? '—' : `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
   const longest = Math.max(0, ...data.sessions.map(s => (s.segments ?? []).filter(p => p.kind === 'focus').reduce((sum, p) => sum + Math.max(0, Date.parse(p.end) - Date.parse(p.start)), 0) / 1000), ...data.sessions.filter(s => !s.segments?.length).map(s => s.seconds));
   const monthCount = range === 1 ? 1 : Math.min(12, Math.max(1, Math.ceil(range / 30) + 1)); const months = Array.from({ length: monthCount }, (_, i) => new Date(end.getFullYear(), end.getMonth() - (monthCount - 1 - i), 1));

@@ -12,6 +12,7 @@ import './teacher.css';
 import './homeroom.css';
 import './study-room.css'; 
 import './theme-dark.css';
+import './mobile.css';
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
 

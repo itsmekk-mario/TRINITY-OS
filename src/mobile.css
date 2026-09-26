@@ -1,0 +1,147 @@
+/* Shared small-screen safeguards for pages with independently maintained styles. */
+@media (max-width: 760px) {
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  .learning-shell,
+  .learning-shell > main,
+  .learning-shell main,
+  .learning-shell .page-wrap,
+  .learning-shell .page-transition {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .learning-shell .page-wrap {
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+    padding-bottom: calc(100px + env(safe-area-inset-bottom));
+  }
+
+  .learning-shell .page-wrap > *,
+  .learning-shell .page-header > *,
+  .learning-shell .card,
+  .learning-shell .card > *,
+  .learning-shell [class*="grid"] > * {
+    min-width: 0;
+  }
+
+  .learning-shell main :where(h1, h2, h3, h4, p, small, b, strong, span, dt, dd, code) {
+    overflow-wrap: anywhere;
+  }
+
+  .learning-shell .page-header {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .learning-shell .page-header h1 {
+    font-size: clamp(27px, 7.5vw, 34px);
+    line-height: 1.12;
+  }
+
+  .learning-shell .form-grid,
+  .learning-shell .form-grid.two,
+  .learning-shell .form-grid.three,
+  .learning-shell .form-grid.four {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .learning-shell .field,
+  .learning-shell .field input,
+  .learning-shell .field textarea,
+  .learning-shell .field select,
+  .learning-shell .inline-settings input,
+  .learning-shell .inline-settings textarea,
+  .learning-shell .date-input {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .learning-shell .field input,
+  .learning-shell .field textarea,
+  .learning-shell .field select {
+    width: 100%;
+  }
+
+  .learning-shell :where(.section-title, .today-section-head, .hub-card-head, .daily-drill-head, .score-trend-head, .execution-card-head) {
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .learning-shell :where(.archive-tabs, .archive-detail-tabs, .insight-tabs, .plan-tabs, .arena-tabs, .review-tabs, .filter-tabs, .subject-tabs, .analysis-tabs, .notion-sidebar nav) {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+  }
+
+  .learning-shell :where(.archive-toolbar, .teacher-actions, .archive-detail-actions, .modal-actions) {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .learning-shell .modal-backdrop {
+    padding: 0;
+  }
+
+  .learning-shell .modal {
+    width: min(100%, 680px);
+    max-height: min(92dvh, 900px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+
+  .learning-shell .insight-months,
+  .learning-shell .insight-summary,
+  .learning-shell .insight-bottom,
+  .learning-shell .insight-layout,
+  .learning-shell .capability-detail-grid,
+  .learning-shell .hub-two-column {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 460px) {
+  .learning-shell .page-wrap {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+
+  .learning-shell .page-header h1 {
+    font-size: clamp(26px, 8vw, 31px);
+  }
+
+  .learning-shell .card {
+    padding: 15px;
+  }
+
+  .learning-shell .insight-tabs button,
+  .learning-shell .archive-detail-tabs button,
+  .learning-shell .plan-tabs button {
+    min-height: 40px;
+    padding-left: 10px;
+    padding-right: 10px;
+    white-space: nowrap;
+  }
+
+  .learning-shell .modal-actions > .button,
+  .learning-shell .modal-actions > button {
+    flex: 1 1 auto;
+  }
+
+  .learning-shell .archive-toolbar input,
+  .learning-shell .core-rule-toolbar input {
+    min-width: 0;
+    width: 100%;
+  }
+}
