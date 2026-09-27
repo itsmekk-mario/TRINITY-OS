@@ -7,7 +7,7 @@ import StudyRoomHeader from '../components/study-room/StudyRoomHeader';
 import StudyRoomControls from '../components/study-room/StudyRoomControls';
 
 function ActiveStudyRoom() {
-  const { camera, leaveRoom, session, focusedParticipantId, setFocusedParticipantId } = useCamStudy();
+  const { camera, leaveRoom, session, focusedParticipantId, setFocusedParticipantId, pictureInPicture, setEffectsOpen, effectError } = useCamStudy();
   useEffect(() => {
     const recover = () => { if (document.visibilityState === 'visible') camera.recover(); };
     document.addEventListener('visibilitychange', recover);
@@ -26,6 +26,7 @@ function ActiveStudyRoom() {
       </div>}
     {session.screenShareError && <div className="study-room-notice" role="status"><b>{session.screenShareError}</b><p>Chrome 공유 선택 창에서 오디오 공유를 켜면 화면 소리도 함께 전송됩니다.</p></div>}
     {session.audioPlaybackBlocked && <div className="study-room-notice" role="status"><b>오디오 재생 권한이 필요합니다.</b><button className="button" onClick={() => void session.startAudio()}>오디오 켜기</button></div>}
+    {(pictureInPicture.error || effectError) && <div className="study-room-notice" role="status"><b>{pictureInPicture.error || effectError}</b></div>}
     <StudyGrid participants={session.participants} selfId={session.selfId} focusedId={focusedParticipantId} onFocus={setFocusedParticipantId} />
     <StudyRoomControls
       cameraEnabled={camera.enabled}
@@ -35,10 +36,14 @@ function ActiveStudyRoom() {
       screenShareSupported={session.screenShareSupported}
       screenShareEnabled={session.screenShareEnabled}
       screenShareStarting={session.screenShareStarting}
+      pictureInPictureSupported={pictureInPicture.supported}
+      pictureInPictureActive={pictureInPicture.active}
       onCamera={() => camera.enabled ? camera.stop() : void camera.start()}
       onMicrophone={() => camera.microphoneEnabled ? camera.stopMicrophone() : void camera.startMicrophone()}
       onScreenShare={() => session.screenShareEnabled ? void session.stopScreenShare() : void session.startScreenShare()}
       onFlip={() => void camera.flip()}
+      onPictureInPicture={() => void pictureInPicture.toggle()}
+      onEffects={() => setEffectsOpen(true)}
       onLeave={leaveRoom}
     />
   </div>;
