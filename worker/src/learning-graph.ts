@@ -33,6 +33,13 @@ async function batchChunks(db:D1Database, statements:D1PreparedStatement[], size
   for(let i=0;i<statements.length;i+=size)await db.batch(statements.slice(i,i+size));
 }
 
+async function ensureWrongAnswerImageColumn(db:D1Database){
+  const cols=await db.prepare('PRAGMA table_info(wrong_answers)').all<{name:string}>();
+  if(cols.results.length&&!cols.results.some(col=>col.name==='problem_image_json')){
+    await db.prepare('ALTER TABLE wrong_answers ADD COLUMN problem_image_json TEXT').run();
+  }
+}
+
 async function ensureRelationColumn(db:D1Database){
   const cols=await db.prepare('PRAGMA table_info(archive_entry_core_rules)').all<{name:string}>();
   if(cols.results.length&&!cols.results.some(col=>col.name==='relation_type')){
@@ -70,6 +77,7 @@ async function deleteStaleDrills(db:D1Database,userId:number,current:Set<string>
 }
 
 export async function syncLearningProjection(db:D1Database,userId:number,payload:unknown,sourceUpdatedAt=nowIso()){
+  await ensureWrongAnswerImageColumn(db);
   const app=record(payload)??{};
   const wrong=rows(app.wrongAnswerDrills),drills=rows(app.dailyDrills),now=nowIso();
   const wrongIds=new Set<string>(),drillIds=new Set<string>(),wrongStatements:D1PreparedStatement[]=[],drillStatements:D1PreparedStatement[]=[];
@@ -78,18 +86,18 @@ export async function syncLearningProjection(db:D1Database,userId:number,payload
     const id=clean(item.id,100);if(!id)continue;wrongIds.add(id);
     wrongStatements.push(db.prepare(`INSERT INTO wrong_answers(
       user_id,id,date,subject,source,question,wrong_judgment,missed_cue,correction,transfer,bottleneck,status,
-      score_id,capability_goal_id,archive_entry_id,retries_json,created_at,updated_at
-    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      score_id,capability_goal_id,archive_entry_id,problem_image_json,retries_json,created_at,updated_at
+    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(user_id,id) DO UPDATE SET
       date=excluded.date,subject=excluded.subject,source=excluded.source,question=excluded.question,
       wrong_judgment=excluded.wrong_judgment,missed_cue=excluded.missed_cue,correction=excluded.correction,
       transfer=excluded.transfer,bottleneck=excluded.bottleneck,status=excluded.status,score_id=excluded.score_id,
       capability_goal_id=excluded.capability_goal_id,archive_entry_id=excluded.archive_entry_id,
-      retries_json=excluded.retries_json,updated_at=excluded.updated_at`).bind(
+      problem_image_json=excluded.problem_image_json,retries_json=excluded.retries_json,updated_at=excluded.updated_at`).bind(
         userId,id,clean(item.date,40),clean(item.subject,40),clean(item.source,240),clean(item.question,240),
         clean(item.wrongJudgment,5000),clean(item.missedCue,5000),clean(item.correction,5000),clean(item.transfer,5000),
         clean(item.bottleneck,120)||null,'active',clean(item.scoreId,100)||null,clean(item.capabilityGoalId,100)||null,
-        clean(item.archiveEntryId,100)||null,JSON.stringify(Array.isArray(item.retries)?item.retries:[]),now,now
+        clean(item.archiveEntryId,100)||null,record(item.problemImage)?JSON.stringify(item.problemImage):null,JSON.stringify(Array.isArray(item.retries)?item.retries:[]),now,now
       ));
   }
   await batchChunks(db,wrongStatements);
@@ -214,7 +222,7 @@ export const wrongAnswerDto=(r:Record<string,unknown>)=>({
   wrongJudgment:String(r.wrong_judgment??''),missedCue:String(r.missed_cue??''),correction:String(r.correction??''),
   transfer:String(r.transfer??''),bottleneck:r.bottleneck??undefined,scoreId:r.score_id??undefined,
   capabilityGoalId:r.capability_goal_id??undefined,archiveEntryId:r.archive_entry_id??undefined,
-  retries:parse<unknown[]>(r.retries_json,[]),
+  problemImage:parse<Record<string,unknown>|null>(r.problem_image_json,null)??undefined,retries:parse<unknown[]>(r.retries_json,[]),
 });
 
 export const drillDto=(r:Record<string,unknown>)=>({

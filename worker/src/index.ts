@@ -9,11 +9,12 @@ import { connectStudyRoomWebSocket, handleStudyRoomApi } from './study-room/rout
 import { archive } from './archive.ts';
 import { learningIntelligence } from './learning-intelligence.ts';
 import { syncLearningProjection } from './learning-graph.ts';
+import { problemImages } from './problem-images.ts';
 
 export { StudyRoomDurableObject };
 
 export interface Env {
-  DB: D1Database; SYNC_TOKEN?: string; NVIDIA_API_KEY?: string; NVIDIA_MODEL?: string; NVIDIA_BASE_URL?: string;
+  DB: D1Database; SYNC_TOKEN?: string; NVIDIA_API_KEY?: string; NVIDIA_MODEL?: string; NVIDIA_BASE_URL?: string; SUPABASE_SECRET_KEY?: string;
   AI_PROVIDER?: string; AI_TIMEOUT_MS?: string; AI_MAX_RETRIES?: string; AI_DEBUG?: string; ENVIRONMENT?: string;
   AI_USER_DAILY_LIMIT?: string; AI_GLOBAL_DAILY_LIMIT?: string; AI_CHAT_COOLDOWN_SECONDS?: string; AI_MAX_CONTEXT_BYTES?: string;
   LOCAL_AI_BASE_URL?: string; LOCAL_AI_API_KEY?: string; LOCAL_AI_TIMEOUT_MS?: string; LOCAL_AI_MODEL?: string;
@@ -134,7 +135,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
   const cors=requestOrigin(request,env.ALLOWED_ORIGIN,env.ENVIRONMENT),origin=cors.responseOrigin;
   if(request.method==='OPTIONS')return cors.allowed?new Response(null,{status:204,headers:{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'Content-Type, Authorization, X-Setup-Token','Access-Control-Allow-Methods':'GET, PUT, POST, PATCH, DELETE, OPTIONS','Vary':'Origin'}}):json({error:'허용되지 않은 Origin입니다.'},403);
   if(!cors.allowed&&request.method!=='GET'&&request.method!=='HEAD')return json({error:'허용되지 않은 Origin입니다.'},403);
-  const url = new URL(request.url), declared=Number(request.headers.get('Content-Length')||0), limit=['/api/sync','/api/archive/import'].includes(url.pathname)?MAX_SYNC_BODY:MAX_JSON_BODY;
+  const url = new URL(request.url), declared=Number(request.headers.get('Content-Length')||0), limit=url.pathname==='/api/problem-images'?2*1024*1024:['/api/sync','/api/archive/import'].includes(url.pathname)?MAX_SYNC_BODY:MAX_JSON_BODY;
   if(declared>limit)return json({error:'요청 본문이 너무 큽니다.'},413,origin);
   await ensureTables(env.DB);
   if(request.method!=='GET'&&['/api/support/accounts','/api/collab/assignments'].includes(url.pathname)&&!await adminAllowed(request,env))return json({error:'요청이 너무 많습니다.'},429,origin,{'Retry-After':'60'});
@@ -207,6 +208,8 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
   if (arenaResponse) return arenaResponse;
   const studyRoomResponse = await handleStudyRoomApi(request, env, sessionUser, origin, json);
   if (studyRoomResponse) return studyRoomResponse;
+  const problemImageResponse = await problemImages(request, env, sessionUser, origin, { json, randomHex });
+  if (problemImageResponse) return problemImageResponse;
   const archiveResponse = await archive(request, env, sessionUser, origin, { json, randomHex, boundedJson });
   if (archiveResponse) return archiveResponse;
   const intelligenceResponse = await learningIntelligence(request, env, sessionUser, origin, { json, randomHex, boundedJson });

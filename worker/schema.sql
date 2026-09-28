@@ -340,6 +340,7 @@ CREATE TABLE IF NOT EXISTS wrong_answers (
   score_id TEXT,
   capability_goal_id TEXT,
   archive_entry_id TEXT,
+  problem_image_json TEXT,
   retries_json TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,

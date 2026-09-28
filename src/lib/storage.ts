@@ -23,6 +23,7 @@ export const initialData: AppData = {
   goals: goalsSeed.flatMap((group, groupIndex) => group.items.map((text, itemIndex) => ({ id: `g-${groupIndex}-${itemIndex}`, subject: group.subject, text, done: false }))) as AppData['goals'],
   weeklyCapabilityGoals: [],
   wrongAnswerDrills: [],
+  handwritingNotes: [],
   dailyDrills: [],
   monthlyPlans: [],
   notionPages: [],
