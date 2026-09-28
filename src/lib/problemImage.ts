@@ -96,12 +96,13 @@ const requestParts = () => {
   };
 };
 
-export async function uploadProblemImage(image: PreparedProblemImage): Promise<WrongAnswerImage> {
+export async function uploadProblemImage(image: PreparedProblemImage, scope: 'wrong-answer' | 'archive' = 'wrong-answer'): Promise<WrongAnswerImage> {
   const { base, headers } = requestParts();
   const query = new URLSearchParams({
     name: image.name,
     width: String(image.width),
     height: String(image.height),
+    scope,
   });
   const response = await fetch(`${base}/api/problem-images?${query.toString()}`, {
     method: 'POST',

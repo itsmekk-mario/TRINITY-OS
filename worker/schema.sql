@@ -259,6 +259,7 @@ CREATE TABLE IF NOT EXISTS archive_entries (
   structure_summary TEXT,
   key_expression TEXT,
   review_enabled INTEGER NOT NULL DEFAULT 0 CHECK(review_enabled IN (0,1)),
+  images_json TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );

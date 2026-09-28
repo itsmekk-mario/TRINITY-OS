@@ -1,3 +1,4 @@
+import type { WrongAnswerImage } from '../types';
 import { loadCloudflareConfig } from './cloudflare';
 export type ArchiveSubject='korean'|'math'|'english'|'social_studies'|'integrated_science';
 export type MasteryStatus='input'|'understanding'|'reproduction'|'automated';
@@ -8,7 +9,7 @@ export type RuleLink={archiveEntryId:string;coreRuleId:string;relationType?:Rule
 export type Review={id:string;archiveEntryId:string;reviewedAt:string;success:boolean;coreRuleRevealed:boolean;nextDueAt?:string|null;createdAt:string};
 export type WrongAnswerLink={archiveEntryId:string;wrongAnswerId:string;createdAt?:string};
 export type CoreRuleWrongAnswerLink={coreRuleId:string;wrongAnswerId:string;relationType:RuleRelation;createdAt?:string};
-export type ArchiveEntry={id:string;subject:ArchiveSubject;year:number;month:number;institution:string;institutionCustomName?:string;examName:string;sourceName:string;questionNumber:string;category:string;subcategory:string;title:string;studiedAt:string;masteryStatus:MasteryStatus;memo:string;conditionSummary?:string;firstThought?:string;representation?:string;solutionFlow?:string;bottleneck?:string;transfer?:string;mainIdea?:string;structureSummary?:string;keyExpression?:string;reviewEnabled:boolean;wrongAnswerId?:string|null;nextReviewAt?:string;reviewBucket?:'today'|'overdue'|'upcoming';annotations:Annotation[];coreRules:CoreRule[]};
+export type ArchiveEntry={id:string;subject:ArchiveSubject;year:number;month:number;institution:string;institutionCustomName?:string;examName:string;sourceName:string;questionNumber:string;category:string;subcategory:string;title:string;studiedAt:string;masteryStatus:MasteryStatus;memo:string;conditionSummary?:string;firstThought?:string;representation?:string;solutionFlow?:string;bottleneck?:string;transfer?:string;mainIdea?:string;structureSummary?:string;keyExpression?:string;reviewEnabled:boolean;images:WrongAnswerImage[];wrongAnswerId?:string|null;nextReviewAt?:string;reviewBucket?:'today'|'overdue'|'upcoming';annotations:Annotation[];coreRules:CoreRule[]};
 export type ArchivePage={entries:ArchiveEntry[];nextCursor:string|null;hasMore:boolean};
 export type CoreRuleStatus='ACTIVE'|'WATCH'|'MASTERED'|'ARCHIVED';
 export type CoreRuleStats={evidenceCount:number;archiveCount:number;wrongAnswerCount:number;drillCount:number;derivedCount:number;appliedCount:number;failedCount:number;reinforcedCount:number;failures7d:number;failures30d:number;lastOccurrenceAt:string|null;lastFailureAt:string|null;reviewCount:number;reviewSuccessCount:number;reviewFailureCount:number;masteryRate:number|null;linkedItems?:number};

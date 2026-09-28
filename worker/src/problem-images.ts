@@ -6,6 +6,7 @@ const MAX_IMAGE_BYTES=2*1024*1024;
 const DEFAULT_BUCKET='trinity-problem-images';
 const safeName=(value:string|null)=>((value||'problem-photo.jpg').trim().slice(0,180)||'problem-photo.jpg');
 const safeDimension=(value:string|null)=>{const n=Number(value);return Number.isFinite(n)&&n>0&&n<=12000?Math.round(n):0};
+const safeScope=(value:string|null)=>value==='archive'?'archive':'wrong-answer';
 const encodePath=(value:string)=>value.split('/').map(encodeURIComponent).join('/');
 
 function config(env:Env){
@@ -16,7 +17,9 @@ function config(env:Env){
   return {url,key,bucket};
 }
 function ownedPath(path:string,userId:number){
-  return path.startsWith(`${userId}/`) && /^\d+\/\d{4}-\d{2}-\d{2}\/[a-f0-9]{32}\.jpg$/.test(path);
+  if(!path.startsWith(`${userId}/`))return false;
+  return /^\d+\/(?:wrong-answer|archive)\/\d{4}-\d{2}-\d{2}\/[a-f0-9]{32}\.jpg$/.test(path)
+    || /^\d+\/\d{4}-\d{2}-\d{2}\/[a-f0-9]{32}\.jpg$/.test(path);
 }
 function storageHeaders(key:string,contentType?:string){
   return {apikey:key,...(!key.startsWith('sb_secret_')?{Authorization:`Bearer ${key}`}:{ }),...(contentType?{'Content-Type':contentType}:{})};
@@ -42,7 +45,7 @@ export async function problemImages(request:Request,env:Env,user:User,origin:str
     const bytes=await request.arrayBuffer();
     if(!bytes.byteLength)return out({error:'빈 이미지입니다.'},400);
     if(bytes.byteLength>MAX_IMAGE_BYTES)return out({error:'문제 사진은 2MB 이하만 업로드할 수 있습니다.'},413);
-    const today=new Date().toISOString().slice(0,10),path=`${user.id}/${today}/${h.randomHex(16)}.jpg`;
+    const scope=safeScope(url.searchParams.get('scope')),today=new Date().toISOString().slice(0,10),path=`${user.id}/${scope}/${today}/${h.randomHex(16)}.jpg`;
     const target=`${cfg.url}/storage/v1/object/${encodeURIComponent(cfg.bucket)}/${encodePath(path)}`;
     const response=await fetch(target,{method:'POST',headers:{...storageHeaders(cfg.key,mime),'x-upsert':'false','cache-control':'3600'},body:bytes});
     if(!response.ok){console.error(JSON.stringify({message:'supabase storage upload failed',status:response.status,detail:await storageError(response)}));return out({error:'문제 사진을 Storage에 저장하지 못했습니다.'},502);}
