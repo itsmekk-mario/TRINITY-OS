@@ -277,11 +277,27 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
   if (!auth||!user) return json({ error: 'Unauthorized' }, 401, origin);
   if(auth.authType==='api_token'&&!auth.scopes.includes(request.method==='GET'?'sync:read':'sync:write'))return json({error:'Token scope does not allow this operation.'},403,origin);
   if (request.method === 'GET') { const row = await env.DB.prepare('SELECT payload,updated_at FROM learning_state WHERE user_id=?').bind(user.id).first<{ payload: string; updated_at: string }>(); return row ? json({ data: JSON.parse(row.payload), updatedAt: row.updated_at }, 200, origin) : json({ data: null, updatedAt: null }, 200, origin); }
-  const body = await boundedJson<{ data?: unknown }>(request,MAX_SYNC_BODY); if (!body?.data) return json({ error: 'data is required' }, 400, origin);
+  const body = await boundedJson<{ data?: unknown; expectedUpdatedAt?: string | null }>(request,MAX_SYNC_BODY); if (!body?.data) return json({ error: 'data is required' }, 400, origin);
   if(!validateAppData(body.data))return json({error:'지원되지 않는 학습 데이터 형식입니다.'},400,origin);
-  const now = new Date().toISOString(); const previous = await env.DB.prepare('SELECT payload FROM learning_state WHERE user_id=?').bind(user.id).first<{ payload: string }>();
-  if (previous) await env.DB.prepare('INSERT INTO learning_state_history(user_id,payload,saved_at) VALUES(?,?,?)').bind(user.id, previous.payload, now).run();
-  await env.DB.prepare('INSERT INTO learning_state(user_id,payload,updated_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at').bind(user.id, JSON.stringify(body.data), now).run();
+  const guardedWrite=Object.prototype.hasOwnProperty.call(body,'expectedUpdatedAt');
+  if(guardedWrite&&body.expectedUpdatedAt!==null&&typeof body.expectedUpdatedAt!=='string')return json({error:'expectedUpdatedAt 형식이 올바르지 않습니다.'},400,origin);
+  const previous=await env.DB.prepare('SELECT payload,updated_at FROM learning_state WHERE user_id=?').bind(user.id).first<{payload:string;updated_at:string}>();
+  const now=new Date().toISOString();
+  if(guardedWrite){
+    const expected=body.expectedUpdatedAt??null,actual=previous?.updated_at??null;
+    if(expected!==actual)return json({error:'다른 기기 또는 탭에서 데이터가 먼저 변경되었습니다.',conflict:true,updatedAt:actual},409,origin);
+    if(previous){
+      const write=await env.DB.prepare('UPDATE learning_state SET payload=?,updated_at=? WHERE user_id=? AND updated_at=?').bind(JSON.stringify(body.data),now,user.id,expected).run();
+      if((write.meta?.changes??0)!==1){const current=await env.DB.prepare('SELECT updated_at FROM learning_state WHERE user_id=?').bind(user.id).first<{updated_at:string}>();return json({error:'다른 기기 또는 탭에서 데이터가 먼저 변경되었습니다.',conflict:true,updatedAt:current?.updated_at??null},409,origin);}
+      await env.DB.prepare('INSERT INTO learning_state_history(user_id,payload,saved_at) VALUES(?,?,?)').bind(user.id,previous.payload,now).run();
+    }else{
+      const write=await env.DB.prepare('INSERT INTO learning_state(user_id,payload,updated_at) VALUES(?,?,?) ON CONFLICT(user_id) DO NOTHING').bind(user.id,JSON.stringify(body.data),now).run();
+      if((write.meta?.changes??0)!==1){const current=await env.DB.prepare('SELECT updated_at FROM learning_state WHERE user_id=?').bind(user.id).first<{updated_at:string}>();return json({error:'다른 기기 또는 탭에서 데이터가 먼저 생성되었습니다.',conflict:true,updatedAt:current?.updated_at??null},409,origin);}
+    }
+  }else{
+    if(previous)await env.DB.prepare('INSERT INTO learning_state_history(user_id,payload,saved_at) VALUES(?,?,?)').bind(user.id,previous.payload,now).run();
+    await env.DB.prepare('INSERT INTO learning_state(user_id,payload,updated_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at').bind(user.id,JSON.stringify(body.data),now).run();
+  }
   await syncLearningProjection(env.DB,user.id,body.data,now);
   await env.DB.prepare('DELETE FROM learning_state_history WHERE user_id=? AND id NOT IN (SELECT id FROM learning_state_history WHERE user_id=? ORDER BY id DESC LIMIT 20)').bind(user.id, user.id).run();
   return json({ ok: true, updatedAt: now }, 200, origin);

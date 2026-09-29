@@ -50,7 +50,7 @@ export default function CloudflareSync({ data, update, onLogout }: { data: AppDa
   const disabled = busy || !initial.token || userId === undefined;
   return <div className="drive-sync cloudflare-sync">
     <div className="drive-sync-head"><CloudCog size={18}/><div><b>Cloudflare 기기 간 저장</b><small>자동 병합하지 않습니다. 데이터 방향을 직접 선택하세요.</small></div></div>
-    <p className="drive-status">자동 동기화: 로그인 상태에서 변경 후 약 1.5초 내에 D1에 저장됩니다.</p>
+    <p className="drive-status">자동 동기화: 약 1.5초 내 저장하며, 양쪽이 동시에 바뀌면 자동 덮어쓰지 않고 충돌을 차단합니다.</p>
     <p className="drive-status">연결 서버는 보안을 위해 운영 환경에서 고정됩니다.</p>
     <p className="sync-account">로그인 계정: <b>{initial.username || 'TRINITY'}</b></p>
     <div className="sync-actions">

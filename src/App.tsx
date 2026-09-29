@@ -42,7 +42,7 @@ import NotionWorkspace from "./pages/NotionWorkspace";
 import CloudflareSync from "./components/CloudflareSync";
 import LoginPage from "./components/LoginPage";
 import { logoutLocal, type SessionIdentity, validateSession } from "./lib/auth";
-import { autoSyncCloudflareData, loadCloudflareConfig } from "./lib/cloudflare";
+import { autoSyncCloudflareData, loadCloudflareConfig, saveRecoveryCopy } from "./lib/cloudflare";
 import SupportPortal, {
   ExamArchive,
   SupportOwner,
@@ -242,8 +242,15 @@ function StudentApp() {
       try {
         const result = await autoSyncCloudflareData(data, identity.userId);
         if (result.action === "downloaded" && result.data) {
+          // Never replace the visible/local state without keeping a one-click recovery copy.
+          saveRecoveryCopy(identity.userId, data);
           saveData(identity.userId, result.data);
           setData(result.data);
+        } else if (result.action === "conflict") {
+          // The server and this tab diverged. Keep both intact and require an explicit direction.
+          saveRecoveryCopy(identity.userId, data);
+          setToast(result.reason || "동기화 충돌을 감지해 자동 덮어쓰기를 중단했습니다.");
+          window.setTimeout(() => setToast(""), 5000);
         }
       } catch {
         /* Local data remains authoritative until the next retry. */

@@ -64,3 +64,26 @@ test('disabled support account cannot login',async()=>{const h=harness();const s
 test('disabled support account existing session cannot access data',async()=>{const h=harness();h.db.prepare("INSERT INTO support_accounts(id,username,role,collaboration_role,password_hash,salt,password_iterations,active,created_at) VALUES('ta','teacher','tutor','subject_teacher','x','x',310000,0,'x')").run();h.db.prepare("INSERT INTO support_sessions VALUES(?, 'ta', ?)").run(hash('support'),new Date(Date.now()+86400000).toISOString());assert.equal((await h.call('/api/support/data',{token:'support'})).status,401);});
 test('oversized /api/sync is rejected',async()=>{const h=harness();h.session('a');const response=await h.call('/api/sync',{method:'PUT',token:'a',body:'{}',headers:{'Content-Length':String(20*1024*1024+1)}});assert.equal(response.status,413);});
 test('malicious object keys are rejected',async()=>{const h=harness();h.session('a');const body=`{"data":{"calendar":{},"sessions":[],"mockSchedule":[],"journals":{},"scores":[],"resources":[],"goals":[],"weeklyCapabilityGoals":[],"wrongAnswerDrills":[],"dailyDrills":[],"monthlyPlans":[],"notionPages":[],"routine":[],"quotes":[],"trinity":[],"plaire":{},"__proto__":{"polluted":true}}}`;assert.equal((await h.call('/api/sync',{method:'PUT',token:'a',body})).status,400);});
+
+
+test('sync optimistic concurrency rejects a stale whole-AppData overwrite',async()=>{
+  const h=harness();h.session('a',1);
+  const before=await(await h.call('/api/sync',{token:'a'})).json();
+  const firstData={...before.data,sessions:[...before.data.sessions,{id:'sync-safe-1',date:'2026-09-29',subject:'수학',seconds:60}]};
+  const first=await h.call('/api/sync',{method:'PUT',token:'a',body:{data:firstData,expectedUpdatedAt:before.updatedAt}});
+  assert.equal(first.status,200);
+  const staleData={...before.data,sessions:[...before.data.sessions,{id:'sync-stale-overwrite',date:'2026-09-29',subject:'국어',seconds:600}]};
+  const stale=await h.call('/api/sync',{method:'PUT',token:'a',body:{data:staleData,expectedUpdatedAt:before.updatedAt}});
+  assert.equal(stale.status,409);
+  const conflict=await stale.json();assert.equal(conflict.conflict,true);
+  const after=await(await h.call('/api/sync',{token:'a'})).json();
+  assert(after.data.sessions.some(item=>item.id==='sync-safe-1'));
+  assert(!after.data.sessions.some(item=>item.id==='sync-stale-overwrite'));
+});
+
+test('sync guarded create cannot replace an existing server state with expected null',async()=>{
+  const h=harness();h.session('a',1);
+  const before=await(await h.call('/api/sync',{token:'a'})).json();
+  const response=await h.call('/api/sync',{method:'PUT',token:'a',body:{data:before.data,expectedUpdatedAt:null}});
+  assert.equal(response.status,409);
+});
