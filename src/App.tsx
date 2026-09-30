@@ -172,6 +172,11 @@ function StudentApp() {
       ? (queryView() as TrainView)
       : "timer",
   );
+  useEffect(() => {
+    if (page === "train" && queryView() === "notes") {
+      window.history.replaceState({}, "", `${paths.train}?view=${trainView}`);
+    }
+  }, [page, trainView]);
   const [reviewView, setReviewView] = useState<ReviewView>(reviewViewFromLocation);
   const [insightsView, setInsightsView] = useState<InsightsView>(insightsViewFromLocation);
   const [data, setData] = useState<AppData>(initialData);
