@@ -4,7 +4,8 @@ import { trustedWorkerUrl } from './runtimeConfig';
 
 const CONFIG_KEY = 'trinity-os:cloudflare-sync:v2';
 const LEGACY_CONFIG_KEY = 'trinity-os:cloudflare-sync:v1';
-const AUTH_KEY = 'trinity-os:auth-session:v1';
+const AUTH_KEY = 'trinity-os:auth-session:v2';
+const LEGACY_AUTH_KEY = 'trinity-os:auth-session:v1';
 const keyForUser = (name: string, userId: number | string) => `trinity-os:${name}:${userId}:v1`;
 const AUTO_SYNC_KEY = (userId: number | string) => `trinity-os:cloudflare-auto-sync-tab:${userId}:v2`;
 const DEVICE_SYNC_KEY = (userId: number | string) => `trinity-os:cloudflare-auto-sync-device:${userId}:v1`;
@@ -27,18 +28,30 @@ class SyncConflictError extends Error {
 
 export const loadCloudflareConfig = (): CloudflareConfig => {
   try {
-    // v1 contained the Bearer token in localStorage. Do not retain it after upgrade.
     localStorage.removeItem(LEGACY_CONFIG_KEY);
     const publicConfig = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}') as Omit<CloudflareConfig, 'token'>;
-    const privateConfig = JSON.parse(sessionStorage.getItem(AUTH_KEY) || '{}') as Pick<CloudflareConfig, 'token'>;
-    return { ...publicConfig, ...privateConfig, url: trustedWorkerUrl(publicConfig.url), token: privateConfig.token || '' };
+    const persistentAuth = JSON.parse(localStorage.getItem(AUTH_KEY) || '{}') as Pick<CloudflareConfig, 'token'>;
+    const legacyTabAuth = JSON.parse(sessionStorage.getItem(LEGACY_AUTH_KEY) || '{}') as Pick<CloudflareConfig, 'token'>;
+    const token = persistentAuth.token || legacyTabAuth.token || '';
+
+    // Previous builds kept the student bearer token in sessionStorage, so Safari
+    // discarded automatic login after the tab/browser lifecycle ended.
+    // Persist it on this device. The Worker still enforces SESSION_TTL_DAYS and
+    // /api/auth/logout immediately revokes the corresponding D1 session.
+    if (!persistentAuth.token && legacyTabAuth.token) {
+      localStorage.setItem(AUTH_KEY, JSON.stringify({ token: legacyTabAuth.token }));
+    }
+    sessionStorage.removeItem(LEGACY_AUTH_KEY);
+
+    return { ...publicConfig, url: trustedWorkerUrl(publicConfig.url), token };
   } catch { return { url: trustedWorkerUrl(), token: '', username: '' }; }
 };
 export const saveCloudflareConfig = (config: CloudflareConfig) => {
   const url = trustedWorkerUrl(config.url);
   localStorage.setItem(CONFIG_KEY, JSON.stringify({ url, username: config.username || '', userId: config.userId, mustChangePassword: Boolean(config.mustChangePassword) }));
-  if (config.token) sessionStorage.setItem(AUTH_KEY, JSON.stringify({ token: config.token }));
-  else sessionStorage.removeItem(AUTH_KEY);
+  if (config.token) localStorage.setItem(AUTH_KEY, JSON.stringify({ token: config.token }));
+  else localStorage.removeItem(AUTH_KEY);
+  sessionStorage.removeItem(LEGACY_AUTH_KEY);
 };
 
 const signature = (data: AppData) => JSON.stringify(data);
