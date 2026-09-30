@@ -1,7 +1,7 @@
 import type { AppData } from '../../src/types';
 import { collaboration, outData } from './collaboration.ts';
 import { PASSWORD_HASH_ITERATIONS, sessionTtlDays } from './security.ts';
-type Env = { DB: D1Database; SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; SUPABASE_BUCKET?: string; SESSION_TTL_DAYS?: string };
+type Env = { DB: D1Database; SUPABASE_URL?: string; SUPABASE_SECRET_KEY?: string; SUPABASE_SERVICE_ROLE_KEY?: string; SUPABASE_EXAM_BUCKET?: string; SESSION_TTL_DAYS?: string };
 export function publicExamPath(key: string): string | null {
  if (!key || key.length > 500 || /[\\:%?#\u0000-\u001f\u007f]/.test(key) || !key.toLowerCase().endsWith('.pdf')) return null;
  const parts = key.split('/');
@@ -12,12 +12,19 @@ type Account = { id: string; username: string; role: string };
 type StudentActor = { id: number; is_admin: number } | null;
 type Helpers = { json: (body: unknown, status?: number, origin?: string) => Response; sha256: (s:string)=>Promise<string>; passwordHash:(p:string,s:string,iterations?:number)=>Promise<string>; secretMatches:(provided:string,expected?:string)=>Promise<boolean>; randomHex:(size?:number)=>string; boundedJson:<T>(request:Request,maxBytes?:number)=>Promise<T> };
 const strings = (v: unknown, max=200) => typeof v === 'string' ? v.trim().slice(0,max) : '';
-const storageReady = (env: Env) => Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
+const storageKey = (env: Env) => env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY || '';
+const storageReady = (env: Env) => Boolean(env.SUPABASE_URL && storageKey(env));
 // Accept the Project URL and also normalize a mistakenly copied REST/Storage
 // endpoint, while always sending object requests to the Storage API root.
 const supabaseBase = (env: Env) => env.SUPABASE_URL!.replace(/\/+$/, '').replace(/\/(?:rest|storage)\/v1$/, '');
-const storageUrl = (env: Env, key: string) => `${supabaseBase(env)}/storage/v1/object/${encodeURIComponent(env.SUPABASE_BUCKET || 'exam-pdfs')}/${key.split('/').map(encodeURIComponent).join('/')}`;
-const storageHeaders = (env: Env) => ({ Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY!}`, apikey: env.SUPABASE_SERVICE_ROLE_KEY! });
+const storageUrl = (env: Env, key: string) => `${supabaseBase(env)}/storage/v1/object/${encodeURIComponent(env.SUPABASE_EXAM_BUCKET || 'exam-pdfs')}/${key.split('/').map(encodeURIComponent).join('/')}`;
+const storageHeaders = (env: Env) => {
+  const key = storageKey(env);
+  return {
+    apikey: key,
+    ...(!key.startsWith('sb_secret_') ? { Authorization: `Bearer ${key}` } : {})
+  };
+};
 const selectFields = (v: any, keys: string[]) => Object.fromEntries(keys.filter(k=>v[k]!==undefined).map(k=>[k,v[k]]));
 export function projection(data: AppData, role: Account['role']) {
  const math = (v: {subject?:string}) => role==='parent'||v.subject==='수학';
