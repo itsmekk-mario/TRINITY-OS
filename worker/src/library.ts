@@ -12,18 +12,30 @@ export async function library(request:Request,env:Env,user:{id:number;is_admin?:
     env.DB.prepare('SELECT id,title,agency,year,subject,object_key,created_at FROM exam_documents ORDER BY year DESC,created_at DESC').all<{id:string;title:string;agency:string;year:number;subject:string;object_key:string;created_at:string}>()
    ]);
    const manual=rows.results.map(r=>JSON.parse(r.payload));
-   const exams=examRows.results.map(doc=>({
-    id:`exam:${doc.id}`,
-    officialId:doc.id,
-    name:doc.title,
-    subject:doc.subject,
-    group:doc.agency,
-    examType:doc.title.includes('??')?'??':doc.agency==='???'?'????':'????',
-    examYear:doc.year,
-    documentType:doc.title.includes('??')?'??':doc.title.includes('??')?'??':'???',
-    total:1,
-    done:0
-   }));
+   const exams=examRows.results.map(doc=>{
+    const monthMatch=doc.title.match(/(?:^|\D)(3|4|5|6|7|9|10|11|12)(?:\uC6D4|\uD3C9|\uBAA8)/);
+    return {
+     id:`exam:${doc.id}`,
+     officialId:doc.id,
+     name:doc.title,
+     subject:doc.subject,
+     group:doc.agency,
+     examType:doc.title.includes('\uC218\uB2A5')
+      ?'\uC218\uB2A5'
+      :doc.agency==='\uAD50\uC721\uCCAD'
+       ?'\uD559\uB825\uD3C9\uAC00'
+       :'\uBAA8\uC758\uD3C9\uAC00',
+     examYear:doc.year,
+     examMonth:monthMatch?Number(monthMatch[1]):undefined,
+     documentType:doc.title.includes('\uD574\uC124')
+      ?'\uD574\uC124'
+      :doc.title.includes('\uC815\uB2F5')
+       ?'\uC815\uB2F5'
+       :'\uBB38\uC81C\uC9C0',
+     total:1,
+     done:0
+    };
+   });
    return out({resources:[...exams,...manual]});
   }
   if(request.method!=='POST')return out({error:'Method not allowed'},405);

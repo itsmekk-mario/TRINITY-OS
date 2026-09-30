@@ -43,7 +43,7 @@ LOCAL_AI_TIMEOUT_MS = "30000"
 LOCAL_AI_MODEL = "qwen3:8b"
 SUPABASE_URL = "https://yygaqttkjuigoczxhcgj.supabase.co"
 SUPABASE_BUCKET = "trinity-problem-images"
-SUPABASE_EXAM_BUCKET = "exam-pdfs"
+SUPABASE_EXAM_BUCKET = "exam-pdf"
 # Set AI_DEBUG = "true" only in the development Worker environment.
 LIVEKIT_URL = "wss://cam.trinityos.mcv.kr"
 # LIVEKIT_API_KEY and LIVEKIT_API_SECRET must be configured with `wrangler secret put`.
