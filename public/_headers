@@ -1,0 +1,10 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://trinity-os-sync.khk090525.workers.dev https://api.trinityos.mcv.kr https://accounts.google.com https://www.googleapis.com; frame-src 'self' blob: https://accounts.google.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'
+
+/exams/*
+  X-Frame-Options: SAMEORIGIN
+  Content-Security-Policy: default-src 'self'; object-src 'self'; frame-ancestors 'self'

@@ -1,0 +1,59 @@
+--- /dev/null
++++ b/src/beginner.css
+@@ -0,0 +1,56 @@
++html[data-beginner='true'] .primary-nav button:nth-child(4),
++html[data-beginner='true'] .mobile-tab-bar button:nth-child(4) {
++  display: none;
++}
++
++html[data-beginner='true'] .utility-nav > span,
++html[data-beginner='true'] .utility-nav button:nth-of-type(n + 2) {
++  display: none;
++}
++
++html[data-beginner='true'] .learning-shell .page-wrap {
++  max-width: 1180px;
++}
++
++.beginner-mode-setting {
++  margin-top: 12px;
++}
++
++.beginner-mode-toggle {
++  align-self: center;
++  display: inline-flex;
++  align-items: center;
++  gap: 8px;
++  min-width: 104px;
++  padding: 8px 10px;
++  border: 1px solid var(--line, #d9dde3);
++  border-radius: 999px;
++  background: var(--surface, #fff);
++  color: var(--muted, #687384);
++  font: 700 12px inherit;
++  cursor: pointer;
++}
++
++.beginner-mode-toggle span {
++  width: 16px;
++  height: 16px;
++  border-radius: 50%;
++  background: #a2a9b3;
++}
++
++.beginner-mode-toggle.active {
++  border-color: #9a7b3e;
++  background: #f6f0e4;
++  color: #6f572b;
++}
++
++.beginner-mode-toggle.active span {
++  background: #9a7b3e;
++}
++
++@media (max-width: 560px) {
++  .beginner-mode-setting {
++    align-items: flex-start;
++    flex-direction: column;
++  }
++}

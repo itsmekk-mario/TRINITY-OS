@@ -1,0 +1,43 @@
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,4 +1,6 @@
+ import './team.css';
++import './beginner.css';
++import './beginner-mode-control';
+ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+ import { flushSync } from 'react-dom';
+ import { BookMarked, BrainCircuit, CalendarRange, ChartNoAxesCombined, Menu, Download, Gauge, Home, Laptop, MessageSquareText, Moon, NotebookTabs, Settings, ShieldCheck, Sun, Swords, Target, Upload, UserRound, Video, X } from 'lucide-react';
+@@ -49,6 +51,7 @@
+ const utilityNav = [
+   { id: 'archive', label: 'Learning Archive', icon: BookMarked }, { id: 'study-room', label: 'Study Room', icon: Video }, { id: 'coach', label: 'AI Coach', icon: BrainCircuit }, { id: 'feedback', label: 'Teacher Feedback', icon: MessageSquareText }, { id: 'profile', label: 'Arena', icon: Swords }, { id: 'workspace', label: 'Workspace', icon: NotebookTabs },
+ ] as const;
++const beginnerPages = new Set<Page>(['today', 'plan', 'train', 'insights', 'archive']);
+ const paths: Record<Page, string> = { today: '/today', plan: '/plan', train: '/train', test: '/test', insights: '/insights', 'study-room': '/study-room', coach: '/coach', feedback: '/feedback', workspace: '/workspace', profile: '/arena', archive: '/archive' };
+ const pageFromLocation = (): Page => {
+   const path = window.location.pathname.replace(/\/+$/, '') || '/';
+@@ -96,6 +99,11 @@
+     return () => media.removeEventListener('change', onSystemThemeChange);
+   }, [themePreference]);
+   useEffect(()=>{document.documentElement.dataset.beginner=beginnerMode?'true':'false';localStorage.setItem(BEGINNER_KEY,String(beginnerMode));},[beginnerMode]);
++  useEffect(() => {
++    const onBeginnerModeChange = (event: Event) => setBeginnerMode(Boolean((event as CustomEvent<boolean>).detail));
++    window.addEventListener('trinity:beginner-mode', onBeginnerModeChange);
++    return () => window.removeEventListener('trinity:beginner-mode', onBeginnerModeChange);
++  }, []);
+   useEffect(() => { if (identity) saveData(identity.userId, data); }, [data, identity]);
+   useEffect(() => { const retry = () => { if (identity) setData((value) => ({ ...value })); }; window.addEventListener('online', retry); return () => window.removeEventListener('online', retry); }, [identity]);
+   useEffect(() => { if (!authenticated) { setIdentity(null); return; } void validateSession().then((profile) => { if (!profile) { logoutLocal(); setAuthenticated(false); return; } setPasswordRequired(Boolean(profile.mustChangePassword)); setData(loadData(profile.userId)); setIdentity(profile); }); }, [authenticated]);
+@@ -139,6 +147,13 @@
+     localStorage.setItem(THEME_KEY, next);
+     setThemePreference(next);
+   };
++  useEffect(() => {
++    if (!beginnerMode) return;
++    if (!beginnerPages.has(page)) { navigate('today'); return; }
++    if (page === 'plan') setPlanView('overview');
++    if (page === 'train') setTrainView('timer');
++    if (page === 'insights') setInsightsView('overview');
++  }, [beginnerMode]);
+   const screen = page === 'today' ? <Dashboard data={data} update={update} navigate={navigate} /> : page === 'plan' ? <PlanHub data={data} update={update} view={planView} onView={(view) => changeSubview('plan', view, setPlanView)} /> : page === 'train' ? <TrainHub data={data} update={update} view={trainView} onView={(view) => changeSubview('train', view, setTrainView)} /> : page === 'test' ? <ScoreTracker data={data} update={update} /> : page === 'insights' ? <InsightsHub data={data} update={update} view={insightsView} onView={(view) => changeSubview('insights', view, setInsightsView)} /> : page === 'archive' ? <LearningArchive data={data} update={update} onNavigate={navigate} /> : page === 'study-room' ? <StudyRoom data={data} /> : page === 'coach' ? <CoachPage data={data} /> : page === 'feedback' ? <FeedbackInbox data={data} update={update} /> : page === 'workspace' ? <NotionWorkspace data={data} update={update} /> : page === 'profile' ? <Arena data={data} /> : <ExamArchive />;
+   if (!authenticated) return <LoginPage onAuthenticated={() => { const config = loadCloudflareConfig(); setAuthenticated(true); setPasswordRequired(Boolean(config.mustChangePassword)); }} />;
+   if (!identity) return <main className="login-page" role="status">안전하게 계정을 확인하는 중…</main>;

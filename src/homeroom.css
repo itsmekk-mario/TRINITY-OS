@@ -1,0 +1,34 @@
+.teacher-homeroom-layout{display:block;width:100%;min-width:0}
+.teacher-homeroom-layout>.homeroom-dashboard{width:100%;min-width:0}
+.homeroom-dashboard{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;width:100%;min-width:0}
+.homeroom-dashboard .card{min-width:0;box-sizing:border-box;margin:0;padding:24px;border:1px solid var(--line,#e5e7eb);border-radius:18px;background:var(--bg,#fff);box-shadow:0 10px 30px rgba(18,32,48,.035)}
+.homeroom-subject-filter{display:flex;justify-content:flex-end}
+.homeroom-subject-filter label{display:flex;align-items:center;gap:10px;color:var(--muted,#737b87);font-size:12px;font-weight:600}
+.homeroom-subject-filter select{min-width:170px;padding:10px 12px;border:1px solid var(--line,#e5e7eb);border-radius:10px;background:var(--bg,#fff);color:var(--text,#252a32)}
+.homeroom-summary{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(300px,.9fr);gap:18px;align-items:stretch}
+.homeroom-card-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:20px}
+.homeroom-card-heading h2{margin:5px 0 0;font-size:19px;letter-spacing:-.035em}
+.homeroom-card-heading small,.homeroom-card-heading>b{color:var(--muted,#737b87);font-size:11px}
+.homeroom-study-card{min-height:290px}
+.homeroom-subject-chart{display:grid;grid-template-columns:minmax(150px,190px) minmax(0,1fr);gap:24px;align-items:center;min-height:210px}
+.homeroom-donut{width:min(100%,178px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;margin:auto;box-shadow:inset 0 0 0 1px rgba(0,0,0,.04)}
+.homeroom-donut>div{width:69%;aspect-ratio:1;border-radius:50%;display:grid;align-content:center;justify-items:center;background:var(--bg,#fff)}
+.homeroom-donut b{font-size:29px;letter-spacing:-.06em}.homeroom-donut small{font-size:10px;color:var(--muted,#737b87)}
+.homeroom-subject-legend{display:grid;gap:12px;min-width:0}
+.homeroom-subject-legend>div{display:grid;grid-template-columns:9px minmax(45px,1fr) 42px 76px;gap:9px;align-items:center;font-size:11px;min-width:0}
+.homeroom-subject-legend i{width:8px;height:8px;border-radius:50%}.homeroom-subject-legend>div>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.homeroom-subject-legend small{color:var(--muted,#737b87);text-align:right;font-size:10px}
+.homeroom-kpi-card{display:flex;flex-direction:column;justify-content:space-between;min-height:290px;background:linear-gradient(145deg,var(--bg,#fff),var(--surface,#f7f8fa))!important}
+.homeroom-total-time{display:grid;gap:8px;padding:18px 0 24px}.homeroom-total-time small,.homeroom-plan-counts small{color:var(--muted,#737b87);font-size:11px}
+.homeroom-total-time strong{font-size:clamp(32px,4vw,48px);letter-spacing:-.065em;line-height:1.1}
+.homeroom-plan-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--line,#e5e7eb);padding-top:16px}
+.homeroom-plan-counts>div{display:grid;gap:7px;padding:0 12px;border-right:1px solid var(--line,#e5e7eb);min-width:0}.homeroom-plan-counts>div:first-child{padding-left:0}.homeroom-plan-counts>div:last-child{border-right:0;padding-right:0}
+.homeroom-plan-counts b{font-size:24px}.homeroom-plan-counts .complete b{color:#228550}.homeroom-plan-counts .incomplete b{color:#c33c3c}
+.homeroom-record-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
+.homeroom-record-grid>.card{min-height:220px}.homeroom-exams{grid-column:1/-1}
+.homeroom-record{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:13px 0;border-top:1px solid var(--line,#e5e7eb)}
+.homeroom-record>b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}.homeroom-record>small{color:var(--muted,#737b87);font-size:10px}
+.homeroom-record .subject-badge{grid-column:1}.homeroom-record .subject-badge+b{grid-column:2/-1}
+.homeroom-score{grid-template-columns:minmax(120px,1fr) auto minmax(180px,auto)}.homeroom-score>span{color:var(--muted,#737b87);font-size:11px;text-align:right}
+@media(max-width:760px){.homeroom-summary,.homeroom-record-grid{grid-template-columns:minmax(0,1fr)}.homeroom-exams{grid-column:auto}.homeroom-subject-chart{grid-template-columns:minmax(120px,150px) minmax(0,1fr);gap:16px}.homeroom-donut{width:min(100%,142px)}.homeroom-score{grid-template-columns:minmax(0,1fr) auto}.homeroom-score>span{grid-column:1/-1;text-align:left}}
+@media(max-width:420px){.homeroom-dashboard .card{padding:18px}.homeroom-subject-chart{grid-template-columns:1fr}.homeroom-subject-legend{width:100%}.homeroom-card-heading small{max-width:130px;text-align:right}.homeroom-plan-counts>div{padding:0 7px}.homeroom-plan-counts b{font-size:20px}}

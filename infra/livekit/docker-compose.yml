@@ -1,0 +1,47 @@
+name: trinity-livekit
+
+services:
+  livekit:
+    image: livekit/livekit-server:v1.12.0
+    restart: unless-stopped
+    command: ["--config", "/etc/livekit/livekit.yaml"]
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY:?Set LIVEKIT_API_KEY in .env}: ${LIVEKIT_API_SECRET:?Set LIVEKIT_API_SECRET in .env}"
+    volumes:
+      - ./livekit.yaml:/etc/livekit/livekit.yaml:ro
+    ports:
+      - "127.0.0.1:7880:7880/tcp"
+      - "7881:7881/tcp"
+      - "7882:7882/udp"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:7880/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks: [livekit]
+
+  caddy:
+    image: caddy:2.11.3-alpine
+    restart: unless-stopped
+    environment:
+      LIVEKIT_DOMAIN: "${LIVEKIT_DOMAIN:?Set LIVEKIT_DOMAIN in .env}"
+      ACME_EMAIL: "${ACME_EMAIL:?Set ACME_EMAIL in .env}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - "80:80/tcp"
+      - "443:443/tcp"
+    depends_on:
+      livekit:
+        condition: service_healthy
+    networks: [livekit]
+
+networks:
+  livekit:
+
+volumes:
+  caddy_data:
+  caddy_config:

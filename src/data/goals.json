@@ -1,0 +1,6 @@
+[
+  { "subject": "국어", "items": ["AOK 5~8주차 복습", "The Selection 응시", "T1M 7회차", "T1M 8회차", "KEY모 3회", "서바이벌 회차 진행"] },
+  { "subject": "수학", "items": ["수1 Theme 8 진행 · 기출 반복", "보유: 기출 250 · 지수로그 140 · 삼각함수 80", "수열의 합 12 · 수학적 귀납법 52", "수2 적분 잔여 30 · TRUSS 복기 · 설맞이 N제", "확통 개념 시작"] },
+  { "subject": "영어", "items": ["KISSCHEMA Ch.2~7", "매달KISS"] },
+  { "subject": "탐구", "items": ["Momentum", "통합사회", "격일 운영"] }
+]

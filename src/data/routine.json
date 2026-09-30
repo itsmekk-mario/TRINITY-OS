@@ -1,0 +1,12 @@
+[
+  { "time": "07:30", "title": "국어", "detail": "AOK 복습 / 국어 기준 정립", "subject": "국어" },
+  { "time": "학교 시간", "title": "수학 기출", "detail": "학교 환경으로 흐름이 끊길 수 있음을 고려", "subject": "수학" },
+  { "time": "11:05", "title": "TRUSS 모의고사", "detail": "실전 조건 재현", "subject": "수학" },
+  { "time": "12:05", "title": "수학 기출", "detail": "질릴 경우 통합과학", "subject": "수학" },
+  { "time": "16:40", "title": "독서실", "detail": "국어 잔여 또는 영어", "subject": "국어" },
+  { "time": "17:30", "title": "영어 문풀", "detail": "또는 국어 실모", "subject": "영어" },
+  { "time": "19:40", "title": "수학 인강", "detail": "개념을 실전 행동으로 변환", "subject": "수학" },
+  { "time": "22:00", "title": "하원", "detail": "이동", "subject": "생활" },
+  { "time": "22:30", "title": "샤워 및 휴식", "detail": "회복", "subject": "생활" },
+  { "time": "23:00", "title": "통합과학 / Momentum", "detail": "격일 운영", "subject": "탐구" }
+]

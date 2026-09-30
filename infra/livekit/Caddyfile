@@ -1,0 +1,11 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$LIVEKIT_DOMAIN} {
+	reverse_proxy livekit:7880
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+	}
+}
