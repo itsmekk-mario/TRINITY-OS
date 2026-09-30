@@ -6,7 +6,26 @@ export async function library(request:Request,env:Env,user:{id:number;is_admin?:
  if(!user)return out({error:'Unauthorized'},401);
  await env.DB.batch([env.DB.prepare('CREATE TABLE IF NOT EXISTS library_catalog (id TEXT PRIMARY KEY,payload TEXT NOT NULL)'),env.DB.prepare('CREATE TABLE IF NOT EXISTS library_files (id TEXT PRIMARY KEY,user_id INTEGER NOT NULL,path TEXT NOT NULL,name TEXT NOT NULL,size INTEGER NOT NULL)')]);
  if(url.pathname==='/api/library/catalog'){
-  if(request.method==='GET'){const rows=await env.DB.prepare('SELECT payload FROM library_catalog ORDER BY id').all<{payload:string}>();return out({resources:rows.results.map(r=>JSON.parse(r.payload))});}
+  if(request.method==='GET'){
+   const [rows,examRows]=await Promise.all([
+    env.DB.prepare('SELECT payload FROM library_catalog ORDER BY id').all<{payload:string}>(),
+    env.DB.prepare('SELECT id,title,agency,year,subject,object_key,created_at FROM exam_documents ORDER BY year DESC,created_at DESC').all<{id:string;title:string;agency:string;year:number;subject:string;object_key:string;created_at:string}>()
+   ]);
+   const manual=rows.results.map(r=>JSON.parse(r.payload));
+   const exams=examRows.results.map(doc=>({
+    id:`exam:${doc.id}`,
+    officialId:doc.id,
+    name:doc.title,
+    subject:doc.subject,
+    group:doc.agency,
+    examType:doc.title.includes('??')?'??':doc.agency==='???'?'????':'????',
+    examYear:doc.year,
+    documentType:doc.title.includes('??')?'??':doc.title.includes('??')?'??':'???',
+    total:1,
+    done:0
+   }));
+   return out({resources:[...exams,...manual]});
+  }
   if(request.method!=='POST')return out({error:'Method not allowed'},405);
   if(user.is_admin!==1)return out({error:'관리자만 공용 자료를 등록할 수 있습니다.'},403);
   const r=await h.boundedJson<Record<string,unknown>>(request);
