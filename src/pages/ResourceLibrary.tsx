@@ -38,7 +38,32 @@ export default function ResourceLibrary({data,update}:{data:AppData;update:(fn:(
  const active=(mode==='mine'?data.resources:catalog).find(r=>r.id===selected) ?? filtered[0];
  useEffect(()=>{if(filtered.length&&!filtered.some(r=>r.id===selected))setSelected(filtered[0].id);if(!filtered.length)setSelected('');},[mode,query,subjectFilter,examType,year,month,documentType,filtered.length]);
  const resetForm=()=>{setName('');setGroup('');setSource('');setTotal(1);setDueDate('');setAddMode(null);};
- const addOfficial=(r:Resource)=>update(v=>({...v,resources:v.resources.some(x=>x.officialId===r.id)?v.resources:[...v.resources,{...r,id:uid(),officialId:r.id,status:'미시작'}]}));
+ const examDocumentId=(r:Resource)=>r.officialId||(r.id.startsWith('exam:')?r.id.slice(5):undefined);
+ const officialKey=(r:Resource)=>examDocumentId(r)||r.id;
+ const openResourcePdf=async(r:Resource)=>{
+  const c=loadCloudflareConfig();
+  const examId=examDocumentId(r);
+  let response:Response;
+  if(examId){
+   response=await fetch(`${c.url.replace(/\/$/,'')}/api/exams/${encodeURIComponent(examId)}/file`,{
+    headers:{Authorization:`Bearer ${c.token}`}
+   });
+  }else if(r.fileId){
+   response=await request(`/files?id=${encodeURIComponent(r.fileId)}`);
+  }else{
+   throw new Error('\uC5F0\uACB0\uB41C PDF\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.');
+  }
+  if(!response.ok){
+   const body=await response.json().catch(()=>({})) as {error?:string};
+   throw new Error(body.error||'PDF \uC5F4\uAE30 \uC2E4\uD328');
+  }
+  if(pdf)URL.revokeObjectURL(pdf);
+  setPdf(URL.createObjectURL(await response.blob()));
+ };
+ const addOfficial=(r:Resource)=>{
+  const key=officialKey(r);
+  update(v=>({...v,resources:v.resources.some(x=>x.officialId===key)?v.resources:[...v.resources,{...r,id:uid(),officialId:key,status:'\uBBF8\uC2DC\uC791'}]}));
+ };
  const addLocal=()=>{if(!name.trim())return;const due=normalizeResourceDueDate(dueDate);const r:Resource={id:uid(),subject,group,name:name.trim(),sourceUrl:source||undefined,total:Math.max(1,total),done:0,status:'미시작',...(due?{dueDate:due}:{})};update(v=>({...v,resources:[...v.resources,r]}));resetForm();setSelected(r.id);};
  const progress=(r:Resource,delta:number)=>patch(r.id,{done:Math.max(0,Math.min(Math.max(1,r.total),r.done+delta))});
  const sessions=active&&mode==='mine'?data.sessions.filter(s=>s.resourceId===active.id):[];
@@ -55,12 +80,12 @@ export default function ResourceLibrary({data,update}:{data:AppData;update:(fn:(
    <div className="library-layout">
      <section className="library-list" aria-label="자료 목록">{!catalogReady&&mode==='official'?<div className="library-empty">공용 자료를 불러오는 중…</div>:filtered.length?filtered.map(r=>{const pct=Math.round((r.done/Math.max(1,r.total))*100);return <button key={r.id} className={`library-list-item ${active?.id===r.id?'active':''}`} onClick={()=>setSelected(r.id)}><span className={`subject-badge ${r.subject}`}>{r.subject}</span><span className="library-list-copy"><b>{r.name}</b><small>{[r.examYear,r.examType||r.group,r.examMonth?`${r.examMonth}월`:'',r.documentType].filter(Boolean).join(' · ')||'분류 없음'}</small></span>{mode==='mine'&&<span className="library-list-progress">{pct}%</span>}<ChevronRight size={16}/></button>}):<div className="library-empty"><BookOpen/><b>조건에 맞는 자료가 없습니다.</b><span>{mode==='mine'?'자료 또는 PDF를 추가해 시작하세요.':'관리자가 등록한 공식 자료가 여기에 표시됩니다.'}</span></div>}</section>
      <aside className="library-detail">{active?<><div className="library-detail-head"><div><span className={`subject-badge ${active.subject}`}>{active.subject}</span><h2>{active.name}</h2><p>{[active.examYear,active.examType||active.group,active.examMonth?`${active.examMonth}월`:'',active.documentType].filter(Boolean).join(' · ')||'개인 학습 자료'}</p></div>{active.sourceUrl&&<a className="icon-button" href={active.sourceUrl} target="_blank" rel="noreferrer" aria-label="원본 열기"><ExternalLink size={17}/></a>}</div>
-       {mode==='official'?<div className="library-official-action"><p>공식 자료를 내 학습 그래프에 추가하면 계획·오답·타이머와 연결할 수 있습니다.</p><button className="button primary" disabled={data.resources.some(x=>x.officialId===active.id)} onClick={()=>addOfficial(active)}>{data.resources.some(x=>x.officialId===active.id)?<><Check size={16}/>추가됨</>:<><Plus size={16}/>내 자료실에 추가</>}</button></div>:<>
+       {mode==='official'?<div className="library-official-action"><p>{'\uACF5\uC2DD \uC790\uB8CC\uB97C \uBC14\uB85C \uC5F4\uAC70\uB098 \uB0B4 \uD559\uC2B5 \uADF8\uB798\uD504\uC5D0 \uCD94\uAC00\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.'}</p><div className="library-primary-actions"><button className="button primary" disabled={busy||!examDocumentId(active)} onClick={()=>void task(()=>openResourcePdf(active))}><FileText size={15}/>{'PDF \uC5F4\uAE30'}</button><button className="button" disabled={data.resources.some(x=>x.officialId===officialKey(active))} onClick={()=>addOfficial(active)}>{data.resources.some(x=>x.officialId===officialKey(active))?<><Check size={16}/>{'\uCD94\uAC00\uB428'}</>:<><Plus size={16}/>{'\uB0B4 \uC790\uB8CC\uC2E4\uC5D0 \uCD94\uAC00'}</>}</button></div></div>:<>
        <div className="library-status-row"><label><span>학습 상태</span><select value={active.status??'미시작'} onChange={e=>patch(active.id,{status:e.target.value})}>{['미시작','진행 중','풀이 완료','오답 분석 중','복기 완료'].map(s=><option key={s}>{s}</option>)}</select></label><div className="library-stepper"><button onClick={()=>progress(active,-1)} disabled={!active.done}><Minus size={15}/></button><strong>{active.done}<small> / {active.total}</small></strong><button onClick={()=>progress(active,1)} disabled={active.done>=active.total}><Plus size={15}/></button></div></div>
        <Progress value={active.done} max={Math.max(1,active.total)}/>
        <dl className="library-metrics"><div><dt><Clock3/>학습</dt><dd>{Math.floor(seconds/60)}분</dd></div><div><dt>Wrong</dt><dd>{wrongs.length}</dd></div><div><dt>Archive</dt><dd>{archiveCount}</dd></div><div><dt>Core Rule</dt><dd>{ruleCount}</dd></div></dl>
        {sessions.length>0&&<p className="library-history">첫 학습 {[...sessions].sort((a,b)=>a.date.localeCompare(b.date))[0].date} · 최근 {[...sessions].sort((a,b)=>b.date.localeCompare(a.date))[0].date}</p>}
-       <div className="library-primary-actions">{active.fileId&&<button className="button primary" disabled={busy} onClick={()=>void task(async()=>{const response=await request(`/files?id=${encodeURIComponent(active.fileId!)}`);if(pdf)URL.revokeObjectURL(pdf);setPdf(URL.createObjectURL(await response.blob()));})}><FileText size={15}/>PDF 열기</button>}<button className="button" onClick={()=>update(v=>{const entry=v.calendar[date]??emptyDay(date);return {...v,calendar:{...v.calendar,[date]:{...entry,plans:[...(entry.plans??[]),{id:uid(),subject:active.subject,title:active.name,detail:'',quantity:'',done:false,resourceId:active.id}]}}};})}><Plus size={15}/>Daily Plan</button></div>
+       <div className="library-primary-actions">{(active.fileId||examDocumentId(active))&&<button className="button primary" disabled={busy} onClick={()=>void task(()=>openResourcePdf(active))}><FileText size={15}/>{'PDF \uC5F4\uAE30'}</button>}<button className="button" onClick={()=>update(v=>{const entry=v.calendar[date]??emptyDay(date);return {...v,calendar:{...v.calendar,[date]:{...entry,plans:[...(entry.plans??[]),{id:uid(),subject:active.subject,title:active.name,detail:'',quantity:'',done:false,resourceId:active.id}]}}};})}><Plus size={15}/>Daily Plan</button></div>
        <details className="library-connect" open><summary>Learning Graph 연결</summary><div className="library-connect-grid"><label><span>대상 날짜</span><input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label><label><span>오답 문항</span><div className="inline-action"><input value={question} onChange={e=>setQuestion(e.target.value)} placeholder="예: 14"/><button disabled={!question.trim()} onClick={()=>{update(v=>({...v,wrongAnswerDrills:[{id:uid(),date,subject:active.subject,source:active.name,question:question.trim(),resourceId:active.id,wrongJudgment:'',missedCue:'',correction:'',transfer:''},...v.wrongAnswerDrills]}));setQuestion('');}}>생성</button></div></label><label><span>기록 종류</span><select value={linkType} onChange={e=>{setLinkType(e.target.value);setLinkId('');}}>{['learning_archive','core_rule','mock_exam'].map(t=><option key={t} value={t}>{t==='learning_archive'?'Learning Archive':t==='core_rule'?'Core Rule':'Mock Exam'}</option>)}</select></label><label><span>연결할 기록</span><div className="inline-action"><select value={linkId} onChange={e=>setLinkId(e.target.value)}><option value="">선택</option>{relatedOptions.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select><button disabled={!linkId} onClick={()=>patch(active.id,{links:[...(active.links??[]).filter(l=>!(l.targetType===linkType&&l.targetId===linkId)),{targetType:linkType,targetId:linkId},...(linkType==='learning_archive'?(entries.find(e=>e.id===linkId)?.coreRules??[]).map(rule=>({targetType:'core_rule',targetId:rule.id})):[])]})}>연결</button></div></label></div></details></>}
      </>:<div className="library-empty detail"><BookOpen/><b>자료를 선택하세요.</b></div>}</aside>
    </div>
