@@ -11,10 +11,9 @@ import { useDialogFocus } from '../components/motion/useDialogFocus';
 import { archiveApi, type CoreRule, type RuleRelation } from '../lib/archiveApi';
 import QuickCaptureSheet from '../components/learning/QuickCaptureSheet';
 import ProblemImageView from '../components/learning/ProblemImageView';
-import HandwritingNotes from './HandwritingNotes';
 
-export type TrainView = 'timer' | 'drill' | 'wrong' | 'notes' | 'resources';
-const tabs = [{ id: 'timer', label: 'Timer' }, { id: 'drill', label: 'Drill' }, { id: 'notes', label: 'Notes' }] as const;
+export type TrainView = 'timer' | 'drill' | 'wrong' | 'resources';
+const tabs = [{ id: 'timer', label: 'Timer' }, { id: 'drill', label: 'Drill' }, { id: 'wrong', label: 'Wrong Answers' }, { id: 'resources', label: 'Resources' }] as const;
 const relationLabels:Record<RuleRelation,string>={derived:'도출',applied:'적용',failed:'적용 실패',reinforced:'강화'};
 type LinkedCoreRule=CoreRule&{relationType?:RuleRelation};
 
@@ -50,5 +49,5 @@ export function WrongAnswers({ data, edit, quick }: { data: AppData; edit: () =>
 
 export default function TrainHub({ data, update, view, onView, navigate }: { data: AppData; update: (fn: (value: AppData) => AppData) => void; view: TrainView; onView: (view: TrainView) => void; navigate?: (target: string) => void }) {
   const [quickOpen,setQuickOpen]=useState(false);
-  return <><HubLayout eyebrow="STUDY" title="지금 공부를 시작합니다" description="Daily Plan에 연결해 시간을 측정하고, 공부 중 발견한 내용을 기록합니다." controls={<SegmentedControl label="Study 화면" options={tabs} value={view} onChange={onView} />}>{view === 'timer' ? <TimerPage data={data} update={update} navigate={navigate} /> : view === 'drill' ? <WeeklyDrill data={data} update={update} /> : view === 'notes' ? <HandwritingNotes data={data} update={update} /> : view === 'wrong' ? <WrongAnswers data={data} edit={() => onView('drill')} quick={()=>setQuickOpen(true)} /> : <Resources data={data} update={update} />}</HubLayout><QuickCaptureSheet open={quickOpen} data={data} update={update} onClose={()=>setQuickOpen(false)}/></>;
+  return <><HubLayout eyebrow="STUDY" title="지금 공부를 시작합니다" description="시간을 측정하고, Drill과 오답을 복습합니다." controls={<SegmentedControl label="Study 화면" options={tabs} value={view} onChange={onView} />}>{view === 'timer' ? <TimerPage data={data} update={update} navigate={navigate} /> : view === 'drill' ? <WeeklyDrill data={data} update={update} /> : view === 'wrong' ? <WrongAnswers data={data} edit={() => onView('drill')} quick={()=>setQuickOpen(true)} /> : <Resources data={data} update={update} />}</HubLayout><QuickCaptureSheet open={quickOpen} data={data} update={update} onClose={()=>setQuickOpen(false)}/></>;
 }

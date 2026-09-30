@@ -83,7 +83,10 @@ function GroupNode({ group, depth, openGroups, setOpenGroups, openEntry, setOpen
 export function AnnotationLegend() { return <details className="archive-legend"><summary>색상 의미 ⓘ</summary><div>{colors.map(color => <span key={color}><i className={`annotation-dot ${color}`}>●</i> {colorNames[color]} — Annotation 색상</span>)}</div></details>; }
 export default function ArchiveExplorer({ entries, mode, onEntry }: { entries: ArchiveEntry[]; mode: ArchiveBrowseMode; onEntry: (entry: ArchiveEntry) => void }) {
   const groups = useMemo(() => {
-    if (mode === 'recent') return groupBy(entries, entry => ({ id: `date:${entry.studiedAt.slice(0, 10)}`, label: entry.studiedAt.slice(0, 10) }));
+    if (mode === 'recent') {
+      const recentEntries = [...entries].sort((left, right) => right.studiedAt.localeCompare(left.studiedAt) || right.id.localeCompare(left.id));
+      return groupBy(recentEntries, entry => ({ id: `date:${entry.studiedAt.slice(0, 10)}`, label: entry.studiedAt.slice(0, 10) }));
+    }
     if (mode === 'exam') {
       const exams = new Map<string, { exam: ReturnType<typeof normalizeArchiveExam>; group: Group }>();
       entries.forEach(entry => { const normalized = normalizeArchiveExam(entry), current = exams.get(normalized.groupKey) || { exam: normalized, group: { id: normalized.groupKey, label: normalized.displayName, entries: [] } }; current.group.entries.push(entry); exams.set(normalized.groupKey, current); });

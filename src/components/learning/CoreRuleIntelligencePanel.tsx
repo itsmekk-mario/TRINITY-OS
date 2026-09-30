@@ -46,7 +46,7 @@ export default function CoreRuleIntelligencePanel({onEditRule,onOpenReviewQueue}
   const [error,setError]=useState('');
   const [actionPanel,setActionPanel]=useState<ActionPanel>(null);
   const [reviewBusy,setReviewBusy]=useState(false);
-  const evidenceRef=useRef<HTMLDivElement>(null);
+  const evidenceRef=useRef<HTMLDetailsElement>(null);
 
   const load=async()=>{
     setLoading(true);setError('');
@@ -134,12 +134,14 @@ export default function CoreRuleIntelligencePanel({onEditRule,onOpenReviewQueue}
             <button className="button" onClick={()=>setActionPanel(current=>current==='wrongAnswers'?null:'wrongAnswers')}><FileSearch size={14}/>관련 오답 보기 · {detail.wrongAnswers.length}</button>
             <button className="button primary" disabled={reviewBusy} onClick={()=>void openReview()}><RefreshCw size={14}/>{detail.reviews.some(review=>review.result==='pending')?'Review 열기':'Review'}</button>
             <button className="button" onClick={()=>setActionPanel(current=>current==='drills'?null:'drills')}><Target size={14}/>Drill · {detail.drills.length}</button>
-            <button className="button" onClick={()=>evidenceRef.current?.scrollIntoView({behavior:'smooth',block:'start'})}><BookOpen size={14}/>Evidence</button>
+            <button className="button" onClick={()=>{if(evidenceRef.current){evidenceRef.current.open=true;evidenceRef.current.scrollIntoView({behavior:'smooth',block:'start'})}}}><BookOpen size={14}/>Evidence</button>
           </div>
         </section>
         {actionPanel==='wrongAnswers'&&<section className="intelligence-linked-records"><div className="section-title"><h3>관련 Wrong Answer</h3><span>{detail.wrongAnswers.length}개</span></div>{detail.wrongAnswers.length?<div className="linked-record-list">{detail.wrongAnswers.map(item=><article key={item.id}><span>{item.date} · {item.source}</span><b>{item.question||'문항 미입력'}</b><div className="math-record-output linked"><strong>잘못된 판단</strong><RichMathText value={item.wrongJudgment} fallback="미기록"/></div><div className="math-record-output linked"><strong>놓친 단서</strong><RichMathText value={item.missedCue} fallback="미기록"/></div><div className="math-record-output linked"><strong>교정 행동</strong><RichMathText value={item.correction} fallback="미기록"/></div></article>)}</div>:<p className="archive-empty-copy">이 Rule에 연결된 Wrong Answer가 없습니다.</p>}</section>}
         {actionPanel==='drills'&&<section className="intelligence-linked-records"><div className="section-title"><h3>관련 Drill</h3><span>{detail.drills.length}개</span></div>{detail.drills.length?<div className="linked-record-list">{detail.drills.map(item=><article key={item.id}><span>{item.date} · {item.minutes}분 · {item.done?'실행 완료':'미완료'}</span><b>{item.title||'Drill'}</b><div className="math-record-output linked"><strong>교정 행동</strong><RichMathText value={item.action} fallback="미기록"/></div><div className="math-record-output linked"><strong>성공 기준</strong><RichMathText value={item.successCriterion} fallback="미기록"/></div></article>)}</div>:<p className="archive-empty-copy">이 Rule에 연결된 Drill이 없습니다.</p>}</section>}
-        <div className="intelligence-stat-grid">
+        <details className="intelligence-document">
+          <summary><span><b>지표 문서</b><small>규칙의 반복 빈도와 체화 수준</small></span><b>{detail.stats.evidenceCount}개 근거 · {pct(detail.stats.masteryRate)} 체화</b></summary>
+          <div className="intelligence-stat-grid">
           <Card><span>최근 7일 실패</span><b>{detail.stats.failures7d}</b></Card>
           <Card><span>최근 30일 실패</span><b>{detail.stats.failures30d}</b></Card>
           <Card><span>Wrong Answer</span><b>{detail.stats.wrongAnswerCount}</b></Card>
@@ -148,14 +150,16 @@ export default function CoreRuleIntelligencePanel({onEditRule,onOpenReviewQueue}
           <Card><span>Review 실패</span><b>{detail.stats.reviewFailureCount}</b></Card>
           <Card><span>Mastery Rate</span><b>{pct(detail.stats.masteryRate)}</b></Card>
           <Card><span>Evidence</span><b>{detail.stats.evidenceCount}</b></Card>
-        </div>
-        <div className="intelligence-evidence" ref={evidenceRef}>
+          </div>
+        </details>
+        <details className="intelligence-document intelligence-evidence" ref={evidenceRef}>
+          <summary><span><b>Evidence Timeline</b><small>이 Core Rule과 연결된 학습 기록</small></span><b>{detail.evidence.length} events</b></summary>
           <div className="section-title"><div><span className="eyebrow">TRACE</span><h3>Evidence Timeline</h3></div><span>{detail.evidence.length} events</span></div>
           {detail.evidence.length?<div className="evidence-list">{detail.evidence.map((event,index)=><article key={`${event.sourceType}-${event.sourceId}-${event.relationType}-${index}`}>
             <span className={`evidence-icon ${event.relationType}`}>{event.relationType==='failed'?<AlertTriangle size={14}/>:event.relationType==='reinforced'?<CheckCircle2 size={14}/>:event.sourceType==='archive'?<BookOpen size={14}/>:<Activity size={14}/>}</span>
             <div><b>{sourceLabel[event.sourceType]} · {relationLabel[event.relationType]}</b><small>{formatDate(event.occurredAt)}</small></div>
           </article>)}</div>:<p className="archive-empty-copy">아직 Evidence가 없습니다.</p>}
-        </div>
+        </details>
       </>:<Empty title="상세 정보를 불러오지 못했습니다." description="잠시 후 다시 시도해 주세요."/>}
     </section>
   </div>;

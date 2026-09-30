@@ -168,7 +168,7 @@ function StudentApp() {
       : "day",
   );
   const [trainView, setTrainView] = useState<TrainView>(() =>
-    ["timer", "drill", "notes"].includes(queryView() ?? "")
+    ["timer", "drill"].includes(queryView() ?? "")
       ? (queryView() as TrainView)
       : "timer",
   );
@@ -309,7 +309,7 @@ function StudentApp() {
           ? (view as PlanView)
           : "day";
       const train =
-        view && ["timer", "drill", "notes"].includes(view)
+        view && ["timer", "drill"].includes(view)
           ? (view as TrainView)
           : "timer";
       const review = reviewViewFromLocation();
