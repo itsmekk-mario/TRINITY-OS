@@ -11,6 +11,7 @@ import {
   Gauge,
   Home,
   Laptop,
+  LogOut,
   MessageSquareText,
   Moon,
   NotebookTabs,
@@ -41,7 +42,7 @@ import ScoreTracker from "./pages/ScoreTracker";
 import NotionWorkspace from "./pages/NotionWorkspace";
 import CloudflareSync from "./components/CloudflareSync";
 import LoginPage from "./components/LoginPage";
-import { logoutLocal, type SessionIdentity, validateSession } from "./lib/auth";
+import { logout, logoutLocal, type SessionIdentity, validateSession } from "./lib/auth";
 import { autoSyncCloudflareData, loadCloudflareConfig, saveRecoveryCopy } from "./lib/cloudflare";
 import SupportPortal, {
   ExamArchive,
@@ -813,6 +814,22 @@ function StudentApp() {
                   <span>
                     <b>백업 복원</b>
                     <small>파일 내용을 미리 확인한 뒤 복원합니다.</small>
+                  </span>
+                </button>
+                <button
+                  onClick={() => {
+                    setSettings(false);
+                    void logout().finally(() => {
+                      setIdentity(null);
+                      setAuthenticated(false);
+                      setData(initialData);
+                    });
+                  }}
+                >
+                  <LogOut />
+                  <span>
+                    <b>로그아웃</b>
+                    <small>이 기기의 자동 로그인을 해제하고 서버 세션을 종료합니다.</small>
                   </span>
                 </button>
                 <input

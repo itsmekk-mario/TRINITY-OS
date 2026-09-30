@@ -48,7 +48,13 @@ export async function validateSession(): Promise<SessionIdentity | null> {
     const identity = await response.json() as SessionIdentity;
     saveCloudflareConfig({ ...config, username: identity.username, userId: identity.userId, mustChangePassword: identity.mustChangePassword });
     return identity;
-  } catch { return null; }
+  } catch {
+    // A network failure is not the same as an invalid session. Keep the
+    // persisted identity so TRINITY OS can open offline and validate again
+    // when connectivity returns.
+    if (config.username && config.userId !== undefined) return { username: config.username, userId: config.userId, mustChangePassword: config.mustChangePassword };
+    return null;
+  }
 }
 
 export function logoutLocal() {

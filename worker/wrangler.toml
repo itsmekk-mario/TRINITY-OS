@@ -1,4 +1,4 @@
-﻿name = "trinity-os-sync"
+name = "trinity-os-sync"
 main = "src/index.ts"
 compatibility_date = "2026-08-24"
 
@@ -29,7 +29,7 @@ database_id = "e6b6cdaa-bbce-437d-8074-a7248bbc4b4f"
 [vars]
 ALLOWED_ORIGIN = "https://trinityos.mcv.kr"
 ENVIRONMENT = "production"
-SESSION_TTL_DAYS = "7"
+SESSION_TTL_DAYS = "30"
 AI_PROVIDER = "nvidia-nim"
 NVIDIA_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
 AI_TIMEOUT_MS = "300000"

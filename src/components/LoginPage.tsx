@@ -41,7 +41,8 @@ export default function LoginPage({ onAuthenticated }: { onAuthenticated: () => 
       const entry = role === 'teacher' ? teacherEntry(value.role || '') : {key:'trinity-support:parent',portal:'parent',role:'parent'};
       const supportRole = entry.role;
       const key = entry.key;
-      sessionStorage.setItem(key, JSON.stringify({ url: url.replace(/\/+$/, ''), token: value.token, role: supportRole }));
+      localStorage.setItem(key, JSON.stringify({ url: url.replace(/\/+$/, ''), token: value.token, role: supportRole }));
+      sessionStorage.removeItem(key);
       window.location.assign('?portal=' + entry.portal);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '로그인에 실패했습니다.');

@@ -1,7 +1,7 @@
 import type { AppData } from '../../src/types';
 import { collaboration, outData } from './collaboration.ts';
-import { PASSWORD_HASH_ITERATIONS } from './security.ts';
-type Env = { DB: D1Database; SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; SUPABASE_BUCKET?: string };
+import { PASSWORD_HASH_ITERATIONS, sessionTtlDays } from './security.ts';
+type Env = { DB: D1Database; SUPABASE_URL?: string; SUPABASE_SERVICE_ROLE_KEY?: string; SUPABASE_BUCKET?: string; SESSION_TTL_DAYS?: string };
 export function publicExamPath(key: string): string | null {
  if (!key || key.length > 500 || /[\\:%?#\u0000-\u001f\u007f]/.test(key) || !key.toLowerCase().endsWith('.pdf')) return null;
  const parts = key.split('/');
@@ -52,7 +52,7 @@ export async function support(request:Request, env:Env, owner:boolean, origin:st
    if(!a||!await h.secretMatches(hash,a.password_hash))return out({error:'아이디 또는 비밀번호가 올바르지 않습니다.'},401);
    if(iterations<PASSWORD_HASH_ITERATIONS){const salt=h.randomHex(16);await env.DB.prepare('UPDATE support_accounts SET password_hash=?,salt=?,password_iterations=? WHERE id=?').bind(await h.passwordHash(b.password,salt,PASSWORD_HASH_ITERATIONS),salt,PASSWORD_HASH_ITERATIONS,a.id).run();}
    const token=h.randomHex();
-   await env.DB.prepare('INSERT INTO support_sessions(token_hash,account_id,expires_at) VALUES(?,?,?)').bind(await h.sha256(token),a.id,new Date(now+7*86400000).toISOString()).run();
+   await env.DB.prepare('INSERT INTO support_sessions(token_hash,account_id,expires_at) VALUES(?,?,?)').bind(await h.sha256(token),a.id,new Date(now+sessionTtlDays(env.SESSION_TTL_DAYS)*86400000).toISOString()).run();
    return out({token,username:a.username,role:a.role});
   }
   const bearer=(request.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');
