@@ -84,6 +84,19 @@ function saveAutoSyncMetadata(userId: number | string, localSignature: string, r
   localStorage.setItem(DEVICE_SYNC_KEY(userId), value);
 }
 
+/**
+ * Manual sync is the explicit conflict-resolution action. Once the user chooses a
+ * direction, persist that exact state/revision as both the tab and device baseline so
+ * the next automatic sync can continue instead of asking for the same decision again.
+ */
+export function rememberCloudflareSyncBaseline(
+  userId: number | string,
+  data: AppData,
+  remoteUpdatedAt: string | null,
+) {
+  saveAutoSyncMetadata(userId, signature(data), remoteUpdatedAt);
+}
+
 function requestParts(config: CloudflareConfig) {
   if (!config.url || !config.token) throw new Error('Worker 주소를 확인하고 로그인해 주세요.');
   return {
