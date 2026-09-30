@@ -11,7 +11,7 @@ import { toDateKey, weekStartKey } from '../lib/date';
 import { formatResourceDeadline, sortResourcesByDeadline } from '../lib/resourceDeadline';
 
 export type PlanView = 'overview' | 'calendar' | 'weekly' | 'monthly' | 'routine';
-const tabs = [{ id: 'overview', label: 'Overview' }, { id: 'monthly', label: 'Monthly' }, { id: 'weekly', label: 'Weekly' }, { id: 'calendar', label: 'Calendar' }, { id: 'routine', label: 'Routine' }] as const;
+const tabs = [{ id: 'overview', label: 'Overview' }, { id: 'monthly', label: 'Monthly' }, { id: 'weekly', label: 'Weekly' }, { id: 'calendar', label: 'Daily · Calendar' }, { id: 'routine', label: 'Routine' }] as const;
 
 export default function PlanHub({ data, update, view, onView }: { data: AppData; update: (fn: (value: AppData) => AppData) => void; view: PlanView; onView: (view: PlanView) => void }) {
   const layout = (content: ReactNode) => <HubLayout eyebrow="PLAN" title="실행을 설계합니다" description="시간 계획과 이번 주에 개선할 능력을 같은 흐름에서 정리합니다." controls={<SegmentedControl label="Plan 화면" options={tabs} value={view} onChange={onView} />}>{content}</HubLayout>;

@@ -1,15 +1,16 @@
 export type Subject = '국어' | '수학' | '영어' | '통사' | '통과' | '탐구';
 export type InquiryTrack = '통사' | '통과';
 export type PlanOutcome = 'achieved' | 'partial' | 'failed';
-export type CalendarPlan = { id: string; subject: Subject | '생활'; inquiryTrack?: InquiryTrack; title: string; detail: string; quantity: string; done: boolean; outcome?: PlanOutcome };
-export type CalendarEntry = { date: string; study: string; minutes: number; exam: string; event: string; condition: number; reflection: string; plans?: CalendarPlan[] };
-export type TimerSession = { id: string; date: string; subject: Subject; inquiryTrack?: InquiryTrack; seconds: number; note?: string; startedAt?: string; endedAt?: string; segments?: { start: string; end: string; kind: 'focus' | 'break' }[]; focusDrops?: string[] };
+export type CalendarPlan = { id: string; subject: Subject | '생활'; inquiryTrack?: InquiryTrack; title: string; detail: string; quantity: string; done: boolean; outcome?: PlanOutcome; weeklyPlanId?: string; resourceId?: string };
+export type DayType = 'normal' | 'bump' | 'mock' | 'review' | 'recovery' | 'exam' | 'school' | 'off' | 'custom';
+export type CalendarEntry = { date: string; study: string; minutes: number; exam: string; event: string; condition: number; reflection: string; plans?: CalendarPlan[]; dayType?: DayType; dayLabel?: string; dayColor?: string };
+export type TimerSession = { id: string; date: string; subject: Subject; inquiryTrack?: InquiryTrack; seconds: number; resourceId?: string; planId?: string; note?: string; startedAt?: string; endedAt?: string; segments?: { start: string; end: string; kind: 'focus' | 'break' }[]; focusDrops?: string[] };
 export type MockScheduleItem = { id: string; label: string; start: string; end: string; kind: 'exam' | 'break' | 'admin'; subject?: Subject; questions?: number };
 export type JournalEntry = { date: string; studied: string; wins: string; blocked: string; cause: string; hypothesis: string; action: string; event: string };
 export type MockExamSubject = Subject;
 export type MockExamReview = { score?: number; duration?: number; wrongQuestions: string; observation: string; improvement: string };
 export type ScoreEntry = { id: string; name: string; date: string; subject: Subject; korean?: number; math?: number; english?: number; duration: number; errorType: string; cause: string; nextAction: string; reviews?: Partial<Record<MockExamSubject, MockExamReview>>; overallReview?: string };
-export type Resource = { id: string; subject: Subject; inquiryTrack?: InquiryTrack; group: string; name: string; total: number; done: number; dueDate?: string };
+export type Resource = { id: string; subject: Subject; inquiryTrack?: InquiryTrack; group: string; name: string; total: number; done: number; dueDate?: string; sourceUrl?: string; fileId?: string; officialId?: string; status?: string; examYear?: number; examMonth?: number; examType?: string; documentType?: string; links?: { targetType: string; targetId: string }[] };
 export type Goal = { id: string; subject: Subject; inquiryTrack?: InquiryTrack; text: string; done: boolean };
 export type WeeklyCapabilityGoal = { id: string; weekStart: string; subject: Subject; inquiryTrack?: InquiryTrack; ability: string; successCriterion: string; drillDesign: string; evidence: string; done: boolean; feedbackId?: string };
 export type DrillBottleneck = '발문·해석' | '개념 공백' | '계산 실수' | '시간 관리' | '전략·판단' | '기타';
@@ -19,7 +20,7 @@ export type WrongAnswerImage = StoredLearningImage;
 export type HandwritingPoint = { x: number; y: number; pressure: number };
 export type HandwritingStroke = { id: string; tool: 'pen' | 'eraser'; color: string; width: number; points: HandwritingPoint[] };
 export type HandwritingNote = { id: string; date: string; subject: Subject; inquiryTrack?: InquiryTrack; title: string; strokes: HandwritingStroke[]; createdAt: string; updatedAt: string };
-export type WrongAnswerDrill = { id: string; date: string; subject: Subject; inquiryTrack?: InquiryTrack; source: string; question: string; wrongJudgment: string; missedCue: string; correction: string; transfer: string; scoreId?: string; capabilityGoalId?: string; archiveEntryId?: string; bottleneck?: DrillBottleneck; retries?: DrillRetry[]; problemImage?: WrongAnswerImage };
+export type WrongAnswerDrill = { id: string; date: string; subject: Subject; inquiryTrack?: InquiryTrack; resourceId?: string; source: string; question: string; wrongJudgment: string; missedCue: string; correction: string; transfer: string; scoreId?: string; capabilityGoalId?: string; archiveEntryId?: string; bottleneck?: DrillBottleneck; retries?: DrillRetry[]; problemImage?: WrongAnswerImage };
 export type DailyDrill = { id: string; date: string; subject: Subject; inquiryTrack?: InquiryTrack; title: string; action: string; successCriterion: string; minutes: number; capabilityGoalId?: string; feedbackId?: string; done: boolean; reflection: string };
 export type MonthlyPlan = { id: string; month: string; subject: Subject; inquiryTrack?: InquiryTrack; title: string; objective: string; successCriterion: string; strategy: string; done: boolean };
 export type NotionBlock = { id: string; type: 'heading' | 'text' | 'todo'; content: string; checked?: boolean; category?: string; date?: string; status?: 'open' | 'done' | 'postponed'; postponedTo?: string };
@@ -111,6 +112,7 @@ export type ArenaBootstrap = {
   latestScore: ArenaScore | null;
 };
 export type AppData = {
+  migratedDailyDrillIds?: string[];
   calendar: Record<string, CalendarEntry>;
   sessions: TimerSession[];
   mockSchedule: MockScheduleItem[];

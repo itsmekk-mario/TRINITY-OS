@@ -14,7 +14,7 @@ import ProblemImageView from '../components/learning/ProblemImageView';
 import HandwritingNotes from './HandwritingNotes';
 
 export type TrainView = 'timer' | 'drill' | 'wrong' | 'notes' | 'resources';
-const tabs = [{ id: 'timer', label: 'Timer' }, { id: 'drill', label: 'Drill' }, { id: 'wrong', label: 'Wrong Answers' }, { id: 'notes', label: 'Notes' }, { id: 'resources', label: 'Resources' }] as const;
+const tabs = [{ id: 'timer', label: 'Timer' }, { id: 'drill', label: 'Drill' }, { id: 'wrong', label: 'Wrong Answers' }, { id: 'resources', label: 'Library' }] as const;
 const relationLabels:Record<RuleRelation,string>={derived:'도출',applied:'적용',failed:'적용 실패',reinforced:'강화'};
 type LinkedCoreRule=CoreRule&{relationType?:RuleRelation};
 

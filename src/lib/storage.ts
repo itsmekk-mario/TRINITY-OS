@@ -1,3 +1,4 @@
+import { migratePlans } from './planGraph.ts';
 import type { AppData } from '../types';
 import resourcesSeed from '../data/resources.json';
 import goalsSeed from '../data/goals.json';
@@ -40,7 +41,7 @@ export function loadData(userId: number | string): AppData {
     const value = localStorage.getItem(storageKeyForUser(userId));
     if (!value) return initialData;
     const parsed = JSON.parse(value) as Partial<AppData>;
-    return { ...initialData, ...parsed, mockSchedule: Array.isArray(parsed.mockSchedule) ? parsed.mockSchedule : initialData.mockSchedule, resources: parsed.resources?.length ? parsed.resources : initialData.resources, goals: parsed.goals?.length ? parsed.goals : initialData.goals, routine: parsed.routine?.length ? parsed.routine : initialData.routine, weeklyCapabilityGoals: Array.isArray(parsed.weeklyCapabilityGoals) ? parsed.weeklyCapabilityGoals : [], wrongAnswerDrills: Array.isArray(parsed.wrongAnswerDrills) ? parsed.wrongAnswerDrills : [], dailyDrills: Array.isArray(parsed.dailyDrills) ? parsed.dailyDrills : [], monthlyPlans: Array.isArray(parsed.monthlyPlans) ? parsed.monthlyPlans : [], notionPages: Array.isArray(parsed.notionPages) ? parsed.notionPages : [] };
+    return migratePlans({ ...initialData, ...parsed, mockSchedule: Array.isArray(parsed.mockSchedule) ? parsed.mockSchedule : initialData.mockSchedule, resources: parsed.resources?.length ? parsed.resources : initialData.resources, goals: parsed.goals?.length ? parsed.goals : initialData.goals, routine: parsed.routine?.length ? parsed.routine : initialData.routine, weeklyCapabilityGoals: Array.isArray(parsed.weeklyCapabilityGoals) ? parsed.weeklyCapabilityGoals : [], wrongAnswerDrills: Array.isArray(parsed.wrongAnswerDrills) ? parsed.wrongAnswerDrills : [], dailyDrills: Array.isArray(parsed.dailyDrills) ? parsed.dailyDrills : [], monthlyPlans: Array.isArray(parsed.monthlyPlans) ? parsed.monthlyPlans : [], notionPages: Array.isArray(parsed.notionPages) ? parsed.notionPages : [] });
   } catch {
     return initialData;
   }

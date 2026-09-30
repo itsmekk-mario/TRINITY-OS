@@ -1,3 +1,4 @@
+import { migratePlans } from './planGraph.ts';
 import type { AppData } from '../types';
 import { initialData } from './storage';
 import { trustedWorkerUrl } from './runtimeConfig';
@@ -189,7 +190,7 @@ export async function autoSyncCloudflareData(data: AppData, userId: number | str
   if (!metadata) {
     if (localSignature === initialSignature()) {
       saveAutoSyncMetadata(userId, remoteSignature!, remote.updatedAt ?? null);
-      return { action: 'downloaded', data: remote.data, updatedAt: remote.updatedAt };
+      return { action: 'downloaded', data: migratePlans(remote.data), updatedAt: remote.updatedAt };
     }
     return conflict('이 기기에는 서버 기준 버전 정보가 없습니다. 최초 1회 동기화 방향을 직접 선택해 주세요.');
   }
@@ -199,7 +200,7 @@ export async function autoSyncCloudflareData(data: AppData, userId: number | str
 
   if (!localChanged && remoteChanged) {
     saveAutoSyncMetadata(userId, remoteSignature!, remote.updatedAt ?? null);
-    return { action: 'downloaded', data: remote.data, updatedAt: remote.updatedAt };
+    return { action: 'downloaded', data: migratePlans(remote.data), updatedAt: remote.updatedAt };
   }
 
   if (localChanged && remoteChanged) {
