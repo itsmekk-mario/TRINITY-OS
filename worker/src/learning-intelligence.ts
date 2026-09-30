@@ -93,13 +93,20 @@ export async function learningIntelligence(request:Request,env:Env,user:User,ori
 
   if(path==='/api/learning-intelligence/quick-capture'&&request.method==='POST'){
     const body=await h.boundedJson<Record<string,unknown>>(request),requestId=clean(body.requestId,100),subject=clean(body.subject,20),wrong=(body.wrongAnswer&&typeof body.wrongAnswer==='object'?body.wrongAnswer:{}) as Record<string,unknown>;
-    if(!requestId||!['국어','수학','영어','탐구'].includes(subject)||!clean(wrong.source,240)||!clean(wrong.question,240)||!clean(wrong.wrongJudgment,5000)||!clean(wrong.missedCue,5000)||!clean(wrong.correction,5000))return error(out,'INVALID_QUICK_CAPTURE','빠른 오답 기록의 필수 항목을 확인해 주세요.',400);
+    if(!requestId||!['국어','수학','영어','탐구','통사','통과'].includes(subject)||!clean(wrong.source,240)||!clean(wrong.question,240)||!clean(wrong.wrongJudgment,5000)||!clean(wrong.missedCue,5000)||!clean(wrong.correction,5000))return error(out,'INVALID_QUICK_CAPTURE','빠른 오답 기록의 필수 항목을 확인해 주세요.',400);
     const now=new Date().toISOString(),existing=await env.DB.prepare('SELECT status,result_json FROM quick_capture_requests WHERE user_id=? AND request_id=?').bind(user.id,requestId).first<{status:string;result_json:string|null}>();
     let result=parse<Record<string,unknown>|null>(existing?.result_json,null);
     if(existing?.status==='completed'&&result)return out({...result,recovered:true});
     if(!result){const coreRuleId=clean(body.coreRuleId,100)||null;if(coreRuleId&&!await ruleOwner(env.DB,coreRuleId,user.id))return error(out,'INVALID_CORE_RULE','Core Rule을 찾을 수 없습니다.',404);const id=h.randomHex(16),date=clean(wrong.date,20)||studyDayKey();result={ok:true,requestId,wrongAnswerId:id,coreRuleId,data:null,wrongAnswer:{id,date,subject,source:clean(wrong.source,240),question:clean(wrong.question,240),wrongJudgment:clean(wrong.wrongJudgment,5000),missedCue:clean(wrong.missedCue,5000),correction:clean(wrong.correction,5000),transfer:clean(wrong.nextAction,5000),bottleneck:clean(wrong.bottleneck,120),retries:[3,7,14].map(days=>{const d=new Date(`${date}T12:00:00Z`);d.setUTCDate(d.getUTCDate()+days);return{id:`${days}d`,label:`${days}일 후 재도전`,dueDate:d.toISOString().slice(0,10)}})}};await env.DB.prepare("INSERT INTO quick_capture_requests(user_id,request_id,status,result_json,created_at,updated_at) VALUES(?,?, 'processing',?,?,?)").bind(user.id,requestId,JSON.stringify(result),now,now).run();}
-    const state=await env.DB.prepare('SELECT payload FROM learning_state WHERE user_id=?').bind(user.id).first<{payload:string}>();if(!state)return error(out,'STATE_REQUIRED','학습 데이터를 먼저 동기화해 주세요.',409);const app=parse<Record<string,unknown>>(state.payload,{}),rows=Array.isArray(app.wrongAnswerDrills)?app.wrongAnswerDrills as Record<string,unknown>[]:[],record=result.wrongAnswer as Record<string,unknown>;
-    if(!rows.some(item=>item.id===record.id)){app.wrongAnswerDrills=[record,...rows];await env.DB.prepare('INSERT INTO learning_state_history(user_id,payload,saved_at) VALUES(?,?,?)').bind(user.id,state.payload,now).run();await env.DB.prepare('UPDATE learning_state SET payload=?,updated_at=? WHERE user_id=?').bind(JSON.stringify(app),now,user.id).run();await syncLearningProjection(env.DB,user.id,app,now);}
+    const state=await env.DB.prepare('SELECT payload,updated_at FROM learning_state WHERE user_id=?').bind(user.id).first<{payload:string;updated_at:string}>();if(!state)return error(out,'STATE_REQUIRED','학습 데이터를 먼저 동기화해 주세요.',409);const app=parse<Record<string,unknown>>(state.payload,{}),rows=Array.isArray(app.wrongAnswerDrills)?app.wrongAnswerDrills as Record<string,unknown>[]:[],record=result.wrongAnswer as Record<string,unknown>;
+    if(!rows.some(item=>item.id===record.id)){
+      app.wrongAnswerDrills=[record,...rows];
+      const revision=new Date(Math.max(Date.now(),Date.parse(state.updated_at)+1)).toISOString();
+      const write=await env.DB.prepare('UPDATE learning_state SET payload=?,updated_at=? WHERE user_id=? AND updated_at=?').bind(JSON.stringify(app),revision,user.id,state.updated_at).run();
+      if((write.meta?.changes??(write as unknown as {changes?:number}).changes??0)!==1)return error(out,'SYNC_CONFLICT','다른 기기에서 기록이 변경되었습니다. 다시 시도해 주세요.',409);
+      await env.DB.prepare('INSERT INTO learning_state_history(user_id,payload,saved_at) VALUES(?,?,?)').bind(user.id,state.payload,now).run();
+      await syncLearningProjection(env.DB,user.id,app,revision);
+    }
     if(result.coreRuleId){await env.DB.prepare("INSERT INTO core_rule_wrong_answer_links(user_id,core_rule_id,wrong_answer_id,relation_type,created_at) VALUES(?,?,?,?,?) ON CONFLICT(core_rule_id,wrong_answer_id) DO NOTHING").bind(user.id,result.coreRuleId,record.id,'failed',now).run();await recordCoreRuleEvidence(env.DB,user.id,String(result.coreRuleId),'wrong_answer',String(record.id),'failed',now);}
     result.data=app;await env.DB.prepare("UPDATE quick_capture_requests SET status='completed',result_json=?,updated_at=? WHERE user_id=? AND request_id=?").bind(JSON.stringify(result),now,user.id,requestId).run();return out(result,existing?200:201);
   }
@@ -242,9 +249,16 @@ export async function learningIntelligence(request:Request,env:Env,user:User,ori
     return out({...queue,counts:{overdue:queue.overdue.length,today:queue.today.length,upcoming:queue.upcoming.length,due:queue.overdue.length+queue.today.length}});
   }
 
+  if(path==='/api/learning-intelligence/reviews'&&request.method==='GET'&&url.searchParams.get('view')==='completed'){
+    const rows=await env.DB.prepare(`SELECT id,target_type,target_id,scheduled_at,reviewed_at,result,notes FROM learning_reviews
+      WHERE user_id=? AND result IN ('success','partial','fail') ORDER BY reviewed_at DESC,id DESC LIMIT 100`).bind(user.id).all<Record<string,unknown>>();
+    const metadata=await resolveReviewQueueMetadata(env.DB,user.id,rows.results as {target_type:string;target_id:string}[]);
+    return out({items:rows.results.map(row=>{const meta=metadata.get(`${row.target_type}:${row.target_id}`)??{subject:'',title:'Unavailable target',reason:'',priority:0,detail:{}};return {id:String(row.id),targetType:String(row.target_type),targetId:String(row.target_id),subject:meta.subject,title:meta.title,reason:meta.reason,scheduledAt:String(row.scheduled_at??''),reviewedAt:String(row.reviewed_at??''),result:String(row.result),priority:meta.priority,notes:String(row.notes??''),detail:meta.detail}})});
+  }
+
   if(path==='/api/learning-intelligence/reviews'&&request.method==='POST'){
     const b=await h.boundedJson<Record<string,unknown>>(request),type=clean(b.targetType,30),id=clean(b.targetId,100),result=clean(b.result,20)||'pending';
-    if(!['wrong_answer','core_rule','drill','learning_item'].includes(type)||!['pending','success','fail'].includes(result)||!await targetOwned(env.DB,user.id,type,id))
+    if(!['wrong_answer','core_rule','drill','learning_item'].includes(type)||!['pending','success','partial','fail'].includes(result)||!await targetOwned(env.DB,user.id,type,id))
       return error(out,'INVALID_REVIEW_TARGET','올바른 Review 대상이 아닙니다.',400);
     if(result==='pending'){
       const existing=await env.DB.prepare("SELECT id FROM learning_reviews WHERE user_id=? AND target_type=? AND target_id=? AND result='pending' ORDER BY created_at DESC LIMIT 1").bind(user.id,type,id).first<{id:string}>();
@@ -263,17 +277,27 @@ export async function learningIntelligence(request:Request,env:Env,user:User,ori
   const review=path.match(/^\/api\/learning-intelligence\/reviews\/([^/]+)$/);
   if(review){
     const reviewId=decodeURIComponent(review[1]);
-    const existing=await env.DB.prepare('SELECT id,target_type,target_id FROM learning_reviews WHERE id=? AND user_id=?').bind(reviewId,user.id).first<{id:string;target_type:string;target_id:string}>();
+    const existing=await env.DB.prepare('SELECT id,target_type,target_id,result FROM learning_reviews WHERE id=? AND user_id=?').bind(reviewId,user.id).first<{id:string;target_type:string;target_id:string;result:string}>();
     if(!existing)return error(out,'NOT_FOUND','Review를 찾을 수 없습니다.',404);
     if(request.method==='PATCH'){
       const b=await h.boundedJson<Record<string,unknown>>(request),result=clean(b.result,20);
-      if(!['pending','success','fail'].includes(result))return error(out,'INVALID_REVIEW_RESULT','올바른 Review 결과가 아닙니다.',400);
+      if(!['pending','success','partial','fail'].includes(result))return error(out,'INVALID_REVIEW_RESULT','올바른 Review 결과가 아닙니다.',400);
       const now=new Date().toISOString(),reviewed=result==='pending'?null:clean(b.reviewedAt,40)||now;
       await env.DB.prepare(`UPDATE learning_reviews SET result=?,notes=?,scheduled_at=COALESCE(?,scheduled_at),reviewed_at=?,updated_at=?
         WHERE id=? AND user_id=?`).bind(result,clean(b.notes,3000),clean(b.scheduledAt,40)||null,reviewed,now,reviewId,user.id).run();
       await env.DB.prepare("DELETE FROM core_rule_evidence WHERE user_id=? AND source_type='review' AND source_id=?").bind(user.id,reviewId).run();
       await recordReviewEvidence(env.DB,user.id,reviewId,existing.target_type,existing.target_id,result,reviewed||now);
-      return out({ok:true,reviewedAt:reviewed,updatedAt:now});
+      let nextReviewAt:string|null=null;
+      if(result!=='pending'){
+        const days=result==='success'?7:result==='partial'?3:1;
+        const next=new Date(`${studyDayKey()}T12:00:00Z`);next.setUTCDate(next.getUTCDate()+days);
+        nextReviewAt=`${next.toISOString().slice(0,10)}T06:00:00+09:00`;
+        const pending=await env.DB.prepare("SELECT id FROM learning_reviews WHERE user_id=? AND target_type=? AND target_id=? AND result='pending' ORDER BY scheduled_at ASC LIMIT 1").bind(user.id,existing.target_type,existing.target_id).first<{id:string}>();
+        if(pending)await env.DB.prepare('UPDATE learning_reviews SET scheduled_at=?,updated_at=? WHERE id=? AND user_id=?').bind(nextReviewAt,now,pending.id,user.id).run();
+        else await env.DB.prepare(`INSERT INTO learning_reviews(id,user_id,target_type,target_id,review_type,scheduled_at,reviewed_at,result,notes,created_at,updated_at)
+          VALUES(?,?,?,?,?,?,NULL,'pending','',?,?)`).bind(h.randomHex(16),user.id,existing.target_type,existing.target_id,'followup',nextReviewAt,now,now).run();
+      }
+      return out({ok:true,reviewedAt:reviewed,updatedAt:now,nextReviewAt});
     }
     if(request.method==='DELETE'){
       await env.DB.batch([

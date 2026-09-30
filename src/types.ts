@@ -1,9 +1,9 @@
 export type Subject = '국어' | '수학' | '영어' | '통사' | '통과' | '탐구';
 export type InquiryTrack = '통사' | '통과';
-export type PlanOutcome = 'achieved' | 'partial' | 'failed';
-export type CalendarPlan = { id: string; subject: Subject | '생활'; inquiryTrack?: InquiryTrack; title: string; detail: string; quantity: string; done: boolean; outcome?: PlanOutcome; weeklyPlanId?: string; resourceId?: string };
+export type PlanOutcome = 'in_progress' | 'achieved' | 'partial' | 'failed';
+export type CalendarPlan = { id: string; subject: Subject | '생활'; inquiryTrack?: InquiryTrack; title: string; detail: string; quantity: string; done: boolean; outcome?: PlanOutcome; weeklyPlanId?: string; resourceId?: string; priority?: 'high' | 'normal' | 'low'; updatedAt?: string };
 export type DayType = 'normal' | 'bump' | 'mock' | 'review' | 'recovery' | 'exam' | 'school' | 'off' | 'custom';
-export type CalendarEntry = { date: string; study: string; minutes: number; exam: string; event: string; condition: number; reflection: string; plans?: CalendarPlan[]; dayType?: DayType; dayLabel?: string; dayColor?: string };
+export type CalendarEntry = { date: string; study: string; minutes: number; exam: string; event: string; condition: number; reflection: string; plans?: CalendarPlan[]; dayType?: DayType; dayLabel?: string; dayColor?: string; dayIcon?: string; dayDescription?: string };
 export type TimerSession = { id: string; date: string; subject: Subject; inquiryTrack?: InquiryTrack; seconds: number; resourceId?: string; planId?: string; note?: string; startedAt?: string; endedAt?: string; segments?: { start: string; end: string; kind: 'focus' | 'break' }[]; focusDrops?: string[] };
 export type MockScheduleItem = { id: string; label: string; start: string; end: string; kind: 'exam' | 'break' | 'admin'; subject?: Subject; questions?: number };
 export type JournalEntry = { date: string; studied: string; wins: string; blocked: string; cause: string; hypothesis: string; action: string; event: string };

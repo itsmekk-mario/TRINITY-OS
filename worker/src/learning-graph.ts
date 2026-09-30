@@ -102,6 +102,22 @@ export async function syncLearningProjection(db:D1Database,userId:number,payload
   }
   await batchChunks(db,wrongStatements);
   await deleteStaleWrongAnswers(db,userId,wrongIds);
+  // Legacy 3/7/14-day retries and Quick Capture share the same server Review Queue.
+  // Stable IDs make re-projection idempotent without changing existing completed reviews.
+  const retryStatements:D1PreparedStatement[]=[];
+  for(const item of wrong){
+    const wrongId=clean(item.id,100);if(!wrongId)continue;
+    for(const retry of rows(item.retries)){
+      const retryId=clean(retry.id,20),date=clean(retry.dueDate,10);
+      if(!retryId||!/^\d{4}-\d{2}-\d{2}$/.test(date))continue;
+      const id=`wrong-retry-${wrongId.slice(0,60)}-${retryId}`;
+      retryStatements.push(db.prepare(`INSERT OR IGNORE INTO learning_reviews(id,user_id,target_type,target_id,review_type,scheduled_at,reviewed_at,result,notes,created_at,updated_at)
+        VALUES(?,?,'wrong_answer',?,'retry',?,NULL,'pending','',?,?)`).bind(id,userId,wrongId,`${date}T06:00:00+09:00`,now,now));
+      const completed=clean(retry.completedDate,10);
+      if(/^\d{4}-\d{2}-\d{2}$/.test(completed))retryStatements.push(db.prepare(`UPDATE learning_reviews SET result='success',reviewed_at=?,updated_at=? WHERE id=? AND user_id=? AND result='pending'`).bind(`${completed}T06:00:00+09:00`,now,id,userId));
+    }
+  }
+  await batchChunks(db,retryStatements);
 
   for(const item of drills){
     const id=clean(item.id,100);if(!id)continue;drillIds.add(id);

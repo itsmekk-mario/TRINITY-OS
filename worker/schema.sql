@@ -410,7 +410,7 @@ CREATE TABLE IF NOT EXISTS learning_reviews (
   review_type TEXT NOT NULL DEFAULT 'retry',
   scheduled_at TEXT,
   reviewed_at TEXT,
-  result TEXT NOT NULL DEFAULT 'pending' CHECK(result IN ('pending','success','fail')),
+  result TEXT NOT NULL DEFAULT 'pending' CHECK(result IN ('pending','success','partial','fail')),
   notes TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
@@ -418,6 +418,7 @@ CREATE TABLE IF NOT EXISTS learning_reviews (
 CREATE INDEX IF NOT EXISTS learning_reviews_user_target ON learning_reviews(user_id,target_type,target_id);
 CREATE INDEX IF NOT EXISTS learning_reviews_user_schedule ON learning_reviews(user_id,result,scheduled_at);
 CREATE INDEX IF NOT EXISTS learning_reviews_user_reviewed ON learning_reviews(user_id,target_type,target_id,reviewed_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS learning_reviews_pending_target ON learning_reviews(user_id,target_type,target_id) WHERE result='pending' AND review_type='followup';
 
 CREATE TABLE IF NOT EXISTS quick_capture_requests (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

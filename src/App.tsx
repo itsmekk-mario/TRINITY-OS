@@ -25,6 +25,7 @@ import {
   UserRound,
   Video,
   X,
+  Plus,
 } from "lucide-react";
 import type { AppData } from "./types";
 import {
@@ -61,7 +62,9 @@ import PageTransition from "./components/motion/PageTransition";
 import { useDialogFocus } from "./components/motion/useDialogFocus";
 import StudyRoom from "./pages/StudyRoom";
 import { CamStudyProvider } from "./components/study-room/CamStudyProvider";
-import LearningArchive from "./pages/LearningArchive";
+import ReviewHub, { type ReviewView } from "./pages/ReviewHub";
+import Resources from "./pages/Resources";
+import QuickCaptureSheet from "./components/learning/QuickCaptureSheet";
 
 const CollaborativePortal = lazy(() => import("./pages/CollaborativePortal"));
 
@@ -69,40 +72,39 @@ type Page =
   | "today"
   | "plan"
   | "train"
+  | "review"
+  | "library"
   | "test"
   | "insights"
   | "study-room"
   | "coach"
   | "feedback"
   | "workspace"
-  | "profile"
-  | "archive";
+  | "profile";
 
 const primaryNav = [
   { id: "today", label: "Today", icon: Home },
   { id: "plan", label: "Plan", icon: CalendarRange },
   { id: "train", label: "Study", icon: Target },
-  { id: "test", label: "Test", icon: Gauge },
-  { id: "insights", label: "Insights", icon: ChartNoAxesCombined },
-  { id: "archive", label: "Archive", icon: BookMarked },
+  { id: "review", label: "Review", icon: BookMarked },
+  { id: "library", label: "Library", icon: NotebookTabs },
 ] as const;
 const utilityNav = [
+  { id: "insights", label: "Insights", icon: ChartNoAxesCombined },
   { id: "study-room", label: "Study Room", icon: Video },
-  { id: "feedback", label: "Feedback", icon: MessageSquareText },
-  { id: "profile", label: "Arena", icon: Swords },
-  { id: "workspace", label: "Schedule", icon: NotebookTabs },
 ] as const;
 const beginnerPages = new Set<Page>([
   "today",
   "plan",
   "train",
-  "insights",
-  "archive",
+  "review",
 ]);
 const paths: Record<Page, string> = {
   today: "/today",
   plan: "/plan",
-  train: "/train",
+  train: "/study",
+  review: "/review",
+  library: "/library",
   test: "/test",
   insights: "/insights",
   "study-room": "/study-room",
@@ -110,19 +112,35 @@ const paths: Record<Page, string> = {
   feedback: "/feedback",
   workspace: "/workspace",
   profile: "/arena",
-  archive: "/archive",
 };
 const pageFromLocation = (): Page => {
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
   if (path === "/" || path === "/dashboard" || path === "/today")
     return "today";
-  if (path === "/arena" || path === "/profile") return "profile";
+  if (path === "/archive") return "review";
+  if (path === "/resources") return "library";
+  if (path === "/train") return queryView() === "wrong" ? "review" : queryView() === "resources" ? "library" : "train";
+  if (path === "/insights" && queryView() === "review") return "review";
+  if (["/arena", "/profile", "/test", "/feedback"].includes(path)) return "insights";
   return (
     (Object.entries(paths).find(([, value]) => value === path)?.[0] as
       Page | undefined) ?? "today"
   );
 };
 const queryView = () => new URLSearchParams(window.location.search).get("view");
+const insightsViewFromLocation = (): InsightsView => {
+  const path = window.location.pathname;
+  if (path === "/test") return "subject";
+  if (path === "/feedback") return "feedback";
+  if (path === "/arena" || path === "/profile") return "progress";
+  return (["overview", "subject", "errors", "review-metrics", "progress", "feedback", "performance", "bottlenecks"] as const).find(view => view === queryView()) ?? "overview";
+};
+const reviewViewFromLocation = (): ReviewView => {
+  if (window.location.pathname === "/archive") return "archive";
+  if (window.location.pathname === "/train" && queryView() === "wrong") return "wrong";
+  if (window.location.pathname === "/insights" && queryView() === "review") return "queue";
+  return (["wrong", "queue", "archive", "rules"] as const).find(view => view === queryView()) ?? "queue";
+};
 type ThemePreference = "system" | "light" | "dark";
 const THEME_KEY = "trinity-os:theme-preference";
 const BEGINNER_KEY = "trinity-os:beginner-mode";
@@ -145,24 +163,21 @@ function StudentApp() {
     () => localStorage.getItem(BEGINNER_KEY) === "true",
   );
   const [planView, setPlanView] = useState<PlanView>(() =>
-    ["overview", "calendar", "weekly", "monthly", "routine"].includes(queryView() ?? "")
+    ["overview", "calendar", "weekly", "day", "monthly", "routine"].includes(queryView() ?? "")
       ? (queryView() as PlanView)
-      : "overview",
+      : "day",
   );
   const [trainView, setTrainView] = useState<TrainView>(() =>
-    ["timer", "drill", "wrong", "notes", "resources"].includes(queryView() ?? "")
+    ["timer", "drill", "notes"].includes(queryView() ?? "")
       ? (queryView() as TrainView)
       : "timer",
   );
-  const [insightsView, setInsightsView] = useState<InsightsView>(() =>
-    ["overview", "performance", "bottlenecks", "review"].includes(
-      queryView() ?? "",
-    )
-      ? (queryView() as InsightsView)
-      : "overview",
-  );
+  const [reviewView, setReviewView] = useState<ReviewView>(reviewViewFromLocation);
+  const [insightsView, setInsightsView] = useState<InsightsView>(insightsViewFromLocation);
   const [data, setData] = useState<AppData>(initialData);
   const [menu, setMenu] = useState(false);
+  const [captureMenu, setCaptureMenu] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
   const [settings, setSettings] = useState(false);
   const [backupPreview, setBackupPreview] = useState<ParsedBackup | null>(null);
   const [passwordDialog, setPasswordDialog] = useState(false);
@@ -265,6 +280,7 @@ function StudentApp() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setMenu(false);
+        setCaptureMenu(false);
         setSettings(false);
       }
     };
@@ -280,6 +296,8 @@ function StudentApp() {
           ? `plan:${planView}`
           : page === "train"
             ? `train:${trainView}`
+            : page === "review"
+              ? `review:${reviewView}`
             : page === "insights"
               ? `insights:${insightsView}`
               : page;
@@ -287,27 +305,27 @@ function StudentApp() {
       const target = pageFromLocation();
       const view = queryView();
       const plan =
-        view && ["overview", "calendar", "weekly", "monthly", "routine"].includes(view)
+        view && ["overview", "calendar", "weekly", "day", "monthly", "routine"].includes(view)
           ? (view as PlanView)
-          : "overview";
+          : "day";
       const train =
-        view && ["timer", "drill", "wrong", "notes", "resources"].includes(view)
+        view && ["timer", "drill", "notes"].includes(view)
           ? (view as TrainView)
           : "timer";
-      const insights =
-        view &&
-        ["overview", "performance", "bottlenecks", "review"].includes(view)
-          ? (view as InsightsView)
-          : "overview";
+      const review = reviewViewFromLocation();
+      const insights = insightsViewFromLocation();
       setPage(target);
       if (target === "plan") setPlanView(plan);
       if (target === "train") setTrainView(train);
+      if (target === "review") setReviewView(review);
       if (target === "insights") setInsightsView(insights);
       const key =
         target === "plan"
           ? `plan:${plan}`
           : target === "train"
             ? `train:${train}`
+            : target === "review"
+              ? `review:${review}`
             : target === "insights"
               ? `insights:${insights}`
               : target;
@@ -323,7 +341,7 @@ function StudentApp() {
       window.removeEventListener("popstate", onPopState);
       window.history.scrollRestoration = previousRestoration;
     };
-  }, [page, planView, trainView, insightsView]);
+  }, [page, planView, trainView, reviewView, insightsView]);
   const update = (fn: (value: AppData) => AppData) =>
     setData((value) => fn(value));
   const currentKey = () =>
@@ -331,15 +349,25 @@ function StudentApp() {
       ? `plan:${planView}`
       : page === "train"
         ? `train:${trainView}`
+        : page === "review"
+          ? `review:${reviewView}`
         : page === "insights"
           ? `insights:${insightsView}`
           : page;
   const applyView = (target: Page, view?: string) => {
     if (target === "plan" && view) setPlanView(view as PlanView);
     if (target === "train" && view) setTrainView(view as TrainView);
+    if (target === "review" && view) setReviewView(view as ReviewView);
     if (target === "insights" && view) setInsightsView(view as InsightsView);
   };
   const navigate = (targetValue: string) => {
+    if (targetValue === "train:wrong") targetValue = "review:wrong";
+    if (targetValue === "train:resources") targetValue = "library";
+    if (targetValue === "insights:review") targetValue = "review:queue";
+    if (targetValue === "archive") targetValue = "review:archive";
+    if (targetValue === "test") targetValue = "insights:subject";
+    if (targetValue === "feedback") targetValue = "insights:feedback";
+    if (targetValue === "profile") targetValue = "insights:progress";
     const [rawPage, requestedView] = targetValue.split(":");
     const target = rawPage as Page;
     const view =
@@ -348,6 +376,8 @@ function StudentApp() {
         ? planView
         : target === "train"
           ? trainView
+          : target === "review"
+            ? reviewView
           : target === "insights"
             ? insightsView
             : undefined);
@@ -455,18 +485,18 @@ function StudentApp() {
       setPage("today");
       window.history.pushState({}, "", paths.today);
     }
-    setPlanView("overview");
+    setPlanView("day");
     setTrainView("timer");
+    setReviewView("queue");
     setInsightsView("overview");
   };
   const visiblePrimaryNav = beginnerMode
-    ? primaryNav.filter(({ id }) => id !== "test")
+    ? primaryNav.filter(({ id }) => id !== "library")
     : primaryNav;
   const visibleUtilityNav = beginnerMode
-    ? utilityNav.filter(({ id }) => id === "workspace")
+    ? []
     : utilityNav;
-  // Keep the mobile dock to five primary actions. Archive remains available from the side menu.
-  const mobilePrimaryNav = visiblePrimaryNav.filter(({ id }) => id !== "archive");
+  const mobilePrimaryNav = visiblePrimaryNav;
   const screen =
     page === "today" ? (
       <Dashboard data={data} update={update} navigate={navigate} />
@@ -483,7 +513,12 @@ function StudentApp() {
         update={update}
         view={trainView}
         onView={(view) => changeSubview("train", view, setTrainView)}
+        navigate={navigate}
       />
+    ) : page === "review" ? (
+      <ReviewHub data={data} update={update} view={reviewView} onView={view => changeSubview("review", view, setReviewView)} navigate={navigate} beginnerMode={beginnerMode} />
+    ) : page === "library" ? (
+      <Resources data={data} update={update} />
     ) : page === "test" ? (
       <ScoreTracker data={data} update={update} />
     ) : page === "insights" ? (
@@ -492,9 +527,8 @@ function StudentApp() {
         update={update}
         view={insightsView}
         onView={(view) => changeSubview("insights", view, setInsightsView)}
+        navigate={navigate}
       />
-    ) : page === "archive" ? (
-      <LearningArchive data={data} update={update} onNavigate={navigate} />
     ) : page === "study-room" ? (
       <StudyRoom data={data} />
     ) : page === "coach" ? (
@@ -566,7 +600,7 @@ function StudentApp() {
         <div className="utility-nav">
           {visibleUtilityNav.length > 0 && (
             <>
-              <span>UTILITY</span>
+              <span>MORE</span>
               {visibleUtilityNav.map(({ id, label, icon: Icon }) => (
                 <button
                   key={id}
@@ -581,7 +615,7 @@ function StudentApp() {
             </>
           )}
         </div>
-        <div className="account-area">
+        <div className="account-area"><span className="nav-section-label">SYSTEM</span>
           <button
             className="account-button"
             onClick={() => {
@@ -657,6 +691,14 @@ function StudentApp() {
           </button>
         ))}
       </nav>
+      <button className="quick-capture-fab" aria-label="빠른 기록 열기" aria-expanded={captureMenu} onClick={() => setCaptureMenu(value => !value)}><Plus size={21}/><span>빠른 기록</span></button>
+      {captureMenu && <div className="capture-menu-backdrop" onClick={() => setCaptureMenu(false)}><div className="capture-menu" role="dialog" aria-modal="true" aria-label="빠른 기록" onClick={event => event.stopPropagation()}><div className="capture-menu-heading"><strong>Quick Capture</strong><button aria-label="닫기" onClick={() => setCaptureMenu(false)}><X size={18}/></button></div>{[
+        { label: 'Wrong Answer', action: () => setQuickOpen(true) },
+        { label: 'Plan Item', action: () => navigate('plan:day') },
+        { label: 'Resource', action: () => navigate('library') },
+        ...(!beginnerMode ? [{ label: 'Learning Note', action: () => navigate('review:archive') }, { label: 'Core Rule', action: () => navigate('review:rules') }] : []),
+      ].map(item => <button key={item.label} onClick={() => { setCaptureMenu(false); item.action(); }}>{item.label}</button>)}</div></div>}
+      <QuickCaptureSheet open={quickOpen} data={data} update={update} onClose={() => setQuickOpen(false)}/>
       {settings && (
         <div
           className="sheet-backdrop settings-sheet-backdrop"

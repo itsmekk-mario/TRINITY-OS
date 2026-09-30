@@ -3,29 +3,33 @@ import type { AppData } from '../types';
 import { Card, Empty, Progress } from '../components/Ui';
 import HubLayout from '../components/navigation/HubLayout';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import SegmentedControl from '../components/navigation/SegmentedControl';
 import CalendarPage from './CalendarPage';
+import DailyPlan from './DailyPlan';
 import PlanningPage from './PlanningPage';
 import Routine from './Routine';
 import { toDateKey, weekStartKey } from '../lib/date';
 import { formatResourceDeadline, sortResourcesByDeadline } from '../lib/resourceDeadline';
 
-export type PlanView='overview'|'calendar'|'weekly'|'monthly'|'routine';
-const tabs=[{id:'overview',label:'Overview'},{id:'monthly',label:'Monthly'},{id:'weekly',label:'Weekly'},{id:'calendar',label:'Daily'},{id:'routine',label:'Routine'}] as const;
+export type PlanView='overview'|'calendar'|'weekly'|'day'|'monthly'|'routine';
+const tabs=[{id:'weekly',label:'Week'},{id:'day',label:'Day'},{id:'calendar',label:'Calendar'}] as const;
 
 export default function PlanHub({data,update,view,onView}:{data:AppData;update:(fn:(value:AppData)=>AppData)=>void;view:PlanView;onView:(view:PlanView)=>void}) {
-  const layout=(content:ReactNode)=><HubLayout eyebrow="PLAN" title="목표를 오늘의 행동으로 내립니다" description="Monthly → Weekly → Daily 순서로 계획을 구체화하고, 실행 결과를 다음 계획에 다시 반영합니다." controls={<SegmentedControl label="Plan 화면" options={tabs} value={view} onChange={onView}/>}>{content}</HubLayout>;
-  if(view==='calendar')return layout(<CalendarPage data={data} update={update}/>);
-  if(view==='weekly'||view==='monthly')return layout(<PlanningPage key={view} data={data} update={update} initialTab={view}/>);
+  const [selectedDate,setSelectedDate]=useState(toDateKey);
+  const layout=(content:ReactNode)=><HubLayout eyebrow="PLAN" title="이번 주에서 오늘로" description="주간 목표를 날짜에 배치하고 실행 결과를 같은 계획에 기록합니다." controls={<><SegmentedControl label="Plan 화면" options={tabs} value={view} onChange={onView}/><details className="plan-extra-views"><summary>추가 계획</summary><button onClick={()=>onView('monthly')}>Monthly Plan</button><button onClick={()=>onView('routine')}>Routine</button><button onClick={()=>onView('overview')}>Overview</button></details></>}>{content}</HubLayout>;
+  if(view==='calendar')return layout(<CalendarPage data={data} update={update} onSelectDate={date=>{setSelectedDate(date);onView('day');}}/>);
+  if(view==='day')return layout(<DailyPlan data={data} update={update} date={selectedDate} onDate={setSelectedDate}/>);
+  if(view==='weekly'||view==='monthly')return layout(<PlanningPage key={view} data={data} update={update} initialTab={view} onSelectDate={date=>{setSelectedDate(date);onView('day');}}/>);
   if(view==='routine')return layout(<Routine data={data} update={update}/>);
 
   const today=toDateKey(),week=weekStartKey();
   const end=new Date(`${week}T12:00:00`);end.setDate(end.getDate()+6);
   const plans=Object.values(data.calendar).filter(entry=>entry.date>=week&&entry.date<=toDateKey(end)).flatMap(entry=>entry.plans??[]);
   const todayPlans=data.calendar[today]?.plans??[];
-  const achieved=(item:typeof plans[number])=>(item.outcome??(item.done?'achieved':'partial'))==='achieved';
-  const partial=(item:typeof plans[number])=>(item.outcome??(item.done?'achieved':'partial'))==='partial';
-  const failed=(item:typeof plans[number])=>(item.outcome??(item.done?'achieved':'partial'))==='failed';
+  const achieved=(item:typeof plans[number])=>(item.outcome??(item.done?'achieved':'planned'))==='achieved';
+  const partial=(item:typeof plans[number])=>(item.outcome??(item.done?'achieved':'planned'))==='partial';
+  const failed=(item:typeof plans[number])=>(item.outcome??(item.done?'achieved':'planned'))==='failed';
   const goals=data.weeklyCapabilityGoals.filter(goal=>goal.weekStart===week);
   const monthPlans=data.monthlyPlans.filter(item=>item.month===today.slice(0,7));
   const upcomingResources=sortResourcesByDeadline(data.resources.filter(resource=>resource.done<resource.total&&resource.dueDate)).slice(0,4);

@@ -14,11 +14,11 @@ import ProblemImageView from '../components/learning/ProblemImageView';
 import HandwritingNotes from './HandwritingNotes';
 
 export type TrainView = 'timer' | 'drill' | 'wrong' | 'notes' | 'resources';
-const tabs = [{ id: 'timer', label: 'Focus' }, { id: 'drill', label: 'Drill' }, { id: 'wrong', label: 'Wrong Answers' }, { id: 'notes', label: 'Notes' }, { id: 'resources', label: 'Library' }] as const;
+const tabs = [{ id: 'timer', label: 'Timer' }, { id: 'drill', label: 'Drill' }, { id: 'notes', label: 'Notes' }] as const;
 const relationLabels:Record<RuleRelation,string>={derived:'도출',applied:'적용',failed:'적용 실패',reinforced:'강화'};
 type LinkedCoreRule=CoreRule&{relationType?:RuleRelation};
 
-function WrongAnswers({ data, edit, quick }: { data: AppData; edit: () => void; quick: () => void }) {
+export function WrongAnswers({ data, edit, quick }: { data: AppData; edit: () => void; quick: () => void }) {
   const [selected, setSelected] = useState<WrongAnswerDrill | null>(null);
   const [view, setView] = useState<'all'|'subject'|'source'|'time'>('all');
   const [open, setOpen] = useState<Record<string, boolean>>({});
@@ -48,7 +48,7 @@ function WrongAnswers({ data, edit, quick }: { data: AppData; edit: () => void; 
   </div>;
 }
 
-export default function TrainHub({ data, update, view, onView }: { data: AppData; update: (fn: (value: AppData) => AppData) => void; view: TrainView; onView: (view: TrainView) => void }) {
+export default function TrainHub({ data, update, view, onView, navigate }: { data: AppData; update: (fn: (value: AppData) => AppData) => void; view: TrainView; onView: (view: TrainView) => void; navigate?: (target: string) => void }) {
   const [quickOpen,setQuickOpen]=useState(false);
-  return <><HubLayout eyebrow="TRAIN" title="집중하고, 틀린 판단을 교정합니다" description="Focus → Drill → Wrong Answer → Notes → Library가 하나의 실행 흐름으로 이어집니다." controls={<SegmentedControl label="Train 화면" options={tabs} value={view} onChange={onView} />}>{view === 'timer' ? <TimerPage data={data} update={update} /> : view === 'drill' ? <WeeklyDrill data={data} update={update} /> : view === 'wrong' ? <WrongAnswers data={data} edit={() => onView('drill')} quick={()=>setQuickOpen(true)} /> : view === 'notes' ? <HandwritingNotes data={data} update={update} /> : <Resources data={data} update={update} />}</HubLayout><QuickCaptureSheet open={quickOpen} data={data} update={update} onClose={()=>setQuickOpen(false)}/></>;
+  return <><HubLayout eyebrow="STUDY" title="지금 공부를 시작합니다" description="Daily Plan에 연결해 시간을 측정하고, 공부 중 발견한 내용을 기록합니다." controls={<SegmentedControl label="Study 화면" options={tabs} value={view} onChange={onView} />}>{view === 'timer' ? <TimerPage data={data} update={update} navigate={navigate} /> : view === 'drill' ? <WeeklyDrill data={data} update={update} /> : view === 'notes' ? <HandwritingNotes data={data} update={update} /> : view === 'wrong' ? <WrongAnswers data={data} edit={() => onView('drill')} quick={()=>setQuickOpen(true)} /> : <Resources data={data} update={update} />}</HubLayout><QuickCaptureSheet open={quickOpen} data={data} update={update} onClose={()=>setQuickOpen(false)}/></>;
 }
