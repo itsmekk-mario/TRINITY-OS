@@ -15,7 +15,6 @@ import './theme-dark.css';
 import './mobile.css';
 import './monthly-plan.css';
 import './plan-library.css';
-import './trinity-redesign-v2.css';
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
 

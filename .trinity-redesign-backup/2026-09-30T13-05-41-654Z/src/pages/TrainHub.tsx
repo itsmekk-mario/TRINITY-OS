@@ -14,7 +14,7 @@ import ProblemImageView from '../components/learning/ProblemImageView';
 import HandwritingNotes from './HandwritingNotes';
 
 export type TrainView = 'timer' | 'drill' | 'wrong' | 'notes' | 'resources';
-const tabs = [{ id: 'timer', label: 'Focus' }, { id: 'drill', label: 'Drill' }, { id: 'wrong', label: 'Wrong Answers' }, { id: 'notes', label: 'Notes' }, { id: 'resources', label: 'Library' }] as const;
+const tabs = [{ id: 'timer', label: 'Timer' }, { id: 'drill', label: 'Drill' }, { id: 'wrong', label: 'Wrong Answers' }, { id: 'resources', label: 'Library' }] as const;
 const relationLabels:Record<RuleRelation,string>={derived:'도출',applied:'적용',failed:'적용 실패',reinforced:'강화'};
 type LinkedCoreRule=CoreRule&{relationType?:RuleRelation};
 
@@ -50,5 +50,5 @@ function WrongAnswers({ data, edit, quick }: { data: AppData; edit: () => void; 
 
 export default function TrainHub({ data, update, view, onView }: { data: AppData; update: (fn: (value: AppData) => AppData) => void; view: TrainView; onView: (view: TrainView) => void }) {
   const [quickOpen,setQuickOpen]=useState(false);
-  return <><HubLayout eyebrow="TRAIN" title="집중하고, 틀린 판단을 교정합니다" description="Focus → Drill → Wrong Answer → Notes → Library가 하나의 실행 흐름으로 이어집니다." controls={<SegmentedControl label="Train 화면" options={tabs} value={view} onChange={onView} />}>{view === 'timer' ? <TimerPage data={data} update={update} /> : view === 'drill' ? <WeeklyDrill data={data} update={update} /> : view === 'wrong' ? <WrongAnswers data={data} edit={() => onView('drill')} quick={()=>setQuickOpen(true)} /> : view === 'notes' ? <HandwritingNotes data={data} update={update} /> : <Resources data={data} update={update} />}</HubLayout><QuickCaptureSheet open={quickOpen} data={data} update={update} onClose={()=>setQuickOpen(false)}/></>;
+  return <><HubLayout eyebrow="TRAIN" title="계획을 실행하고, 행동을 교정합니다" description="집중 학습에서 오답 연습과 재도전까지 이어갑니다." controls={<SegmentedControl label="Train 화면" options={tabs} value={view} onChange={onView} />}>{view === 'timer' ? <TimerPage data={data} update={update} /> : view === 'drill' ? <WeeklyDrill data={data} update={update} /> : view === 'wrong' ? <WrongAnswers data={data} edit={() => onView('drill')} quick={()=>setQuickOpen(true)} /> : view === 'notes' ? <HandwritingNotes data={data} update={update} /> : <Resources data={data} update={update} />}</HubLayout><QuickCaptureSheet open={quickOpen} data={data} update={update} onClose={()=>setQuickOpen(false)}/></>;
 }

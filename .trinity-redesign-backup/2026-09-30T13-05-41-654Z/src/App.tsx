@@ -81,16 +81,16 @@ type Page =
 const primaryNav = [
   { id: "today", label: "Today", icon: Home },
   { id: "plan", label: "Plan", icon: CalendarRange },
-  { id: "train", label: "Study", icon: Target },
+  { id: "train", label: "Train", icon: Target },
   { id: "test", label: "Test", icon: Gauge },
   { id: "insights", label: "Insights", icon: ChartNoAxesCombined },
-  { id: "archive", label: "Archive", icon: BookMarked },
+  { id: "archive", label: "Learning Archive", icon: BookMarked },
 ] as const;
 const utilityNav = [
   { id: "study-room", label: "Study Room", icon: Video },
-  { id: "feedback", label: "Feedback", icon: MessageSquareText },
+  { id: "feedback", label: "Teacher Feedback", icon: MessageSquareText },
   { id: "profile", label: "Arena", icon: Swords },
-  { id: "workspace", label: "Schedule", icon: NotebookTabs },
+  { id: "workspace", label: "일정", icon: NotebookTabs },
 ] as const;
 const beginnerPages = new Set<Page>([
   "today",
@@ -465,8 +465,6 @@ function StudentApp() {
   const visibleUtilityNav = beginnerMode
     ? utilityNav.filter(({ id }) => id === "workspace")
     : utilityNav;
-  // Keep the mobile dock to five primary actions. Archive remains available from the side menu.
-  const mobilePrimaryNav = visiblePrimaryNav.filter(({ id }) => id !== "archive");
   const screen =
     page === "today" ? (
       <Dashboard data={data} update={update} navigate={navigate} />
@@ -526,7 +524,6 @@ function StudentApp() {
     );
   return (
     <div className="app-shell learning-shell">
-      <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>
       <aside
         ref={sidebarRef}
         tabIndex={menu ? -1 : undefined}
@@ -550,7 +547,6 @@ function StudentApp() {
           </button>
         </div>
         <nav className="primary-nav" aria-label="핵심 메뉴">
-          <span className="nav-section-label">LEARNING FLOW</span>
           {visiblePrimaryNav.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -602,15 +598,7 @@ function StudentApp() {
         </div>
       </aside>
       {menu && <div className="nav-backdrop" onClick={() => setMenu(false)} />}
-      <main id="main-content">
-        <div className="desktop-context-bar">
-          <div className="desktop-context-copy"><span>TRINITY OS</span><b>{contextLabel}</b></div>
-          <div className="desktop-context-actions">
-            <span>{new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" })}</span>
-            <button onClick={() => navigate("train:timer")}><Target size={15}/>공부 시작</button>
-            <button aria-label="설정 열기" onClick={() => setSettings(true)}><Settings size={15}/></button>
-          </div>
-        </div>
+      <main>
         <div className="mobile-bar">
           <button
             aria-label="메뉴 열기"
@@ -645,7 +633,7 @@ function StudentApp() {
         </div>
       </main>
       <nav className="mobile-tab-bar" aria-label="핵심 메뉴">
-        {mobilePrimaryNav.map(({ id, label, icon: Icon }) => (
+        {visiblePrimaryNav.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             aria-current={page === id ? "page" : undefined}
