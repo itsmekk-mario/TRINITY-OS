@@ -16,8 +16,10 @@ import './mobile.css';
 import './monthly-plan.css';
 import './plan-library.css';
 import './trinity-redesign-v2.css';
+import './trinity-ui-v3.css';
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
 
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+
 
