@@ -1,8 +1,0 @@
-
-/* Plan / Library additions use inherited theme colors. */
-.day-label-editor label,.library-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
-.day-label-editor label{flex-direction:column;align-items:stretch;min-width:0}
-.day-badge{display:block!important;border-radius:1rem;padding:.15rem .4rem;font-size:.65rem!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:color-mix(in srgb,currentColor 12%,transparent);max-width:100%}
-.day-badge.orange{border-inline-start:3px solid #d97706}.day-badge.blue{border-inline-start:3px solid #3b82f6}.day-badge.green{border-inline-start:3px solid #16a34a}.day-badge.purple{border-inline-start:3px solid #a855f7}
-.library-actions{display:flex;flex-wrap:wrap;gap:.5rem;margin-block:.75rem}.library-row{padding:.75rem 0}.library-row>div{flex:1;min-width:0}.library-pdf{width:100%;height:70dvh;border:0}.weekly-date details{max-width:100%}.weekly-date .form-grid{grid-template-columns:1fr}.resource-grid article{min-width:0;overflow-wrap:anywhere}
-@media(max-width:760px){.day-label-editor,.library-actions{width:100%}.library-pdf{height:60dvh}.day-badge{font-size:.6rem!important}.resource-grid{grid-template-columns:1fr}}

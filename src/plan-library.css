@@ -6,3 +6,24 @@
 .day-badge.orange{border-inline-start:3px solid #d97706}.day-badge.blue{border-inline-start:3px solid #3b82f6}.day-badge.green{border-inline-start:3px solid #16a34a}.day-badge.purple{border-inline-start:3px solid #a855f7}
 .library-actions{display:flex;flex-wrap:wrap;gap:.5rem;margin-block:.75rem}.library-row{padding:.75rem 0}.library-row>div{flex:1;min-width:0}.library-pdf{width:100%;height:70dvh;border:0}.weekly-date details{max-width:100%}.weekly-date .form-grid{grid-template-columns:1fr}.resource-grid article{min-width:0;overflow-wrap:anywhere}
 @media(max-width:760px){.day-label-editor,.library-actions{width:100%}.library-pdf{height:60dvh}.day-badge{font-size:.6rem!important}.resource-grid{grid-template-columns:1fr}}
+
+
+/* Library download / delete actions */
+.library-primary-actions{align-items:center}
+.library-delete-button{
+  margin-left:auto;
+  color:#b42318!important;
+  border-color:rgba(180,35,24,.18)!important;
+  background:rgba(180,35,24,.055)!important;
+}
+.library-delete-button:hover{
+  border-color:rgba(180,35,24,.28)!important;
+  background:rgba(180,35,24,.09)!important;
+}
+.library-delete-button:disabled{opacity:.45}
+html[data-theme='dark'] .library-delete-button{
+  color:#ff8a80!important;
+  border-color:rgba(255,138,128,.18)!important;
+  background:rgba(255,138,128,.07)!important;
+}
+@media(max-width:760px){.library-delete-button{margin-left:0}}
