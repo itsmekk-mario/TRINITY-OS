@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-node scripts/apply-library-actions-patch.mjs
+node scripts/apply-library-actions-patch-v2.mjs
 npm run build
 
 echo

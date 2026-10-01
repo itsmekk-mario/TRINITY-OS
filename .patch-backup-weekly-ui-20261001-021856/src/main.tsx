@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+﻿import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles.css';
@@ -18,7 +18,6 @@ import './plan-library.css';
 import './trinity-redesign-v2.css';
 import './trinity-ui-v3.css';
 import './subject-system.css';
-import './weekly-plan-polish.css';
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
 
