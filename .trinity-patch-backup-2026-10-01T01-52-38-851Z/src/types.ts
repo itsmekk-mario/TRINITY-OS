@@ -128,7 +128,6 @@ export type AppData = {
   notionPages: NotionPage[];
   routine: RoutineItem[];
   quotes: string[];
-  subjectColors?: Record<string, string>;
   examDate: string;
   googleClientId: string;
   plaire: Record<string, PlaireEntry>;

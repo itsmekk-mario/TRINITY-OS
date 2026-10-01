@@ -37,7 +37,6 @@ import {
   type ParsedBackup,
 } from "./lib/storage";
 import { APP_VERSION, addCustomSubject, removeCustomSubject, SUBJECTS } from "./data/config";
-import { applySubjectColorRules, buildDefaultSubjectColors, getSubjectColor, SUBJECT_COLOR_PALETTE } from "./lib/subjectColors";
 import Dashboard from "./pages/Dashboard";
 import ScoreTracker from "./pages/ScoreTracker";
 import NotionWorkspace from "./pages/NotionWorkspace";
@@ -210,9 +209,6 @@ function StudentApp() {
     document.documentElement.dataset.beginner = beginnerMode ? "true" : "false";
     localStorage.setItem(BEGINNER_KEY, String(beginnerMode));
   }, [beginnerMode]);
-  useEffect(() => {
-    applySubjectColorRules(data.subjectColors, SUBJECTS);
-  }, [data.subjectColors]);
   useEffect(() => {
     if (identity) saveData(identity.userId, data);
   }, [data, identity]);
@@ -451,18 +447,6 @@ function StudentApp() {
   const changeTheme = (next: ThemePreference) => {
     localStorage.setItem(THEME_KEY, next);
     setThemePreference(next);
-  };
-  const changeSubjectColor = (subject: string, color: string) => {
-    setData((value) => ({
-      ...value,
-      subjectColors: { ...(value.subjectColors ?? {}), [subject]: color },
-    }));
-  };
-  const resetSubjectColors = () => {
-    setData((value) => ({
-      ...value,
-      subjectColors: buildDefaultSubjectColors(SUBJECTS),
-    }));
   };
   const changeBeginnerMode = (next: boolean) => {
     setBeginnerMode(next);
@@ -762,50 +746,6 @@ function StudentApp() {
               {beginnerMode ? '사용 중' : '사용 안 함'}
             </button>
           </section>
-          <section
-            className="subject-color-setting"
-            aria-labelledby="subject-color-setting-title"
-          >
-            <div className="subject-color-setting-head">
-              <div>
-                <b id="subject-color-setting-title">과목 색상</b>
-                <p>배지·학습 기록에서 사용하는 과목별 강조색입니다. 선택 즉시 모든 화면에 반영됩니다.</p>
-              </div>
-              <button className="button subject-color-reset" type="button" onClick={resetSubjectColors}>
-                기본값 복원
-              </button>
-            </div>
-            <div className="subject-color-rows">
-              {SUBJECTS.map((subject) => {
-                const current = getSubjectColor(subject, data.subjectColors);
-                return (
-                  <div className="subject-color-row" key={subject}>
-                    <div className="subject-color-name">
-                      <span
-                        className="subject-color-preview"
-                        style={{ backgroundColor: current, color: current }}
-                        aria-hidden="true"
-                      />
-                      <span>{subject}</span>
-                    </div>
-                    <div className="subject-color-palette" role="group" aria-label={`${subject} 색상 선택`}>
-                      {SUBJECT_COLOR_PALETTE.map((color) => (
-                        <button
-                          key={color}
-                          type="button"
-                          className="subject-color-swatch"
-                          aria-label={`${subject} 색상 ${color}`}
-                          aria-pressed={current.toUpperCase() === color.toUpperCase()}
-                          style={{ backgroundColor: color, color }}
-                          onClick={() => changeSubjectColor(subject, color)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
               <div className="inline-settings">
                 <label>
                   <span>과목 추가</span>
@@ -813,19 +753,7 @@ function StudentApp() {
                     <input value={subjectDraft} maxLength={24} placeholder="예: 제2외국어" onChange={(event) => setSubjectDraft(event.target.value)} />
                     <button className="button" type="button" onClick={() => {
                       const added = addCustomSubject(subjectDraft);
-                      if (added) {
-                        const addedSubject = subjectDraft.trim();
-                        setData((value) => ({
-                          ...value,
-                          subjectColors: {
-                            ...(value.subjectColors ?? {}),
-                            [addedSubject]: getSubjectColor(addedSubject, value.subjectColors),
-                          },
-                        }));
-                        setToast(`${addedSubject} 과목을 추가했습니다.`);
-                        setSubjectDraft("");
-                        window.setTimeout(() => setToast(""), 2500);
-                      }
+                      if (added) { setToast(`${subjectDraft.trim()} 과목을 추가했습니다.`); setSubjectDraft(""); window.setTimeout(() => setToast(""), 2500); }
                       else if (!subjectDraft.trim()) setToast("과목명을 입력해 주세요.");
                       else setToast("이미 있거나 추가할 수 없는 과목입니다.");
                     }}>과목 추가</button>
@@ -837,11 +765,6 @@ function StudentApp() {
                         <span>{subject}</span>
                         <button className="icon-button danger" type="button" aria-label={`${subject} 과목 삭제`} onClick={() => {
                           if (removeCustomSubject(subject)) {
-                            setData((value) => {
-                              const nextSubjectColors = { ...(value.subjectColors ?? {}) };
-                              delete nextSubjectColors[subject];
-                              return { ...value, subjectColors: nextSubjectColors };
-                            });
                             setToast(`${subject} 과목을 삭제했습니다.`);
                             window.setTimeout(() => setToast(""), 2500);
                           }

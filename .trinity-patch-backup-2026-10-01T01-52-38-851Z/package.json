@@ -17,8 +17,7 @@
     "react": "latest",
     "react-dom": "latest",
     "typescript": "5.8.3",
-    "vite": "latest",
-    "pdfjs-dist": "^4.10.38"
+    "vite": "latest"
   },
   "devDependencies": {
     "@types/react": "latest",

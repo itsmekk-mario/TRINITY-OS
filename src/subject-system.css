@@ -1,0 +1,410 @@
+/* TRINITY OS subject palette + multi-page PDF viewer */
+
+.subject-color-setting {
+  display: grid;
+  gap: 18px;
+  padding: 18px 0 22px;
+  border-bottom: 1px solid var(--line, #e5e7eb);
+}
+
+.subject-color-setting-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.subject-color-setting-head b {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.subject-color-setting-head p {
+  margin: 0;
+  color: var(--muted, #667085);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.subject-color-rows {
+  display: grid;
+  gap: 10px;
+}
+
+.subject-color-row {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.42fr) minmax(220px, 1fr);
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.subject-color-name {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.subject-color-name span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.subject-color-preview {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 13%, transparent);
+}
+
+.subject-color-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.subject-color-swatch {
+  position: relative;
+  width: 25px;
+  height: 25px;
+  min-width: 25px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, #64748b 24%, transparent);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.subject-color-swatch:hover {
+  transform: translateY(-1px);
+}
+
+.subject-color-swatch[aria-pressed='true'] {
+  box-shadow:
+    0 0 0 2px var(--surface, #fff),
+    0 0 0 4px currentColor;
+}
+
+.subject-color-swatch[aria-pressed='true']::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.subject-color-reset {
+  flex: 0 0 auto;
+}
+
+/* Existing badges/dots receive --subject-color from the generated stylesheet. */
+.subject-badge {
+  transition: color 140ms ease, background-color 140ms ease, border-color 140ms ease;
+}
+
+.subject-dot {
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.pdf-document-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: grid;
+  place-items: center;
+  padding:
+    max(10px, env(safe-area-inset-top))
+    max(10px, env(safe-area-inset-right))
+    max(10px, env(safe-area-inset-bottom))
+    max(10px, env(safe-area-inset-left));
+  background: rgba(10, 15, 24, 0.66);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.pdf-document-viewer {
+  width: min(1240px, 100%);
+  height: min(1100px, 96dvh);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  border-radius: 17px;
+  background: #f2f4f7;
+  box-shadow: 0 32px 90px rgba(2, 6, 23, 0.34);
+}
+
+.pdf-document-toolbar {
+  position: relative;
+  z-index: 4;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 10px 8px 17px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.pdf-document-title {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.pdf-document-title b {
+  min-width: 0;
+  max-width: min(62vw, 760px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.pdf-document-title span {
+  flex: 0 0 auto;
+  color: #667085;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pdf-document-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pdf-document-controls button {
+  min-width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 9px;
+  border: 1px solid #dde2e8;
+  border-radius: 10px;
+  background: #fff;
+  color: #20242b;
+  cursor: pointer;
+}
+
+.pdf-document-controls button:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.pdf-document-controls .pdf-zoom-value {
+  min-width: 82px;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pdf-document-controls .pdf-close {
+  margin-left: 5px;
+  min-width: 40px;
+}
+
+.pdf-document-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  scrollbar-gutter: stable both-edges;
+}
+
+.pdf-document-pages {
+  width: min(100%, 1030px);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  margin: 0 auto;
+  padding: 22px 20px 72px;
+}
+
+.pdf-document-page {
+  position: relative;
+  flex: 0 0 auto;
+  max-width: none;
+  min-width: 240px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.08),
+    0 10px 30px rgba(15, 23, 42, 0.12);
+}
+
+.pdf-document-page canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #fff;
+}
+
+.pdf-page-placeholder {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(110deg, transparent 25%, rgba(148, 163, 184, 0.12) 42%, transparent 60%),
+    #fff;
+  background-size: 220% 100%;
+  animation: pdf-placeholder 1.6s linear infinite;
+}
+
+.pdf-page-loading {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 10px;
+  color: #667085;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.pdf-page-number {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  display: none;
+  padding: 3px 7px;
+  border-radius: 7px;
+  color: #667085;
+  background: rgba(255, 255, 255, 0.82);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pdf-document-state {
+  min-height: 60dvh;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  padding: 32px;
+  color: #667085;
+  text-align: center;
+}
+
+.pdf-document-state b {
+  color: #252a32;
+}
+
+.pdf-document-state p {
+  max-width: 620px;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.pdf-document-state.error {
+  color: #b42318;
+}
+
+.spin {
+  animation: pdf-spin 0.9s linear infinite;
+}
+
+@keyframes pdf-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pdf-placeholder {
+  to { background-position: -220% 0; }
+}
+
+html[data-theme='dark'] .subject-color-setting {
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+html[data-theme='dark'] .pdf-document-viewer {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: #171b22;
+}
+
+html[data-theme='dark'] .pdf-document-toolbar {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(21, 25, 32, 0.97);
+}
+
+html[data-theme='dark'] .pdf-document-title b,
+html[data-theme='dark'] .pdf-document-controls button {
+  color: #f3f4f6;
+}
+
+html[data-theme='dark'] .pdf-document-title span {
+  color: #98a2b3;
+}
+
+html[data-theme='dark'] .pdf-document-controls button {
+  border-color: rgba(148, 163, 184, 0.2);
+  background: #20252d;
+}
+
+@media (max-width: 760px) {
+  .subject-color-setting-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .subject-color-reset {
+    align-self: flex-start;
+  }
+
+  .subject-color-row {
+    grid-template-columns: 1fr;
+    gap: 9px;
+    padding: 8px 0;
+  }
+
+  .pdf-document-backdrop {
+    padding: 0;
+  }
+
+  .pdf-document-viewer {
+    width: 100%;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .pdf-document-toolbar {
+    min-height: 58px;
+    padding-top: max(8px, env(safe-area-inset-top));
+  }
+
+  .pdf-document-title span {
+    display: none;
+  }
+
+  .pdf-document-controls .pdf-zoom-value {
+    min-width: 58px;
+  }
+
+  .pdf-document-controls .pdf-zoom-value svg {
+    display: none;
+  }
+
+  .pdf-document-pages {
+    gap: 10px;
+    padding: 12px 8px calc(48px + env(safe-area-inset-bottom));
+  }
+}

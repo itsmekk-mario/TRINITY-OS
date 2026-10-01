@@ -30,7 +30,6 @@ export const initialData: AppData = {
   notionPages: [],
   routine: routineSeed.map((item, index) => ({ ...item, id: `routine-${index}` })) as AppData['routine'],
   quotes: quotesSeed,
-  subjectColors: {},
   examDate: EXAM_DATE,
   googleClientId: '',
   plaire: {},

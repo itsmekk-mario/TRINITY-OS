@@ -17,7 +17,6 @@ import './monthly-plan.css';
 import './plan-library.css';
 import './trinity-redesign-v2.css';
 import './trinity-ui-v3.css';
-import './subject-system.css';
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
 
