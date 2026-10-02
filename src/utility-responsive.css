@@ -1,0 +1,348 @@
+/* Utility pages share the application palette and adapt to their available width. */
+.coach-page,
+.study-lobby,
+.study-room-active,
+.learning-shell .arena-page {
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.coach-page :where(h2, b, p),
+.study-lobby :where(h2, p),
+.study-room-active :where(h1, p),
+.learning-shell .arena-page :where(h2, h3, p, b, small) {
+  overflow-wrap: anywhere;
+}
+
+.learning-shell .coach-context-hero,
+html[data-theme] .learning-shell .coach-context-hero {
+  padding: clamp(22px, 3vw, 32px);
+  background: var(--surface) !important;
+  color: var(--text-primary);
+  border: 1px solid var(--separator) !important;
+}
+.coach-context-title > svg { flex: none; color: var(--accent); }
+.coach-context-title > div { min-width: 0; }
+.coach-context-title h2 { font-size: clamp(20px, 2.3vw, 27px); letter-spacing: -.035em; }
+html[data-theme] .coach-context-title h2,
+html[data-theme] .coach-context-metrics b { color: var(--text-primary); }
+html[data-theme] .coach-context-title span,
+html[data-theme] .coach-context-metrics span { color: var(--text-secondary); }
+html[data-theme] .coach-context-metrics,
+.coach-context-metrics {
+  gap: 12px;
+  background: transparent;
+}
+html[data-theme] .coach-context-metrics > div,
+.coach-context-metrics > div {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--separator);
+  border-radius: 14px;
+  background: var(--surface-secondary);
+}
+.coach-context-metrics svg { color: var(--accent); }
+.daily-coach {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px;
+  padding: clamp(20px, 2.6vw, 28px);
+  container: daily-coach / inline-size;
+}
+.daily-coach > * { min-width: 0; }
+.daily-coach-head .icon-button { flex: none; }
+.coach-progress strong { font-variant-numeric: tabular-nums; }
+.coach-buttons { flex-wrap: wrap; }
+.coach-buttons .button { justify-content: center; min-height: 44px; white-space: normal; }
+.coach-chat-button { white-space: normal; }
+
+/* Portaled sheets remain above navigation and keep their composer on screen. */
+.coach-sheet-backdrop {
+  z-index: 140;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: rgb(0 0 0 / 28%);
+  backdrop-filter: blur(10px);
+}
+.coach-sheet {
+  min-width: 0;
+  width: min(560px, 100%);
+  max-height: min(720px, calc(100dvh - 40px));
+  overflow: hidden;
+  border: 1px solid var(--separator);
+  border-radius: 26px;
+  color: var(--text-primary);
+}
+.coach-sheet > header,
+.coach-sheet > form { flex: none; min-width: 0; }
+.coach-sheet > header > div { min-width: 0; }
+.coach-sheet .icon-button { flex: none; min-width: 40px; min-height: 40px; }
+.coach-messages {
+  flex: 1 1 auto;
+  min-height: min(280px, 35dvh);
+  max-height: 440px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.coach-messages > p { overflow-wrap: anywhere; }
+.coach-messages .user { color: #fff; }
+.coach-start { min-height: min(220px, 28dvh); }
+.coach-sheet > form { grid-template-columns: minmax(0, 1fr) 44px; }
+.coach-sheet input { height: 44px; font-size: 16px; }
+.coach-sheet form .button { min-height: 44px; border-radius: 12px; }
+
+.study-lobby { padding-bottom: 24px; }
+.study-lobby-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); }
+.study-lobby-grid .card { min-width: 0; border-radius: 24px; box-shadow: var(--shadow-1); }
+.study-lobby-primary h2,
+.study-lobby-join h2 { line-height: 1.25; }
+.study-lobby-privacy > div { min-width: 0; }
+.study-lobby-privacy { line-height: 1.6; }
+.study-capacity button { min-width: 0; min-height: 44px; }
+.study-create-form > div:last-child { flex-wrap: wrap; }
+.study-room-active { padding-bottom: 110px; }
+.study-room-header { grid-template-columns: minmax(0, 1fr) minmax(0, auto); }
+.study-header-title h1 { line-height: 1.15; }
+.study-header-status { min-width: 0; }
+.study-room-code { min-height: 44px; padding-inline: 12px; }
+.study-room-subheader { flex-wrap: wrap; line-height: 1.5; }
+.study-room-subheader > span { min-width: 0; }
+.study-room-subheader svg { flex: none; }
+.study-room-notice { flex-wrap: wrap; align-items: flex-start; }
+.study-room-notice > b,
+.study-room-notice > p { min-width: 0; }
+.study-room-notice > p { flex: 1 1 220px; line-height: 1.5; }
+.study-grid { grid-auto-rows: auto; align-content: start; }
+.study-video-frame { min-height: 170px; height: auto; }
+.study-grid.participants-1 .study-video-frame { max-height: 65dvh; min-height: 240px; }
+.study-grid.focus-view {
+  grid-template-columns: minmax(0, 1fr) minmax(170px, 25%);
+  grid-template-rows: repeat(var(--study-peer-count, 3), auto);
+}
+.study-grid.focus-view .study-participant.focused { grid-row: 1 / -1; align-self: start; position: sticky; top: calc(var(--app-header-height, 64px) + 16px); }
+.study-grid.focus-view .study-participant.focused .study-video-frame { height: auto; min-height: 240px; max-height: calc(100dvh - var(--app-header-height, 64px) - 132px); }
+.study-grid.focus-view .study-participant:not(.focused) .study-video-frame { min-height: 140px; }
+.study-grid.focus-view .study-participant:not(.focused) .study-camera-placeholder small { display: none; }
+.study-grid.focus-view .study-participant:not(.focused) .study-camera-placeholder > span { width: 42px; height: 42px; }
+.study-participant-meta { right: 48px; }
+.study-participant { container: study-tile / inline-size; }
+.study-camera-placeholder { margin-bottom: 28px; }
+.study-camera-placeholder > b { display: none; }
+.study-participant-meta strong { min-width: 0; }
+.study-participant-meta p { display: flex; gap: 4px; }
+.study-participant-subject { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.study-participant-clock { flex: none; font-variant-numeric: tabular-nums; }
+.study-status { flex: none; }
+.study-controls {
+  left: calc(50% + var(--app-sidebar-width, 244px) / 2);
+  max-width: calc(100vw - var(--app-sidebar-width, 244px) - 32px);
+  gap: 4px;
+  padding: 7px;
+  border-radius: 22px;
+}
+.study-controls button { min-width: 44px; min-height: 46px; flex: none; padding: 8px 10px; }
+.study-controls button.active { background: var(--accent); color: #fff; }
+.study-controls button span { font-weight: 650; }
+.cam-effects-panel {
+  max-height: calc(100dvh - 120px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 22px;
+}
+.cam-effects-panel > header > button { flex: none; width: 36px; height: 36px; }
+.cam-effects-options button { min-height: 48px; }
+.cam-effects-options small { min-width: 0; overflow-wrap: anywhere; }
+
+/* Arena follows the selected theme instead of forcing white cards. */
+.learning-shell .arena-page {
+  --surface: inherit;
+  --surface-secondary: inherit;
+  --text-primary: inherit;
+  --text-secondary: inherit;
+  --text-tertiary: inherit;
+  --separator: inherit;
+  --arena-ink: var(--text-primary);
+  --arena-sub: var(--text-secondary);
+  --arena-line: var(--separator);
+  --arena-soft: var(--surface-secondary);
+  color: var(--text-primary);
+}
+.learning-shell .arena-page .card:not(.arena-hero):not(.arena-season) { background: var(--surface) !important; color: var(--text-primary); }
+.learning-shell .arena-page .arena-hero,
+.learning-shell .arena-page .arena-season { background: linear-gradient(135deg, #171a21, #303743) !important; color: #fff; }
+.learning-shell .arena-page .arena-tabs,
+.learning-shell .arena-page .arena-badge-filters {
+  width: 100%;
+  max-width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 5px;
+  border-radius: 14px;
+  background: var(--surface-secondary);
+  scrollbar-width: thin;
+}
+.learning-shell .arena-page .arena-tabs button,
+.learning-shell .arena-page .arena-badge-filters button { flex: 1 0 auto; min-height: 40px; background: transparent; color: var(--text-secondary); }
+.learning-shell .arena-page .arena-tabs button.active,
+.learning-shell .arena-page .arena-badge-filters button.active { background: var(--surface); color: var(--text-primary); box-shadow: var(--shadow-1); }
+.learning-shell .arena-page .arena-home { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); }
+.learning-shell .arena-page .arena-hero { gap: 24px; padding: clamp(24px, 3vw, 36px); }
+.learning-shell .arena-page .arena-hero-copy { min-width: 0; }
+.learning-shell .arena-page .arena-score-ring { flex: none; }
+.learning-shell .arena-page .arena-rank-summary { flex-wrap: wrap; gap: 18px 0; }
+.learning-shell .arena-page .arena-rank-summary > span { min-width: 0; padding-inline: 18px; }
+.learning-shell .arena-page .arena-rank-summary small { max-width: 180px; }
+.learning-shell .arena-page .arena-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.learning-shell .arena-page .arena-metrics strong { font-size: clamp(21px, 2.3vw, 28px); }
+.learning-shell .arena-page .arena-section-head { flex-wrap: wrap; align-items: flex-start; }
+.learning-shell .arena-page .arena-section-head > * { min-width: 0; }
+.learning-shell .arena-page .arena-section-head select { max-width: 100%; }
+.learning-shell .arena-page .arena-breakdown header { gap: 12px; }
+.learning-shell .arena-page .arena-breakdown header > span { min-width: 0; }
+.learning-shell .arena-page .arena-breakdown header > strong { flex: none; white-space: nowrap; }
+.learning-shell .arena-page .arena-breakdown > div > div i { background: var(--accent); }
+.learning-shell .arena-page .arena-coach { grid-template-columns: auto minmax(0, 1fr); }
+.learning-shell .arena-page .arena-coach-icon { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--accent); }
+.learning-shell .arena-page .arena-actions span { align-items: flex-start; }
+.learning-shell .arena-page .arena-actions svg { flex: none; margin-top: 2px; }
+.learning-shell .arena-page .arena-profile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.learning-shell .arena-page .arena-form-intro > span,
+.learning-shell .arena-page .arena-season-editor-icon,
+.learning-shell .arena-page .arena-group-icon { flex: none; }
+.learning-shell .arena-page .arena-groups-layout { grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); }
+.learning-shell .arena-page .arena-group { grid-template-columns: auto minmax(0, 1fr) auto; }
+.learning-shell .arena-page .arena-group > div { min-width: 0; }
+.learning-shell .arena-page .arena-two-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.learning-shell .arena-page .arena-season-editor { grid-template-columns: auto minmax(0, 1fr); }
+.learning-shell .arena-page .arena-season-name-control { grid-column: 1 / -1; }
+.learning-shell .arena-page .arena-season-name-control input { background: var(--surface-secondary); color: var(--text-primary); }
+.learning-shell .arena-page .arena-join button { min-height: 44px; background: var(--accent); color: #fff; }
+.learning-shell .arena-page .arena-person { min-width: 0; }
+.learning-shell .arena-page .arena-person b { min-width: 0; overflow-wrap: anywhere; }
+.learning-shell .arena-page .arena-table > div.is-me { margin-inline: 0; padding-inline: 10px; background: var(--surface-secondary); }
+.learning-shell .arena-page .arena-person i { background: var(--surface-secondary); color: var(--text-secondary); }
+.learning-shell .arena-page .arena-person small { background: var(--accent); color: #fff; }
+.learning-shell .arena-page .arena-ranking-action > button { width: 100%; min-height: 36px; border: 0; border-radius: 8px; background: var(--surface-secondary); color: var(--text-primary); font-size: 11px; font-weight: 600; }
+.learning-shell .arena-page .arena-ranking-action > button:disabled { opacity: .45; }
+.learning-shell .arena-page .arena-rival > header { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; }
+.learning-shell .arena-page .arena-rival > header > button { width: 36px; height: 36px; }
+.learning-shell .arena-page .arena-season { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+.learning-shell .arena-page .arena-season-awards { flex-wrap: wrap; }
+.learning-shell .arena-page .arena-badge-preview { grid-template-columns: minmax(0, 1fr) auto auto; }
+.learning-shell .arena-page .arena-badge-preview-icons { min-width: 0; }
+.learning-shell .arena-page .arena-badge-preview-icons > span { border-color: var(--surface); background: var(--accent); }
+.learning-shell .arena-page .arena-badge-summary > strong { flex: none; }
+.learning-shell .arena-page .arena-badge:not(.unlocked) { background: var(--surface-secondary) !important; }
+.learning-shell .arena-page .arena-badge.unlocked { border-color: color-mix(in srgb, var(--accent) 32%, var(--separator)) !important; box-shadow: inset 0 3px var(--accent), var(--shadow-1) !important; }
+.learning-shell .arena-page .arena-badge.secret.unlocked { background: var(--surface) !important; }
+.learning-shell .arena-page .arena-badge.unlocked > span { background: var(--accent); color: #fff; }
+.learning-shell .arena-page .arena-badge { padding-bottom: 36px; }
+.learning-shell .arena-page .arena-badge-progress { margin-top: 18px; flex: none; }
+.arena-notice { max-width: calc(100vw - 32px); width: max-content; line-height: 1.5; text-align: center; }
+
+@container (max-width: 1000px) {
+  .daily-coach { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .coach-diagnosis { padding-left: 0; border-left: 0; }
+  .coach-evidence { padding-left: 0; border-left: 0; }
+  .coach-action { padding-top: 14px; border-left: 0; padding-left: 0; border-top: 1px solid var(--separator); }
+  .learning-shell .arena-page .arena-home,
+  .learning-shell .arena-page .arena-groups-layout { grid-template-columns: minmax(0, 1fr); }
+  .learning-shell .arena-page .arena-create-group { position: static; }
+  .learning-shell .arena-page .arena-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .learning-shell .arena-page .arena-rivals { grid-template-columns: minmax(0, 1fr); }
+  .learning-shell .arena-page .arena-badge-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@container (max-width: 720px) {
+  .study-lobby-grid { grid-template-columns: minmax(0, 1fr); }
+  .study-room-header { grid-template-columns: minmax(0, 1fr); }
+  .study-header-status { justify-content: flex-start; }
+  .coach-context-metrics { grid-template-columns: minmax(0, 1fr); }
+  .learning-shell .arena-page .arena-hero { flex-direction: column; align-items: stretch; }
+  .learning-shell .arena-page .arena-score-ring { align-self: center; margin: 4px auto 0; }
+  .learning-shell .arena-page .arena-badge-preview { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .learning-shell .arena-page .arena-badge-preview > .button { grid-column: 1; width: 100%; }
+  .learning-shell .arena-page .arena-profile-grid { grid-template-columns: minmax(0, 1fr); }
+  .learning-shell .arena-page .arena-badge-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .learning-shell .arena-page .arena-group { grid-template-columns: auto minmax(0, 1fr); }
+  .learning-shell .arena-page .arena-group > div:last-child { grid-column: 1 / -1; }
+  .learning-shell .arena-page .arena-group > div:last-child .button { width: 100%; }
+  .learning-shell .arena-page .arena-form-actions { flex-direction: column; align-items: stretch; }
+  .learning-shell .arena-page .arena-season { grid-template-columns: minmax(0, 1fr); }
+  .learning-shell .arena-page .arena-season-awards { grid-column: 1; }
+}
+@container (max-width: 540px) {
+  .daily-coach { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .coach-diagnosis,
+  .coach-evidence,
+  .coach-action { padding: 16px 0 0; border-left: 0; border-top: 1px solid var(--separator); }
+  .coach-buttons { display: grid; }
+  .coach-buttons .button { width: 100%; }
+  .learning-shell .arena-page .arena-badge-summary { flex-wrap: wrap; }
+  .learning-shell .arena-page .arena-rank-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+  .learning-shell .arena-page .arena-rank-summary > span,
+  .learning-shell .arena-page .arena-rank-summary > span:first-child { min-width: 0; padding: 0; border: 0; }
+  .learning-shell .arena-page .arena-two-fields { grid-template-columns: minmax(0, 1fr); }
+  .learning-shell .arena-page .arena-season-name-control { grid-template-columns: minmax(0, 1fr); }
+}
+@container (max-width: 360px) {
+  .learning-shell .arena-page .arena-metrics,
+  .learning-shell .arena-page .arena-badge-grid { grid-template-columns: minmax(0, 1fr); }
+  .study-create-form > div:last-child .button { flex: 1; }
+}
+@container study-tile (max-width: 210px) {
+  .study-camera-placeholder small { display: none; }
+  .study-status { display: none; }
+}
+
+@media (max-width: 1024px) {
+  .study-controls { left: 50%; max-width: calc(100vw - 24px); }
+  .study-controls button span { display: none; }
+}
+@media (max-width: 760px) {
+  .study-room-subheader .study-header-hint { display: none; }
+  .study-room-active { padding-bottom: 176px; }
+  .study-controls { bottom: calc(84px + env(safe-area-inset-bottom)); width: min(440px, calc(100vw - 24px)); flex-wrap: nowrap; justify-content: space-between; gap: 2px; padding: 6px; }
+  .study-controls button { flex: 1 1 0; min-width: 0; padding: 8px 2px; }
+  .study-controls-divider { display: none; }
+  .study-grid.focus-view { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; }
+  .study-grid.focus-view .study-participant.focused { grid-row: auto; grid-column: 1 / -1; position: static; }
+  .study-grid.focus-view .study-participant.focused .study-video-frame { height: auto; }
+  .study-video-frame { min-height: 160px; }
+  .study-camera-placeholder > span { width: 42px; height: 42px; }
+  .study-camera-placeholder > b { display: none; }
+  .study-camera-placeholder small { font-size: 8px; }
+  .study-participant-meta { right: 40px; }
+  .cam-effects-panel,
+  .cam-effects-panel.mini-room { right: 12px; bottom: calc(148px + env(safe-area-inset-bottom)); max-height: calc(100dvh - 170px); }
+  .cam-mini { bottom: calc(86px + env(safe-area-inset-bottom)); }
+  .cam-mini-collapsed { bottom: calc(86px + env(safe-area-inset-bottom)); }
+  .coach-sheet-backdrop { padding: max(12px, env(safe-area-inset-top)) 0 0; align-items: end; }
+  .coach-sheet { width: 100%; max-height: calc(100dvh - max(12px, env(safe-area-inset-top))); padding: 22px 18px max(18px, env(safe-area-inset-bottom)); border-radius: 26px 26px 0 0; }
+  .coach-messages { min-height: min(240px, 35dvh); }
+  .arena-notice { bottom: calc(86px + env(safe-area-inset-bottom)); }
+  .learning-shell .arena-page .arena-table { position: relative; margin: 0; padding: 0; overflow: visible; }
+  .learning-shell .arena-page .arena-table > div { min-width: 0; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 8px 10px; padding: 16px 0; }
+  .learning-shell .arena-page .arena-table .arena-table-head { position: absolute; width: 1px; height: 1px; min-width: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .learning-shell .arena-page .arena-table > div.is-me { margin-inline: -8px; padding-inline: 8px; }
+  .learning-shell .arena-page .arena-ranking-position { grid-column: 1; grid-row: 1 / 3; align-self: center; font-size: 20px; }
+  .learning-shell .arena-page .arena-table .arena-person { grid-column: 2; grid-row: 1; }
+  .learning-shell .arena-page .arena-ranking-score { grid-column: 2; grid-row: 2; }
+  .learning-shell .arena-page .arena-ranking-growth { grid-column: 3; grid-row: 2; white-space: nowrap; text-align: right; }
+  .learning-shell .arena-page .arena-ranking-score::before,
+  .learning-shell .arena-page .arena-ranking-growth::before { content: attr(data-label) ' '; font-size: 10px; font-weight: 400; color: var(--text-tertiary); }
+  .learning-shell .arena-page .arena-ranking-target { grid-column: 2 / -1; grid-row: 3; color: var(--text-secondary); font-size: 11px; }
+  .learning-shell .arena-page .arena-ranking-action { grid-column: 3; grid-row: 1; }
+  .learning-shell .arena-page .arena-ranking-action > button { min-height: 40px; min-width: 48px; padding: 0 10px; }
+}
+@media (max-height: 560px) {
+  .study-grid.focus-view .study-participant.focused { position: static; }
+  .coach-sheet { max-height: calc(100dvh - 24px); padding-top: 16px; }
+  .coach-sheet > header { padding-bottom: 10px; }
+  .coach-messages { min-height: 0; }
+  .coach-start { min-height: 90px; }
+  .coach-sheet form { padding-top: 10px; }
+  .cam-effects-panel { bottom: 12px; max-height: calc(100dvh - 24px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .learning-shell .arena-page .arena-loading svg,
+  .learning-shell .arena-page .arena-secret-mode .arena-score-ring::before,
+  .learning-shell .arena-page .arena-secret-message { animation: none; }
+}

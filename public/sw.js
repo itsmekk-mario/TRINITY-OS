@@ -1,4 +1,4 @@
-const CACHE = 'trinity-os-20260930091150';
+const CACHE = 'trinity-os-apple-ui-20261002';
 self.addEventListener('install', event => event.waitUntil(self.skipWaiting()));
 self.addEventListener('activate', event => event.waitUntil((async () => {
   const keys = await caches.keys();

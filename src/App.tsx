@@ -39,32 +39,37 @@ import {
 import { APP_VERSION, addCustomSubject, removeCustomSubject, SUBJECTS } from "./data/config";
 import { applySubjectColorRules, buildDefaultSubjectColors, getSubjectColor, SUBJECT_COLOR_PALETTE } from "./lib/subjectColors";
 import Dashboard from "./pages/Dashboard";
-import ScoreTracker from "./pages/ScoreTracker";
-import NotionWorkspace from "./pages/NotionWorkspace";
 import CloudflareSync from "./components/CloudflareSync";
 import LoginPage from "./components/LoginPage";
 import { logout, logoutLocal, type SessionIdentity, validateSession } from "./lib/auth";
 import { autoSyncCloudflareData, loadCloudflareConfig, saveRecoveryCopy } from "./lib/cloudflare";
-import SupportPortal, {
-  ExamArchive,
-  SupportOwner,
-} from "./pages/SupportPortal";
-import FeedbackInbox from "./pages/FeedbackInbox";
-
-import FeedbackAdmin from "./pages/FeedbackAdmin";
-import Arena from "./pages/Arena";
 import PasswordChangeDialog from "./components/PasswordChangeDialog";
-import PlanHub, { type PlanView } from "./pages/PlanHub";
-import TrainHub, { type TrainView } from "./pages/TrainHub";
-import InsightsHub, { type InsightsView } from "./pages/InsightsHub";
-import CoachPage from "./pages/CoachPage";
+import type { PlanView } from "./pages/PlanHub";
+import type { TrainView } from "./pages/TrainHub";
+import type { InsightsView } from "./pages/InsightsHub";
 import PageTransition from "./components/motion/PageTransition";
 import { useDialogFocus } from "./components/motion/useDialogFocus";
-import StudyRoom from "./pages/StudyRoom";
 import { CamStudyProvider } from "./components/study-room/CamStudyProvider";
-import LearningArchive from "./pages/LearningArchive";
 
 const CollaborativePortal = lazy(() => import("./pages/CollaborativePortal"));
+const PlanHub = lazy(() => import("./pages/PlanHub"));
+const TrainHub = lazy(() => import("./pages/TrainHub"));
+const InsightsHub = lazy(() => import("./pages/InsightsHub"));
+const ScoreTracker = lazy(() => import("./pages/ScoreTracker"));
+const NotionWorkspace = lazy(() => import("./pages/NotionWorkspace"));
+const StudyRoom = lazy(() => import("./pages/StudyRoom"));
+const CoachPage = lazy(() => import("./pages/CoachPage"));
+const LearningArchive = lazy(() => import("./pages/LearningArchive"));
+const FeedbackInbox = lazy(() => import("./pages/FeedbackInbox"));
+const FeedbackAdmin = lazy(() => import("./pages/FeedbackAdmin"));
+const Arena = lazy(() => import("./pages/Arena"));
+const SupportPortal = lazy(() => import("./pages/SupportPortal"));
+const SupportOwner = lazy(() => import("./pages/SupportPortal").then(module => ({ default: module.SupportOwner })));
+const ExamArchive = lazy(() => import("./pages/SupportPortal").then(module => ({ default: module.ExamArchive })));
+
+function PageLoading() {
+  return <div className="page-loading" role="status" aria-live="polite"><span className="page-loading-spinner" aria-hidden="true" />화면을 불러오는 중…</div>;
+}
 
 type Page =
   | "today"
@@ -190,6 +195,12 @@ function StudentApp() {
   useDialogFocus(menu, sidebarRef, () => setMenu(false));
   const settingsRef = useRef<HTMLElement>(null);
   useDialogFocus(settings, settingsRef, () => setSettings(false));
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1025px)");
+    const closeDrawer = () => { if (desktop.matches) setMenu(false); };
+    desktop.addEventListener("change", closeDrawer);
+    return () => desktop.removeEventListener("change", closeDrawer);
+  }, []);
   const contextLabel =
     [...primaryNav, ...utilityNav].find((item) => item.id === page)?.label ??
     "Archive";
@@ -202,7 +213,7 @@ function StudentApp() {
       document.documentElement.style.colorScheme = theme;
       document
         .querySelector('meta[name="theme-color"]')
-        ?.setAttribute("content", theme === "dark" ? "#0f1115" : "#0b1628");
+        ?.setAttribute("content", theme === "dark" ? "#000000" : "#f5f5f7");
     };
     applyTheme();
     const onSystemThemeChange = () => {
@@ -573,7 +584,9 @@ function StudentApp() {
     <div className="app-shell learning-shell">
       <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>
       <aside
+        id="app-navigation"
         ref={sidebarRef}
+        inert={settings}
         tabIndex={menu ? -1 : undefined}
         role={menu ? "dialog" : undefined}
         aria-modal={menu || undefined}
@@ -647,7 +660,7 @@ function StudentApp() {
         </div>
       </aside>
       {menu && <div className="nav-backdrop" onClick={() => setMenu(false)} />}
-      <main id="main-content">
+      <main id="main-content" inert={menu || settings}>
         <div className="desktop-context-bar">
           <div className="desktop-context-copy"><span>TRINITY OS</span><b>{contextLabel}</b></div>
           <div className="desktop-context-actions">
@@ -660,6 +673,7 @@ function StudentApp() {
           <button
             aria-label="메뉴 열기"
             aria-expanded={menu}
+            aria-controls="app-navigation"
             onClick={() => setMenu(true)}
           >
             <Menu />
@@ -684,12 +698,12 @@ function StudentApp() {
             onOpen={() => navigate("study-room")}
           >
             <PageTransition transitionKey={currentKey()}>
-              {screen}
+              <Suspense fallback={<PageLoading />}>{screen}</Suspense>
             </PageTransition>
           </CamStudyProvider>
         </div>
       </main>
-      <nav className="mobile-tab-bar" aria-label="핵심 메뉴">
+      <nav className="mobile-tab-bar" aria-label="핵심 메뉴" inert={menu || settings} style={{ gridTemplateColumns: `repeat(${mobilePrimaryNav.length}, minmax(0, 1fr))` }}>
         {mobilePrimaryNav.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -1029,7 +1043,7 @@ function StudentApp() {
   );
 }
 
-export default function App() {
+function AppContent() {
   const portal = new URLSearchParams(window.location.search).get("portal");
   if (portal === "teacher" || portal === "tutor")
     return (
@@ -1071,4 +1085,8 @@ export default function App() {
   if (portal === "legacy-owner") return <SupportOwner />;
   if (portal === "parent") return <SupportPortal role="parent" />;
   return <StudentApp />;
+}
+
+export default function App() {
+  return <Suspense fallback={<PageLoading />}><AppContent /></Suspense>;
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, Clock3, FileText, Flag, Target, X } from 'lucide-react';
 import { parsePlannedMinutes } from '../../lib/plannedTime';
 import { formatStudyTime, type TeacherData } from '../../lib/teacherAnalytics';
@@ -7,6 +7,7 @@ import { studyTotals, studyTotalsBySubject } from '../../lib/studyTotals';
 import { Empty, SectionTitle } from '../Ui';
 import type { Subject } from '../../types';
 import { SUBJECTS } from '../../data/config';
+import { useDialogFocus } from '../motion/useDialogFocus';
 
 const dateAtSeoulNoon = (key: string) => new Date(`${key}T12:00:00+09:00`);
 const dateLabel = (key: string) => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' }).format(dateAtSeoulNoon(key));
@@ -16,6 +17,8 @@ const compact = (seconds: number) => seconds >= 3600 ? `${Math.floor(seconds / 3
 const weekStart = (key: string) => { const value = dateAtSeoulNoon(key); value.setUTCDate(value.getUTCDate() - ((value.getUTCDay() || 7) - 1)); return toDateKey(value); };
 
 export function DailyLearningDetailSheet({ data, date, onClose, subject, onEditPlan }: { data: TeacherData; date: string; onClose: () => void; subject?: Subject; onEditPlan?: () => void }) {
+  const drawerRef = useRef<HTMLElement>(null);
+  useDialogFocus(true, drawerRef, onClose);
   const view = useMemo(() => {
     const visible = <T extends { subject?: string }>(items: T[]) => subject ? items.filter(item => item.subject === subject) : items;
     const plans = visible(data.plans.filter(item => item.date === date));
@@ -46,7 +49,7 @@ export function DailyLearningDetailSheet({ data, date, onClose, subject, onEditP
   const done = view.plans.filter(item => item.done).length;
   const execution = view.plannedMinutes ? Math.round(minutes(view.totalSeconds) / view.plannedMinutes * 100) : undefined;
   const hasData = view.plans.length || view.sessions.length || view.day || view.drills.length || view.wrong.length || view.scores.length;
-  return <aside className="daily-detail-drawer" role="dialog" aria-modal="true" aria-labelledby="daily-detail-title">
+  return <div className="daily-detail-backdrop" onClick={onClose}><aside ref={drawerRef} tabIndex={-1} className="daily-detail-drawer" role="dialog" aria-modal="true" aria-labelledby="daily-detail-title" onClick={event => event.stopPropagation()}>
     <header className="daily-detail-header"><div><p className="eyebrow">DAILY LEARNING DETAIL</p><h2 id="daily-detail-title">{dateLabel(date)}</h2></div><div className="teacher-actions">{onEditPlan && <button className="button" onClick={onEditPlan}>일정 편집</button>}<button className="icon-button" onClick={onClose} aria-label="일별 학습내역 닫기"><X /></button></div></header>
     {!hasData ? <Empty title="이 날짜의 학습 기록이 없습니다." description="계획·타이머·Drill·실모 기록이 동기화되면 이곳에 연결됩니다." /> : <div className="daily-detail-content">
       <section className="daily-summary-grid"><div><span>총 실제 학습</span><b>{formatStudyTime(view.totalSeconds)}</b></div><div><span>계획 학습시간</span><b>{view.plannedMinutes ? `${view.plannedMinutes}m` : '미기록'}</b></div><div><span>계획 대비 실행률</span><b>{execution === undefined ? '분석 불가' : `${execution}%`}</b></div><div><span>완료 과제</span><b>{done} / {view.plans.length}</b></div><div><span>학습 과목</span><b>{view.subjects.size}개</b></div><div><span>집중 세션</span><b>{view.sessions.length}회</b></div></section>
@@ -61,7 +64,7 @@ export function DailyLearningDetailSheet({ data, date, onClose, subject, onEditP
       {timeline.length > 0 && <section><SectionTitle title="Learning Trace" meta="저장된 timestamp가 있는 행동만 시간순 표시" /><ol className="daily-trace">{timeline.map((item,index)=><li key={`${item.at}-${index}`}><time>{clock(item.at)}</time><span>{item.text}</span></li>)}</ol></section>}
       {(view.goals.length > 0 || Boolean(view.plaire) || view.trinity.length > 0) && <section><SectionTitle title="학습 병목·다음 행동" />{view.goals.map(item => <article className="daily-evidence-row" key={item.id}><Target size={16}/><div><b>{item.subject} · {item.ability}</b><small>{item.done ? '완료' : '진행 중'} · {item.successCriterion}</small></div></article>)}{view.plaire && <article className="daily-evidence-row"><Clock3 size={16}/><div><b>오늘의 병목</b><small>{view.plaire.bottleneck || '미기록'}{view.plaire.nextAction ? ` · 다음 행동: ${view.plaire.nextAction}` : ''}</small></div></article>}{view.trinity.map(item => <article className="daily-evidence-row" key={item.id}><Target size={16}/><div><b>{item.subject} Trinity 분석</b><small>{Object.values(item.fields).filter(Boolean).slice(0, 2).join(' · ') || '분석 내용 미기록'}</small></div></article>)}</section>}
     </div>}
-  </aside>;
+  </aside></div>;
 }
 
 export default function DailyLearningDetail({ data, subject }: { data: TeacherData; subject?: Subject }) {

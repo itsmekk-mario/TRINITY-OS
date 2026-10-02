@@ -1,0 +1,466 @@
+/* Planning pages: readable content and controls at the width of the canvas. */
+.planning-page {
+  container: planning / inline-size;
+  min-width: 0;
+}
+
+.planning-page .weekly-table-head,
+.planning-page .weekly-day-row {
+  min-width: 0 !important;
+  grid-template-columns: 126px minmax(0, 1fr) !important;
+  gap: 0;
+}
+
+.planning-page .weekly-day-row {
+  padding: 0 !important;
+  align-items: stretch;
+}
+
+.planning-page .weekly-date,
+.planning-page .weekly-task-list {
+  min-width: 0;
+}
+
+.planning-page .weekly-task-list {
+  padding: 0 !important;
+}
+
+.planning-page .weekly-task-list > .weekly-task-row {
+  grid-template-columns: 18px auto auto minmax(0, 1fr) auto auto !important;
+  gap: 8px !important;
+  min-width: 0;
+  border-radius: 0 !important;
+}
+
+.planning-page .weekly-task-row > * {
+  grid-column: auto;
+  grid-row: auto;
+  min-width: 0;
+}
+
+.planning-page .weekly-task-main b,
+.planning-page .weekly-task-main small {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+
+.planning-page .weekly-task-quantity {
+  display: block;
+  max-width: 130px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+.planning-page .weekly-task-actions {
+  opacity: 1 !important;
+}
+
+.planning-page .weekly-task-actions button,
+.planning-page .plan-outcome button {
+  width: 32px !important;
+  height: 32px !important;
+  flex-shrink: 0;
+}
+
+.planning-page .drag-handle {
+  display: grid;
+  align-items: center;
+  min-height: 36px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.planning-page .weekly-date details[open] {
+  grid-column: 1 / -1;
+}
+
+.planning-page .weekly-date details:not([open]) .day-index-editor {
+  display: none;
+}
+
+.planning-page .weekly-date .day-index-editor {
+  min-width: 0;
+  padding: 8px 0;
+}
+
+.planning-page .weekly-date .day-index-fields {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.planning-page .day-color-field {
+  min-width: 0;
+}
+
+.planning-page .weekly-goal-more:not([open]) .weekly-goal-menu {
+  display: none;
+}
+
+.plan-task-modal .plan-link-fields,
+.schedule-modal .plan-link-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.plan-task-modal .plan-link-fields label,
+.schedule-modal .plan-link-fields label,
+.schedule-modal .day-index-fields label {
+  min-width: 0;
+}
+
+.plan-task-modal .plan-link-fields select,
+.schedule-modal .plan-link-fields select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.planning-page .monthly-plan-head > div,
+.planning-page .monthly-goal-card,
+.planning-page .monthly-goal-card article {
+  min-width: 0;
+}
+
+.planning-page .monthly-plan-head > div:last-child {
+  flex-wrap: wrap;
+}
+
+.planning-page .monthly-goal-card h3,
+.planning-page .monthly-goal-card p,
+.planning-page .monthly-week-summary p {
+  overflow-wrap: anywhere;
+}
+
+.planning-page .monthly-goal-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)) !important;
+}
+
+.weekly-goals-v4 .weekly-goals-toolbar > div,
+.weekly-goal-sheet .weekly-link-head > div,
+.weekly-goal-sheet .weekly-link-plan {
+  min-width: 0;
+}
+
+.weekly-goals-v4 .weekly-goals-toolbar .weekly-add-button {
+  flex-shrink: 0;
+  min-height: 40px;
+}
+
+.weekly-goals-v4 .weekly-goal-copy > p,
+.weekly-goal-sheet .weekly-link-plan {
+  overflow-wrap: anywhere;
+}
+
+.weekly-goal-sheet-backdrop .weekly-goal-sheet {
+  max-height: 100dvh;
+  max-width: 100%;
+}
+
+.weekly-goal-sheet .weekly-goal-sheet-body {
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+
+.weekly-goal-sheet > header,
+.weekly-goal-sheet > footer {
+  flex-shrink: 0;
+}
+
+.weekly-link-list label:focus-within {
+  outline: 2px solid var(--accent, #007aff);
+  outline-offset: -2px;
+}
+
+.plan-overview-v2 .plan-flow button,
+.plan-overview-v2 .compact-list > div,
+.plan-overview-v2 .compact-list > div > span {
+  min-width: 0;
+}
+
+.plan-overview-v2 .plan-flow button p,
+.plan-overview-v2 .compact-list b,
+.plan-overview-v2 .compact-list small {
+  overflow-wrap: anywhere;
+}
+
+.plan-overview-v2 .compact-list em {
+  flex-shrink: 0;
+  white-space: normal;
+  max-width: 105px;
+  text-align: right;
+}
+
+.calendar-page {
+  container: learning-calendar / inline-size;
+  min-width: 0;
+}
+
+.calendar-page .calendar-card {
+  margin-inline: 0;
+}
+
+.calendar-page .calendar-grid,
+.calendar-page .weekdays {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.calendar-page .calendar-grid > button,
+.calendar-page .calendar-grid > span {
+  min-width: 0;
+  background: var(--surface, #fff) !important;
+}
+
+.calendar-page .calendar-grid > button:hover {
+  background: var(--surface-secondary, #f5f5f7) !important;
+}
+
+.calendar-study-time-compact { display: none; }
+
+.calendar-page .calendar-study-time {
+  position: static;
+  display: flex !important;
+  flex-wrap: wrap;
+  width: max-content;
+  max-width: 100%;
+  padding: 3px 4px;
+  margin-top: 5px;
+  line-height: 1.4;
+}
+
+.schedule-modal .daily-plan-row > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.routine-page {
+  container: routine / inline-size;
+  min-width: 0;
+}
+
+.routine-page .timeline-item {
+  grid-template-columns: 92px 18px minmax(0, 1fr);
+}
+
+.routine-page .timeline-time,
+.routine-page .timeline-item .card,
+.routine-page .routine-add-grid > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.routine-page .notice > svg {
+  flex-shrink: 0;
+}
+
+.routine-page .timeline-toolbar {
+  flex-wrap: wrap;
+}
+
+.routine-page .timeline-toolbar > span {
+  max-width: none;
+  flex: 1 1 180px;
+  line-height: 1.6;
+}
+
+.routine-page .routine-add-grid {
+  grid-template-columns: 100px 100px minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
+/* Block metadata belongs below the editable text, rather than beside it. */
+.personal-schedule-page .notion-block {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  gap: 10px 8px;
+  padding: 14px 0;
+  margin: 0;
+  border-bottom: 1px solid var(--separator, var(--line));
+}
+
+.personal-schedule-page .notion-block > .block-main {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.personal-schedule-page .notion-block > .block-delete {
+  grid-column: 2;
+  grid-row: 1;
+  width: 36px;
+  height: 36px;
+  opacity: 1;
+}
+
+.personal-schedule-page .notion-block > .personal-block-fields,
+.personal-schedule-page .notion-block > .personal-status-options,
+.personal-schedule-page .notion-block > .personal-move-date {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.personal-schedule-page .personal-memo-workspace,
+.personal-schedule-page .notion-sidebar,
+.personal-schedule-page .notion-editor,
+.personal-schedule-page .personal-calendar-card,
+.personal-schedule-page .personal-day-panel,
+.personal-schedule-page .notion-sidebar nav button {
+  min-width: 0;
+}
+
+.personal-schedule-page .notion-block textarea {
+  min-width: 0;
+  min-height: 0;
+  border: 0 !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 5px 0;
+  box-shadow: none;
+  resize: vertical;
+  overflow-wrap: anywhere;
+}
+
+.personal-schedule-page .notion-title {
+  border: 0 !important;
+  padding: 0;
+  background: transparent !important;
+  font-size: clamp(24px, 3vw, 32px) !important;
+  line-height: 1.3;
+  box-shadow: none;
+}
+
+.personal-schedule-page .notion-page-top input {
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0;
+  font-size: 32px !important;
+}
+
+.personal-schedule-page .personal-header-actions .button.primary:not(:last-child) {
+  background: var(--surface-secondary, #f5f5f7) !important;
+  color: var(--text-primary, #1d1d1f) !important;
+  border-color: var(--separator, var(--line)) !important;
+  box-shadow: none !important;
+}
+
+.personal-schedule-page .personal-item-meta {
+  flex-wrap: wrap;
+}
+
+.personal-schedule-page .personal-item > b,
+.personal-schedule-page .personal-category,
+.personal-schedule-page .personal-item-meta small {
+  overflow-wrap: anywhere;
+}
+
+.personal-schedule-page .personal-calendar-grid > button > small {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.personal-schedule-page .personal-calendar-head button {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+@container planning (max-width: 760px) {
+  .planning-page .weekly-table-head { display: none; }
+  .planning-page .weekly-day-row { display: block !important; }
+  .planning-page .weekly-date {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 16px !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--separator, var(--line));
+  }
+  .planning-page .weekly-date > strong { grid-column: 1; }
+  .planning-page .weekly-date > details { grid-column: 1 / -1; grid-row: 2; }
+  .planning-page .weekly-date > .add-day-plan {
+    grid-column: 2;
+    grid-row: 1;
+    min-height: 32px;
+    margin-top: 0 !important;
+    font-size: 12px !important;
+  }
+  .planning-page .weekly-task-list > .weekly-task-row {
+    grid-template-columns: 18px minmax(0, 1fr) !important;
+    gap: 8px 10px !important;
+    padding: 16px !important;
+  }
+  .planning-page .weekly-task-row > .drag-handle { grid-column: 1; grid-row: 1 / 6; align-self: start; }
+  .planning-page .weekly-task-row > .subject-badge { grid-column: 2; grid-row: 1; justify-self: start; }
+  .planning-page .weekly-task-row > .weekly-task-main { grid-column: 2; grid-row: 2; }
+  .planning-page .weekly-task-row > .weekly-task-quantity {
+    grid-column: 2;
+    grid-row: 3;
+    max-width: none;
+    text-align: left;
+    font-size: 12px !important;
+  }
+  .planning-page .weekly-task-row > .plan-outcome { grid-column: 2; grid-row: 4; justify-self: start; }
+  .planning-page .weekly-task-row > .weekly-task-actions { grid-column: 2; grid-row: 5; justify-self: start; gap: 5px; }
+  .planning-page .weekly-task-main b { font-size: 14px !important; }
+  .planning-page .weekly-task-main small { font-size: 12px !important; }
+  .planning-page .weekly-task-actions button,
+  .planning-page .plan-outcome button { width: 40px !important; height: 40px !important; }
+  .planning-page .weekly-plan-head h2 { font-size: 16px; line-height: 1.4; }
+  .planning-page .monthly-plan-head { flex-direction: column; align-items: stretch; gap: 16px; }
+  .planning-page .monthly-plan-head > div:last-child { justify-content: flex-start; }
+  .planning-page .monthly-week-summary { flex-direction: column; align-items: flex-start; }
+}
+
+@container learning-calendar (max-width: 480px) {
+  .calendar-page .calendar-grid > button { min-height: 84px !important; padding: 5px !important; }
+  .calendar-page .calendar-study-time { font-size: 9px !important; }
+  .calendar-page .calendar-study-time svg { display: none; }
+  .calendar-page .calendar-study-time-full { display: none; }
+  .calendar-page .calendar-study-time-compact { display: inline; white-space: nowrap; }
+  .calendar-page .calendar-grid .day-badge { max-width: 100%; font-size: 8px !important; }
+}
+
+@container routine (max-width: 720px) {
+  .routine-page .routine-add-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .routine-page .routine-add-grid .button { grid-column: 1 / -1; }
+}
+
+@container routine (max-width: 460px) {
+  .routine-page .timeline-item { grid-template-columns: 14px minmax(0, 1fr); gap: 8px; }
+  .routine-page .timeline-time { grid-column: 2; padding: 2px 0 8px; align-items: center; font-size: 12px; }
+  .routine-page .timeline-line { grid-column: 1; grid-row: 1 / 3; }
+  .routine-page .timeline-item > .card { grid-column: 2; padding: 16px !important; }
+  .routine-page .routine-order-actions { float: none; display: flex; justify-content: flex-end; margin: 0 0 8px; }
+  .routine-page .routine-order-actions button { width: 36px; height: 36px; }
+  .routine-page .routine-add-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 760px) {
+  .plan-task-modal .plan-link-fields,
+  .schedule-modal .plan-link-fields { grid-template-columns: minmax(0, 1fr); }
+  .personal-schedule-page .personal-memo-workspace { grid-template-columns: minmax(0, 1fr) !important; }
+  .personal-schedule-page .notion-editor { padding: 22px 16px !important; min-height: 400px; }
+  .personal-schedule-page .notion-sidebar nav { padding: 10px 0; }
+  .personal-schedule-page .notion-sidebar nav button { max-width: 220px; }
+  .personal-schedule-page .notion-add-block { flex-wrap: wrap; }
+  .personal-schedule-page .personal-header-actions .button { min-width: 0; }
+  .weekly-goal-sheet .weekly-field input,
+  .weekly-goal-sheet .weekly-field textarea,
+  .weekly-goal-sheet .weekly-field select { font-size: 16px; }
+  .weekly-goal-sheet .weekly-goal-sheet-body { padding: 20px 16px; }
+  .weekly-goal-sheet > header,
+  .weekly-goal-sheet > footer { padding-inline: 16px; }
+  .weekly-goal-sheet > footer button { min-height: 44px; }
+  .weekly-goals-v4 .weekly-goal-titleline { flex-wrap: wrap; gap: 5px 8px; }
+  .plan-overview-v2 .compact-list > div { flex-wrap: wrap; }
+  .plan-overview-v2 .compact-list > div > span { flex-basis: calc(100% - 40px); }
+  .plan-overview-v2 .compact-list em { margin-left: 29px; max-width: none; text-align: left; }
+}
+
+@media (max-width: 900px) {
+  .weekly-goal-more .weekly-goal-menu { left: 0; right: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .weekly-goal-sheet-backdrop,
+  .weekly-goal-sheet { animation: none; }
+}

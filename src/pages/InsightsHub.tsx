@@ -15,7 +15,7 @@ const tabs = [{ id: 'overview', label: 'Overview' }, { id: 'performance', label:
 
 export default function InsightsHub({ data, update, view, onView }: { data: AppData; update: (fn: (value: AppData) => AppData) => void; view: InsightsView; onView: (view: InsightsView) => void }) {
   const analytics = useMemo(() => deriveLearningSignals(data), [data]);
-  const layout = (content: ReactNode) => <HubLayout eyebrow="INSIGHTS" title="무엇이 달라졌는지 확인합니다" description="실행 시간과 능력 개선의 근거를 읽고 다음 행동을 결정합니다." controls={<SegmentedControl label="Insights 화면" options={tabs} value={view} onChange={onView} />}>{content}</HubLayout>;
+  const layout = (content: ReactNode) => <div className="insights-workspace"><HubLayout eyebrow="INSIGHTS" title="무엇이 달라졌는지 확인합니다" description="실행 시간과 능력 개선의 근거를 읽고 다음 행동을 결정합니다." controls={<SegmentedControl label="Insights 화면" options={tabs} value={view} onChange={onView} />}>{content}</HubLayout></div>;
   if (view === 'performance') return layout(<Statistics data={data} />);
   if (view === 'review') return layout(<UnifiedReviewQueue />);
   if (view === 'bottlenecks') return layout(<div><PageHeader eyebrow="DIAGNOSE" title="병목과 재현" description="빈도만 보지 않고, 교정 행동이 재도전과 전이로 이어졌는지 확인합니다." />

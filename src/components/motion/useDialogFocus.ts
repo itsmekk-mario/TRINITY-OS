@@ -1,5 +1,8 @@
 import { useEffect, useRef, type RefObject } from 'react';
 
+const dialogs: symbol[] = [];
+let originalOverflow = '';
+
 /** Focus containment, Escape, scroll lock and return focus for modal sheets. */
 export function useDialogFocus(open: boolean, ref: RefObject<HTMLElement | null>, onClose: () => void) {
   const close = useRef(onClose); close.current = onClose;
@@ -7,11 +10,14 @@ export function useDialogFocus(open: boolean, ref: RefObject<HTMLElement | null>
     if (!open || !ref.current) return;
     const dialog = ref.current;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const overflow = document.body.style.overflow;
+    const entry = Symbol('dialog');
+    if (!dialogs.length) originalOverflow = document.body.style.overflow;
+    dialogs.push(entry);
     document.body.style.overflow = 'hidden';
     const elements = () => [...dialog.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]')].filter((item) => !item.hidden && item.getClientRects().length > 0);
     (elements()[0] ?? dialog).focus();
     const keydown = (event: KeyboardEvent) => {
+      if (dialogs.at(-1) !== entry) return;
       if (event.key === 'Escape') { event.preventDefault(); close.current(); }
       if (event.key !== 'Tab') return;
       const items = elements(); const first = items[0]; const last = items.at(-1);
@@ -20,6 +26,13 @@ export function useDialogFocus(open: boolean, ref: RefObject<HTMLElement | null>
       else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
     };
     document.addEventListener('keydown', keydown);
-    return () => { document.removeEventListener('keydown', keydown); document.body.style.overflow = overflow; if (previous?.isConnected) previous.focus(); };
+    return () => {
+      document.removeEventListener('keydown', keydown);
+      const wasTopmost = dialogs.at(-1) === entry;
+      const index = dialogs.indexOf(entry);
+      if (index >= 0) dialogs.splice(index, 1);
+      if (!dialogs.length) document.body.style.overflow = originalOverflow;
+      if (wasTopmost && previous?.isConnected) previous.focus();
+    };
   }, [open, ref]);
 }

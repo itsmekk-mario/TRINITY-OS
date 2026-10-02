@@ -1,0 +1,320 @@
+/* Authentication and shared portals use the same materials as the app shell. */
+.login-page,
+.team-page,
+.teacher-dialog,
+.daily-detail-drawer,
+.teacher-password-dialog {
+  --bg: var(--surface, #fff);
+  --text: var(--text-primary, #1d1d1f);
+  --muted: var(--text-secondary, #6e6e73);
+  --line: var(--separator, rgba(60, 60, 67, .12));
+  min-width: 0;
+  color: var(--text-primary, #1d1d1f);
+}
+
+.login-page {
+  grid-template-columns: minmax(300px, .85fr) minmax(0, 1.15fr);
+  min-height: 100dvh;
+}
+.login-aside {
+  min-width: 0;
+  min-height: 100dvh;
+  padding: clamp(28px, 5vw, 72px);
+  background: var(--surface, #fff);
+  border-right: 1px solid var(--separator);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+.login-brand { border-color: var(--separator); }
+.login-brand .brand-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 13px;
+  background: var(--text-primary);
+  color: var(--surface);
+  font-size: 22px;
+}
+.login-brand strong { font-size: 14px; letter-spacing: .07em; }
+.login-brand span { color: var(--text-secondary); font-size: 11px; }
+.login-aside-copy { padding: 48px 0; }
+.login-aside-copy .eyebrow { color: var(--accent); }
+.login-aside-copy h1 {
+  font-size: clamp(30px, 3.3vw, 48px);
+  line-height: 1.25;
+  font-weight: 650;
+  letter-spacing: -.055em;
+  overflow-wrap: break-word;
+}
+.login-aside-copy > p:last-child { color: var(--text-secondary); font-size: 14px; }
+.login-aside-footer { border-color: var(--separator); }
+.login-aside-footer span { color: var(--text-primary); font-family: inherit; font-size: 12px; }
+.login-aside-footer small { color: var(--text-secondary); font-size: 11px; }
+.login-content { min-width: 0; padding: clamp(24px, 5vw, 64px); }
+.login-panel {
+  width: min(460px, 100%);
+  min-width: 0;
+  padding: 36px;
+  background: var(--surface);
+  border: 1px solid var(--separator);
+  border-radius: 24px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, .045);
+}
+.login-panel-head > div:first-child { min-width: 0; }
+.login-panel-head h2 { font-size: clamp(23px, 2.1vw, 28px); line-height: 1.35; }
+.login-panel-head p:last-child { font-size: 13px; color: var(--text-secondary); }
+.login-panel-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 12px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+}
+.role-entry {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  margin-bottom: 24px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--surface-secondary);
+}
+.role-entry button {
+  min-width: 0;
+  min-height: 42px;
+  padding: 8px 4px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  word-break: keep-all;
+  cursor: pointer;
+}
+.role-entry button.active {
+  background: var(--surface);
+  color: var(--text-primary);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, .09);
+}
+.login-form { gap: 18px; }
+.login-form label { min-width: 0; font-size: 13px; font-weight: 550; color: var(--text-secondary); }
+.login-form input,
+.password-change-form input {
+  min-width: 0;
+  min-height: 48px;
+  background: var(--surface-secondary);
+  border-color: var(--separator);
+  color: var(--text-primary);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 15px;
+}
+.login-form input:focus,
+.password-change-form input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.login-form small { color: var(--text-secondary); font-size: 11px; }
+.login-form > .button { min-height: 48px; border-radius: 12px; font-size: 14px; }
+.server-settings { min-height: 40px; color: var(--text-secondary); border-color: var(--separator); background: var(--surface-secondary); }
+.server-settings:hover { background: var(--surface-secondary); color: var(--text-primary); }
+.login-error { font-size: 12px; overflow-wrap: anywhere; }
+.password-change-modal { max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; }
+
+.team-page:not(.teacher-page) { max-width: 1120px; margin: 0 auto; padding: 44px 32px 64px; }
+.team-page :where(h1, h2, h3, p, b, small, summary),
+.feedback-inbox :where(h2, p, small) { overflow-wrap: anywhere; }
+.team-page :where(label, form, .field, .team-tools, .team-panel, .team-record),
+.teacher-context > *,
+.homeroom-summary > *,
+.homeroom-record-grid > *,
+.feedback-inbox .card > * { min-width: 0; }
+.team-panel {
+  padding: 24px;
+  margin-bottom: 20px;
+  border: 1px solid var(--separator);
+  border-radius: 20px;
+  background: var(--surface);
+}
+.team-panel h2 { margin: 0; font-size: 20px; letter-spacing: -.035em; }
+.team-panel > p { margin: 0 0 8px; font-size: 13px; line-height: 1.7; color: var(--text-secondary); }
+.team-page :where(label, .field),
+.exam-archive label { display: grid; gap: 8px; font-size: 12px; color: var(--text-secondary); }
+.team-page :where(input:not([type=checkbox]), select, textarea),
+.teacher-dialog :where(input:not([type=checkbox]), select, textarea) {
+  width: 100%;
+  min-width: 0;
+  border-color: var(--separator);
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+  border-radius: 10px;
+  font-size: 14px;
+}
+.team-page input[type=file] { overflow: hidden; }
+.feedback-admin .team-panel form,
+.support-owner > form,
+.exam-archive details > form { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); align-items: end; }
+.feedback-admin .team-panel form > .button,
+.support-owner > form > .button,
+.exam-archive details > form > .button { min-height: 42px; }
+.support-login,
+.teacher-login { width: 100%; max-width: 560px !important; margin: 0 auto; padding: 64px 24px !important; }
+.support-login h1 { font-size: 30px; letter-spacing: -.05em; }
+.team-tools { align-items: center; gap: 10px; }
+.team-tools > h1 { flex: 1 1 280px; margin: 0; }
+.team-tools > input { flex: 1 1 240px; width: auto; }
+.team-tools > a { color: var(--accent); font-size: 13px; }
+.team-record { color: var(--text-primary); background: var(--surface); border-color: var(--separator); border-radius: 14px; line-height: 1.6; }
+.exam-archive .team-record { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.exam-archive .team-record > b { min-width: 0; flex: 1 1 240px; font-size: 13px; }
+.team-record-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.team-record :where(pre, iframe) { min-width: 0; max-width: 100%; }
+.team-error { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; font-size: 13px; overflow-wrap: anywhere; }
+
+.teacher-page { max-width: 1440px; }
+.teacher-page-heading > div:first-child { min-width: 0; }
+.teacher-page-heading .teacher-actions { flex: 0 1 auto; justify-content: flex-end; }
+.teacher-actions .button { min-height: 40px; }
+.teacher-page .teacher-context { gap: 18px; grid-template-columns: minmax(0, 1fr) minmax(150px, .7fr) minmax(280px, 1.15fr); }
+.teacher-page .teacher-context .segmented-control {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100% !important;
+  gap: 3px !important;
+  padding: 4px !important;
+  background: var(--surface-secondary) !important;
+  border: 0 !important;
+  border-radius: 11px !important;
+  overflow: hidden;
+}
+.teacher-page .teacher-context .segmented-control button {
+  min-width: 0;
+  min-height: 38px !important;
+  padding: 6px 4px !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  white-space: normal !important;
+}
+.teacher-page .teacher-context .segmented-control button.active { background: var(--surface) !important; color: var(--text-primary) !important; border-bottom-color: transparent !important; box-shadow: 0 1px 4px rgba(0, 0, 0, .07) !important; }
+.teacher-form-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.teacher-page .button.primary,
+.teacher-dialog .button.primary,
+.teacher-password-dialog .button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.teacher-page button:focus-visible,
+.teacher-dialog button:focus-visible,
+.role-entry button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.homeroom-subject-chart { grid-template-columns: minmax(120px, 175px) minmax(0, 1fr); gap: 18px; }
+.homeroom-subject-filter label > span { flex-shrink: 0; white-space: nowrap; }
+.homeroom-subject-filter select { width: auto; }
+.homeroom-subject-legend > div { grid-template-columns: 9px minmax(0, 1fr) auto; gap: 8px; }
+.homeroom-subject-legend > div > small { grid-column: 2 / -1; text-align: left; margin-top: -4px; }
+.homeroom-card-heading > div { min-width: 0; }
+.homeroom-card-heading > small { flex-shrink: 0; }
+.homeroom-record > small { grid-column: 2 / -1; }
+.homeroom-score > small { grid-column: auto; }
+.homeroom-record > b { overflow: visible; text-overflow: clip; white-space: normal; line-height: 1.6; }
+.homeroom-record.homeroom-score { grid-template-columns: minmax(0, 1fr) auto; }
+.homeroom-score > span { grid-column: 1 / -1; text-align: left; }
+.teacher-dialog { max-height: calc(100dvh - 32px); overscroll-behavior: contain; }
+.teacher-dialog > header { gap: 12px; }
+.teacher-dialog > header h2 { min-width: 0; overflow-wrap: anywhere; }
+.teacher-inspector { max-height: 100dvh; }
+.teacher-password-backdrop { overflow-y: auto; overscroll-behavior: contain; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+.teacher-password-dialog { min-width: 0; max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; }
+.teacher-password-dialog > header { gap: 12px; }
+.daily-detail-backdrop { position: fixed; z-index: 110; inset: 0; background: rgba(0, 0, 0, .28); backdrop-filter: blur(4px); }
+.daily-detail-drawer { z-index: 1; width: min(600px, 100%); background: var(--surface); overscroll-behavior: contain; }
+.daily-detail-header { gap: 12px; background: var(--surface); }
+.daily-detail-header > div:first-child { min-width: 0; }
+.daily-detail-header h2 { overflow-wrap: anywhere; }
+.daily-detail-header > .teacher-actions { flex-shrink: 0; }
+.daily-detail-content .section-title { align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+.daily-evidence-row > div,
+.daily-plan-list article > div { min-width: 0; overflow-wrap: anywhere; }
+.daily-summary-grid b,
+.daily-subject-breakdown b { font-variant-numeric: tabular-nums; }
+
+.feedback-card-head > div { min-width: 0; }
+.feedback-card-head h2 { line-height: 1.45; }
+.feedback-card-head small { color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+.feedback-observation { color: var(--text-secondary); font-size: 14px; }
+.feedback-actions-text { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.feedback-actions-text section { background: var(--surface-secondary); border-radius: 12px; padding: 16px; }
+.feedback-actions-text b { color: var(--text-secondary); font-size: 12px; }
+.feedback-actions-text p { font-size: 13px; }
+.feedback-coach { border-color: var(--separator); background: var(--surface); border-radius: 18px; }
+.feedback-coach > div { min-width: 0; }
+.feedback-coach b { color: var(--accent); }
+.feedback-coach p { color: var(--text-secondary); font-size: 13px; }
+.feedback-coach > .button { flex: 0 0 auto; }
+.feedback-buttons .button { min-height: 42px; }
+
+@media (max-width: 1100px) {
+  .teacher-page-heading { flex-direction: column; }
+  .teacher-page-heading .teacher-actions { justify-content: flex-start; }
+  .teacher-page .teacher-context { grid-template-columns: minmax(0, 1fr) minmax(180px, .7fr); }
+  .teacher-context > div:last-child { grid-column: 1 / -1; }
+  .homeroom-summary { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .login-page { display: block; }
+  .login-aside { min-height: auto; padding: max(20px, env(safe-area-inset-top)) 24px 20px; border-right: 0; border-bottom: 1px solid var(--separator); }
+  .login-brand { padding: 0; border: 0; }
+  .login-aside-copy, .login-aside-footer { display: none; }
+  .login-content { min-height: calc(100dvh - 83px); padding: 32px 20px; align-items: start; }
+  .login-panel { padding: 28px; border-radius: 22px; }
+  .team-page:not(.teacher-page) { padding: 28px 20px 44px; }
+  .team-panel { padding: 20px; border-radius: 18px; }
+  .support-login, .teacher-login { padding: 36px 20px !important; }
+  .team-page :where(input:not([type=checkbox]), select, textarea),
+  .login-form input,
+  .password-change-form input,
+  .teacher-dialog :where(input:not([type=checkbox]), select, textarea),
+  .teacher-password-dialog input { min-height: 44px; font-size: 16px; }
+  .team-page .button, .teacher-dialog .button, .teacher-password-dialog .button { min-height: 44px; }
+  .feedback-actions-text { grid-template-columns: minmax(0, 1fr); }
+  .feedback-coach { flex-direction: column; align-items: stretch; }
+  .feedback-coach > .button { width: 100%; margin-top: 0; }
+  .daily-detail-drawer { padding: max(18px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom)); }
+  .daily-detail-header { top: -18px; padding-top: 18px; }
+}
+@media (max-width: 600px) {
+  .teacher-page .teacher-context { display: flex; flex-direction: column; align-items: stretch; }
+  .teacher-actions { gap: 8px; }
+  .teacher-page-heading .teacher-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .teacher-page-heading .teacher-actions > .button:last-child { grid-column: 1 / -1; }
+  .teacher-page .teacher-context .segmented-control button { font-size: 11px !important; }
+  .homeroom-subject-chart { grid-template-columns: minmax(0, 1fr); }
+  .homeroom-subject-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .homeroom-card-heading { align-items: flex-start; flex-wrap: wrap; }
+  .homeroom-card-heading > small { max-width: none; text-align: left; }
+  .homeroom-subject-filter label { justify-content: space-between; width: 100%; }
+  .homeroom-subject-filter select { min-width: 0; width: auto; max-width: 70%; }
+  .teacher-dialog { width: calc(100% - 24px); height: auto; max-height: calc(100dvh - 24px); inset: 0; margin: auto; border-radius: 20px; padding: 22px 20px; }
+  .teacher-inspector { inset: 0; width: 100%; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; }
+  .daily-detail-header h2 { font-size: 20px; line-height: 1.35; }
+  .daily-detail-header > .teacher-actions { gap: 4px; }
+  .daily-plan-list article { grid-template-columns: auto minmax(0, 1fr); }
+  .daily-plan-list article > em { grid-column: 2; }
+  .teacher-calendar-legend { gap: 6px 9px; font-size: 10px; }
+  .feedback-card-head { flex-wrap: wrap; gap: 10px; }
+  .feedback-buttons { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .feedback-buttons .button { width: 100%; white-space: normal; }
+}
+@media (max-width: 400px) {
+  .login-content { padding: 24px 16px; }
+  .login-panel { padding: 22px 18px; }
+  .login-panel-head { display: flex; gap: 10px; }
+  .login-panel-icon { margin-top: 0; width: 34px; height: 34px; flex-basis: 34px; }
+  .role-entry button { font-size: 11px; }
+  .team-page:not(.teacher-page) { padding-left: 16px; padding-right: 16px; }
+  .teacher-form-pair { grid-template-columns: minmax(0, 1fr); }
+  .homeroom-subject-legend { grid-template-columns: minmax(0, 1fr); }
+  .teacher-quick-links { grid-template-columns: minmax(0, 1fr); }
+  .daily-detail-header { flex-wrap: wrap; }
+}

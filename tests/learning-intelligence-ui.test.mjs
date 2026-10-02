@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {readFileSync} from 'node:fs';
+import ts from 'typescript';
 
 const archive=readFileSync(new URL('../src/pages/LearningArchive.tsx',import.meta.url),'utf8');
 const train=readFileSync(new URL('../src/pages/TrainHub.tsx',import.meta.url),'utf8');
@@ -33,7 +34,12 @@ test('Core Rules use the same document archive interaction model as Learning Arc
   assert.match(archive,/const loadRules=async/);
   assert.match(archive,/ruleError/);
   assert.match(archive,/다시 불러오기/);
-  assert.doesNotMatch(archive,/Promise\.all\(\[archiveApi<ArchivePage>\([\s\S]*?archive\/rules/);
+  const source=ts.createSourceFile('LearningArchive.tsx',archive,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
+  const functions=new Map();
+  function visit(node){if(ts.isVariableDeclaration(node)&&ts.isIdentifier(node.name)&&node.initializer)functions.set(node.name.text,node.initializer.getText(source));ts.forEachChild(node,visit)}
+  visit(source);
+  assert.match(functions.get('loadRules'),/archive\/rules/);
+  assert.doesNotMatch(functions.get('load'),/archive\/rules/);
   assert.doesNotMatch(archive,/core-rule-workspace/);
   assert.match(styles,/\.core-rule-document-list\{display:block;width:100%\}/);
 });

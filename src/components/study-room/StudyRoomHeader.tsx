@@ -16,9 +16,9 @@ export default function StudyRoomHeader({ room, participants, connectionState, c
       <span className={`study-live-pill ${connectionState}`}><i />{stateLabel(connectionState)}</span>
       <span className="study-member-count">{participants.length} / {room.maxParticipants}</span>
       <span className="study-network"><Wifi size={14} />{connectionState === 'connected' ? '연결 양호' : stateLabel(connectionState)}</span>
-      <button className="study-room-code" onClick={copy} aria-label="Copy room code"><small>ROOM CODE</small><b>{room.code}</b><Copy size={14} /></button>
+      <button className="study-room-code" onClick={copy} aria-label={`초대 코드 ${room.code} 복사`} title="초대 코드 복사"><small>ROOM CODE</small><b>{room.code}</b><Copy size={14} /></button>
     </div>
-    <div className="study-room-subheader"><span><ShieldCheck size={15} /> LiveKit encrypted room · total focus {totalLabel(total)}</span><span className="study-header-hint">Click a participant to focus</span></div>
+    <div className="study-room-subheader"><span><ShieldCheck size={15} /> 암호화된 집중 공간 · 함께 공부한 시간 {totalLabel(total)}</span><span className="study-header-hint">참가자를 눌러 크게 보기</span></div>
     {import.meta.env.DEV && <details className="study-diagnostics"><summary>MEDIA DIAGNOSTICS</summary><div><p><b>Capture</b>{capture?.width && capture?.height ? `${capture.width}×${capture.height} · ${capture.frameRate ?? '–'}fps` : 'Camera inactive'}</p><p><b>Outbound</b>{quality(diagnostics?.outbound)}</p><p><b>Focus inbound</b>{quality(diagnostics?.inbound)}</p></div></details>}
   </header>;
 }

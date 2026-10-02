@@ -67,10 +67,10 @@ export default function LoginPage({ onAuthenticated }: { onAuthenticated: () => 
     <section className="login-content">
       <div className="login-panel">
         <div className="login-panel-head"><div><p className="eyebrow">안전한 로그인</p><h2>{heading}</h2><p>기존 아이디와 비밀번호로 로그인하세요.</p></div><div className="login-panel-icon"><LockKeyhole size={19} /></div></div>
-        <div className="role-entry" role="tablist" aria-label="로그인 역할">
-          <button type="button" className={role === 'student' ? 'active' : ''} onClick={() => setRole('student')}>학생 로그인</button>
-          <button type="button" className={role === 'teacher' ? 'active' : ''} onClick={() => setRole('teacher')}>선생님 로그인</button>
-          <button type="button" className={role === 'parent' ? 'active' : ''} onClick={() => setRole('parent')}>학부모 로그인</button>
+        <div className="role-entry" role="group" aria-label="로그인 역할">
+          <button type="button" aria-pressed={role === 'student'} className={role === 'student' ? 'active' : ''} onClick={() => setRole('student')}>학생 로그인</button>
+          <button type="button" aria-pressed={role === 'teacher'} className={role === 'teacher' ? 'active' : ''} onClick={() => setRole('teacher')}>선생님 로그인</button>
+          <button type="button" aria-pressed={role === 'parent'} className={role === 'parent' ? 'active' : ''} onClick={() => setRole('parent')}>학부모 로그인</button>
         </div>
         <form onSubmit={submit} className="login-form">
           {import.meta.env.DEV && (showServerSettings

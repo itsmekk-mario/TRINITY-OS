@@ -12,7 +12,7 @@ export function StatusBadge({ value }: { value:string }) { return <span classNam
 export function Insight({ label, title, children }: { label:string; title:string; children?:ReactNode }) { return <section className="teacher-insight"><span className="eyebrow">{label}</span><h2>{title}</h2>{children}</section>; }
 export function TeacherDialog({ title, onClose, children, inspector=false }: { title:string; onClose:()=>void; children:ReactNode; inspector?:boolean }) {
   const ref=useRef<HTMLDialogElement>(null);
-  useEffect(()=>{const dialog=ref.current;const previous=document.activeElement as HTMLElement|null;dialog?.showModal();return()=>{dialog?.close();previous?.focus();};},[]);
+  useEffect(()=>{const dialog=ref.current;const previous=document.activeElement as HTMLElement|null;const overflow=document.body.style.overflow;document.body.style.overflow='hidden';dialog?.showModal();return()=>{dialog?.close();document.body.style.overflow=overflow;if(previous?.isConnected)previous.focus();};},[]);
   return <dialog ref={ref} className={inspector?'teacher-dialog teacher-inspector':'teacher-dialog'} aria-label={title} onCancel={onClose}><header><h2>{title}</h2><button className="button" type="button" autoFocus onClick={onClose} aria-label="닫기">닫기</button></header>{children}</dialog>;
 }
 export function FeedbackComposer({ role, subject, target, onSubmit, busy }: { role:TeacherRole; subject:Subject; target?:EvidenceTarget; onSubmit:(draft:FeedbackDraft)=>Promise<void>; busy:boolean }) {

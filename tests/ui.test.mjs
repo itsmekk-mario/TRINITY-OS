@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile, access } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -38,22 +39,25 @@ const { Empty, PageHeader } = await load('../src/components/Ui.tsx');
 const { default: HubLayout } = await load('../src/components/navigation/HubLayout.tsx');
 const { default: SegmentedControl } = await load('../src/components/navigation/SegmentedControl.tsx');
 const today = toDateKey();
-const data = () => ({ calendar: {}, sessions: [], scores: [], wrongAnswerDrills: [], dailyDrills: [], weeklyCapabilityGoals: [], plaire: {}, trinity: [], examDate: '2028-11-16' });
+const data = () => ({ calendar: {}, sessions: [], scores: [], wrongAnswerDrills: [], dailyDrills: [], weeklyCapabilityGoals: [], monthlyPlans: [], notionPages: [], resources: [], plaire: {}, trinity: [], examDate: '2028-11-16' });
 const renderToday = (value) => renderToStaticMarkup(createElement(Dashboard, { data: value, update() {}, navigate() {} }));
 
 test('Today empty state gives a next action without fabricated capability metrics', () => {
   const html = renderToday(data());
-  assert.match(html, /첫 학습을 계획하세요/);
-  assert.match(html, /일정 추가/);
-  assert.ok(html.indexOf('next-action') < html.indexOf('execution-section'));
-  assert.ok(html.indexOf('execution-section') < html.indexOf('today-learning-compact'));
-  assert.ok(html.indexOf('today-learning-compact') < html.indexOf('today-schedule'));
+  assert.match(html, /오늘의 첫 학습을 설계하세요/);
+  assert.match(html, /계획 만들기/);
+  assert.match(html, /계획 추가/);
+  assert.ok(html.indexOf('today-hero') < html.indexOf('today-metrics'));
+  assert.ok(html.indexOf('today-metrics') < html.indexOf('today-main-grid'));
+  assert.ok(html.indexOf('today-main-grid') < html.indexOf('today-loop'));
+  assert.match(html, /기록 대기/);
+  assert.match(html, /오답 데이터 필요/);
   assert.match(html, /REVIEW/);
   assert.match(html, /CORE RULE/);
   assert.match(html, /오늘 Review 없음/);
   assert.match(html, /우선 Core Rule 없음/);
   assert.doesNotMatch(html, /오늘 다시 재현할 것|오늘 재현할 판단 기준|지금 다시 검증할 Core Rule/);
-  assert.doesNotMatch(html, /LEARNING SIGNALS|최근 14일|today-hero/);
+  assert.doesNotMatch(html, /LEARNING SIGNALS|최근 14일/);
 });
 test('Today reuses plan, session and correction records without mutating AppData', () => {
   const value = data();
@@ -62,6 +66,7 @@ test('Today reuses plan, session and correction records without mutating AppData
   value.wrongAnswerDrills = [{ id: 'w', date: today, bottleneck: '조건 누락', correction: '경계값을 재검사', wrongJudgment: '', missedCue: '', transfer: '', retries: [] }];
   const before = structuredClone(value); const html = renderToday(value);
   assert.match(html, /수열 Theme 12/); assert.match(html, /목표 40분/);
+  assert.match(html, /0시간 20분/);
   assert.match(html, /공부 시작/);
   assert.deepEqual(value, before);
 });
@@ -80,9 +85,21 @@ test('Empty accepts both legacy children and action-oriented props', () => {
 });
 test('Static route entrypoints retain existing URLs and Arena alias', async () => {
   const script = await readFile(new URL('../scripts/create-spa-entrypoints.mjs', import.meta.url), 'utf8');
-  for (const route of ['today', 'plan', 'train', 'test', 'insights', 'coach', 'feedback', 'workspace', 'profile', 'archive', 'arena']) assert.ok(script.includes(`'${route}'`));
+  for (const route of ['today', 'dashboard', 'plan', 'train', 'test', 'insights', 'study-room', 'coach', 'feedback', 'workspace', 'profile', 'archive', 'arena']) assert.ok(script.includes(`'${route}'`));
   const app = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
-  assert.match(app, /path === '\/arena' \|\| path === '\/profile'/);
+  const source = ts.createSourceFile('App.tsx', app, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const declarations = new Map();
+  function visit(node) {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) declarations.set(node.name.text, node.getText(source));
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  assert.ok(declarations.has('paths')); assert.ok(declarations.has('pageFromLocation'));
+  const routeSource = ts.transpileModule(`const ${declarations.get('paths')}; const ${declarations.get('pageFromLocation')}; pageFromLocation();`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const resolveRoute = (pathname) => runInNewContext(routeSource, { window: { location: { pathname } } });
+  for (const pathname of ['/arena', '/profile', '/arena/']) assert.equal(resolveRoute(pathname), 'profile');
+  for (const route of ['today', 'plan', 'train', 'test', 'insights', 'coach', 'feedback', 'workspace', 'archive', 'study-room']) assert.equal(resolveRoute(`/${route}`), route);
+  for (const pathname of ['/', '/dashboard', '/unknown']) assert.equal(resolveRoute(pathname), 'today');
   assert.match(app, /popstate/); assert.doesNotMatch(app, /Profile · Arena|<Database/);
 });
 
@@ -94,8 +111,8 @@ const teacherProps = () => ({ data:teacherData(), range:{start:'2026-09-08',end:
 test('teacher roles render distinct information architectures and evidence-based empty states',()=>{
  const math=renderToStaticMarkup(createElement(MathTeacherDashboard,teacherProps()));
  const learning=renderToStaticMarkup(createElement(LearningManagerDashboard,teacherProps()));
- assert.match(math,/Capability/);assert.match(math,/Bottlenecks/);assert.match(math,/Wrong Answers/);assert.doesNotMatch(math,/Schedule \/ Load/);
- assert.match(learning,/Execution/);assert.match(learning,/Teacher Signals/);assert.match(learning,/Schedule \/ Load/);assert.doesNotMatch(learning,/Wrong Answers/);
+ assert.match(math,/수학 선생님 공간/);assert.match(math,/진단/);assert.match(math,/학습 기록/);assert.match(math,/오답 근거 검토/);assert.match(math,/Learning Manager Signals/);assert.doesNotMatch(math,/학습 관리/);
+ assert.match(learning,/학습 관리/);assert.match(learning,/목표 관리/);assert.match(learning,/소통/);assert.match(learning,/Subject Teacher Signals/);assert.doesNotMatch(learning,/오답 근거 검토/);
  assert.match(math,/현재 수학 병목을 판단할 기록이 부족합니다/);assert.match(learning,/데이터 부족/);assert.doesNotMatch(math,/성적 예측|실력 지수|AI confidence/);
 });
 test('signal cards prioritize active signals before resolved history',()=>{

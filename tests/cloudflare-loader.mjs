@@ -1,3 +1,5 @@
+import { access } from 'node:fs/promises';
+
 const DURABLE_OBJECT_STUB = `
 export class DurableObject {
   constructor(ctx, env) {
@@ -14,5 +16,17 @@ export async function resolve(specifier, context, nextResolve) {
       shortCircuit: true,
     };
   }
-  return nextResolve(specifier, context);
+  try {
+    return await nextResolve(specifier, context);
+  } catch (error) {
+    // Vite's bundler accepts extensionless TypeScript imports; Node's native
+    // type stripping still needs their full file URL when running this suite.
+    if (error.code !== 'ERR_MODULE_NOT_FOUND' || !specifier.startsWith('.') || !context.parentURL?.startsWith('file:')) throw error;
+    for (const suffix of ['.ts', '.js', '.mjs', '/index.ts', '/index.js']) {
+      const candidate = new URL(specifier + suffix, context.parentURL);
+      try { await access(candidate); } catch { continue; }
+      return nextResolve(candidate.href, context);
+    }
+    throw error;
+  }
 }

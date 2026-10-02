@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { KeyRound, LogOut, RefreshCw, X } from 'lucide-react';
 import { loadCloudflareConfig } from '../lib/cloudflare';
 import type { Feedback } from '../lib/feedback';
@@ -11,6 +11,7 @@ import MathTeacherDashboard from '../components/teacher/MathTeacherDashboard';
 import LearningManagerDashboard from '../components/teacher/LearningManagerDashboard';
 import HomeroomDashboard from '../components/teacher/HomeroomDashboard';
 import { InterventionEditor, type FeedbackDraft } from '../components/teacher/shared';
+import { useDialogFocus } from '../components/motion/useDialogFocus';
 type Auth={url:string;token:string;role:TeacherRole};
 type Assignment={id:string;student_id:string;student_name?:string;subject?:Subject;role:TeacherRole;permissions?:{createFeedback?:boolean}};
 const base=(url:string)=>url.replace(/\/+$/,'');
@@ -28,6 +29,8 @@ export default function CollaborativePortal({role, subjectHint}:{role:TeacherRol
   const [data,setData]=useState<TeacherData|null>(null),[feedback,setFeedback]=useState<Feedback[]>([]),[loadedStudent,setLoadedStudent]=useState(''),[syncedAt,setSyncedAt]=useState('');
   const [loading,setLoading]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[success,setSuccess]=useState(''),[revision,setRevision]=useState(0);
   const [passwordOpen,setPasswordOpen]=useState(false),[currentPassword,setCurrentPassword]=useState(''),[newPassword,setNewPassword]=useState(''),[confirmPassword,setConfirmPassword]=useState('');
+  const passwordDialogRef=useRef<HTMLFormElement>(null);
+  useDialogFocus(passwordOpen,passwordDialogRef,()=>setPasswordOpen(false));
   const [period,setPeriod]=useState('14'),[range,setRange]=useState<DateRange>(()=>recentRange(14));
   const [intervention,setIntervention]=useState<{item:Feedback;kind:'weekly'|'daily'}>();
   const [archive,setArchive]=useState<Array<{id:string;subject:string;title:string;studiedAt:string;masteryStatus:string;category?:string;annotations:Array<{color:string}>;coreRules:Array<{id:string;title:string;content:string}>}>|null>(null);
@@ -77,6 +80,6 @@ export default function CollaborativePortal({role, subjectHint}:{role:TeacherRol
     {error&&<div role="alert" className="team-error">{error}<button className="button" onClick={()=>setRevision(value=>value+1)}>다시 시도</button></div>}{success&&<p role="status">{success}</p>}
     {showList?<Card><h2>담당 학생</h2>{assignments.map(item=><button className="row-link" key={item.id} disabled={busy} onClick={()=>{setSelected(item.student_id);setShowList(false);}}>{item.student_name??item.student_id} · {item.subject??'전체 과목'} →</button>)}</Card>:loading?<section className="teacher-loading" aria-live="polite" aria-busy="true">학습 기록을 불러오는 중…</section>:!assignment?<Empty title="연결된 담당 학생이 없습니다." description="관리자에게 담당 배정을 요청하세요."/>:loadedStudent===selected&&data?<div className="teacher-homeroom-layout" key={selected}><HomeroomDashboard data={data} range={range}/></div>:!error?<Empty title="동기화된 학습 기록이 없습니다." description="학생의 Sync가 완료되면 실제 학습 기록을 확인할 수 있습니다."/>:null}
     {intervention&&<InterventionEditor item={intervention.item} kind={intervention.kind} busy={busy} onClose={()=>setIntervention(undefined)} onSave={async value=>{await updateSignal(intervention.item,intervention.kind==='weekly'?{weeklyGoal:value}:{dailyDrill:value});setSuccess('목표·Drill 초안을 전달했습니다. 학생 피드백함에서 최종 확인 후 생성합니다.');}}/>}
-    {passwordOpen&&<div className="teacher-password-backdrop" onClick={()=>setPasswordOpen(false)}><form className="teacher-password-dialog" onSubmit={changePassword} onClick={event=>event.stopPropagation()}><header><div><span className="card-label">ACCOUNT SECURITY</span><h2>비밀번호 변경</h2></div><button type="button" className="icon-button" aria-label="닫기" onClick={()=>setPasswordOpen(false)}><X size={18}/></button></header><Field label="현재 비밀번호"><input type="password" autoComplete="current-password" required value={currentPassword} onChange={event=>setCurrentPassword(event.target.value)}/></Field><Field label="새 비밀번호 · 9자 이상"><input type="password" autoComplete="new-password" minLength={9} required value={newPassword} onChange={event=>setNewPassword(event.target.value)}/></Field><Field label="새 비밀번호 확인"><input type="password" autoComplete="new-password" minLength={9} required value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)}/></Field><button className="button primary" disabled={busy}>변경 저장</button></form></div>}
+    {passwordOpen&&<div className="teacher-password-backdrop" onClick={()=>setPasswordOpen(false)}><form ref={passwordDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="teacher-password-title" className="teacher-password-dialog" onSubmit={changePassword} onClick={event=>event.stopPropagation()}><header><div><span className="card-label">ACCOUNT SECURITY</span><h2 id="teacher-password-title">비밀번호 변경</h2></div><button type="button" className="icon-button" aria-label="닫기" onClick={()=>setPasswordOpen(false)}><X size={18}/></button></header><Field label="현재 비밀번호"><input type="password" autoComplete="current-password" required value={currentPassword} onChange={event=>setCurrentPassword(event.target.value)}/></Field><Field label="새 비밀번호 · 9자 이상"><input type="password" autoComplete="new-password" minLength={9} required value={newPassword} onChange={event=>setNewPassword(event.target.value)}/></Field><Field label="새 비밀번호 확인"><input type="password" autoComplete="new-password" minLength={9} required value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)}/></Field>{error&&<p className="team-error" role="alert">{error}</p>}<button className="button primary" disabled={busy}>{busy?'저장 중…':'변경 저장'}</button></form></div>}
   </main>;
 }

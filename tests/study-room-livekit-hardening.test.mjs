@@ -38,7 +38,9 @@ test('Cam Study lifecycle is mounted above page transitions and exposes a persis
   const app = read('src/App.tsx');
   const provider = read('src/components/study-room/CamStudyProvider.tsx');
   const page = read('src/pages/StudyRoom.tsx');
-  assert.match(app, /<CamStudyProvider data=\{data\}/);
+  assert.match(app, /<CamStudyProvider\s+data=\{data\}/);
+  assert.ok(app.indexOf('<CamStudyProvider') < app.indexOf('<PageTransition'));
+  assert.ok(app.indexOf('</PageTransition>') < app.indexOf('</CamStudyProvider>'));
   assert.match(provider, /useCamera\(\)/);
   assert.match(provider, /useStudyRoom\(room\?\.code/);
   assert.match(provider, /cam-mini/);

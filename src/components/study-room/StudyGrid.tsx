@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import type { StudyParticipant } from '../../lib/studyRoom';
 import ParticipantTile from './ParticipantTile';
 
@@ -14,7 +14,7 @@ export default function StudyGrid({ participants, selfId, focusedId, onFocus }: 
     a.id === focusedId ? -1 : b.id === focusedId ? 1 : a.id === selfId ? -1 : b.id === selfId ? 1 : a.name.localeCompare(b.name)
   )), [focusedId, participants, selfId]);
   const focused = ordered.some((participant) => participant.id === focusedId);
-  return <section className={`study-grid participants-${Math.max(1, ordered.length)} ${focused ? 'focus-view' : ''}`} aria-label="Study Room participants">
+  return <section className={`study-grid participants-${Math.max(1, ordered.length)} ${focused ? 'focus-view' : ''}`} style={{ '--study-peer-count': Math.max(1, ordered.length - 1) } as CSSProperties} aria-label="Study Room participants">
     {ordered.map((participant) => <ParticipantTile key={participant.id} participant={participant} isSelf={participant.id === selfId} focused={participant.id === focusedId} now={now} onFocus={() => onFocus(focusedId === participant.id ? undefined : participant.id)} />)}
   </section>;
 }

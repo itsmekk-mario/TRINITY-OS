@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useMemo, useRef, useState } from 'react';
 import { Check, Ellipsis, Link2, Plus, Trash2, X } from 'lucide-react';
 import type { AppData, Subject, WeeklyCapabilityGoal } from '../types';
 import { SUBJECTS } from '../data/config';
 import { toDateKey, uid } from '../lib/date';
 import { getSubjectColor } from '../lib/subjectColors';
+import { useDialogFocus } from '../components/motion/useDialogFocus';
 
 const endOfWeek = (weekStart: string) => {
   const date = new Date(`${weekStart}T12:00:00+09:00`);
@@ -20,6 +22,7 @@ export default function WeeklyGoals({data, update, weekStart}:{data:AppData;upda
   const [sheetOpen, setSheetOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(blankDraft());
   const [linkedPlanKeys, setLinkedPlanKeys] = useState<string[]>([]);
+  const sheetRef = useRef<HTMLElement>(null);
 
   const goals = useMemo(
     () => data.weeklyCapabilityGoals.filter((goal) => goal.weekStart === weekStart),
@@ -63,6 +66,8 @@ export default function WeeklyGoals({data, update, weekStart}:{data:AppData;upda
     setDraft(blankDraft());
     setLinkedPlanKeys([]);
   };
+
+  useDialogFocus(sheetOpen, sheetRef, closeSheet);
 
   const save = () => {
     if (!draft.ability.trim() || !draft.successCriterion.trim()) return;
@@ -162,15 +167,15 @@ export default function WeeklyGoals({data, update, weekStart}:{data:AppData;upda
       </article>)}
     </div>
 
-    {sheetOpen && <div className="weekly-goal-sheet-backdrop" role="presentation" onMouseDown={closeSheet}>
-      <aside className="weekly-goal-sheet" role="dialog" aria-modal="true" aria-labelledby="weekly-goal-sheet-title" onMouseDown={(event) => event.stopPropagation()}>
+    {sheetOpen && createPortal(<div className="weekly-goal-sheet-backdrop" role="presentation" onMouseDown={closeSheet}>
+      <aside ref={sheetRef} className="weekly-goal-sheet" role="dialog" aria-modal="true" aria-labelledby="weekly-goal-sheet-title" onMouseDown={(event) => event.stopPropagation()}>
         <header>
           <div><p className="weekly-kicker">WEEKLY GOAL</p><h2 id="weekly-goal-sheet-title">{editing ? '주간 목표 수정' : '주간 목표 추가'}</h2></div>
           <button className="weekly-sheet-close" type="button" aria-label="닫기" onClick={closeSheet}><X size={19}/></button>
         </header>
         <div className="weekly-goal-sheet-body">
           <label className="weekly-field"><span>과목</span><select value={draft.subject} onChange={(event) => setDraft({...draft, subject:event.target.value as Subject})}>{SUBJECTS.map((item) => <option key={item}>{item}</option>)}</select></label>
-          <label className="weekly-field"><span>이번 주 목표</span><input autoFocus value={draft.ability} onChange={(event) => setDraft({...draft, ability:event.target.value})} placeholder="예: 2709 · 2706 · 2611 분석 완료"/></label>
+          <label className="weekly-field"><span>이번 주 목표</span><input value={draft.ability} onChange={(event) => setDraft({...draft, ability:event.target.value})} placeholder="예: 2709 · 2706 · 2611 분석 완료"/></label>
           <label className="weekly-field"><span>성공 기준</span><textarea rows={3} value={draft.successCriterion} onChange={(event) => setDraft({...draft, successCriterion:event.target.value})} placeholder="예: 근거-선지 대응을 매 지문에서 재현하고 평균 2등급 이상 유지"/></label>
           <label className="weekly-field"><span>설명 · 훈련 설계 <small>선택</small></span><textarea rows={3} value={draft.drillDesign} onChange={(event) => setDraft({...draft, drillDesign:event.target.value})} placeholder="이번 주에 어떻게 반복하고 검증할지"/></label>
 
@@ -191,6 +196,6 @@ export default function WeeklyGoals({data, update, weekStart}:{data:AppData;upda
           <button className="weekly-sheet-save" type="button" onClick={save} disabled={!draft.ability.trim() || !draft.successCriterion.trim()}>{editing ? '변경사항 저장' : '목표 추가'}</button>
         </footer>
       </aside>
-    </div>}
+    </div>, document.body)}
   </section>;
 }

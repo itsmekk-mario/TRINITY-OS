@@ -1,5 +1,7 @@
+import { createPortal } from 'react-dom';
 import DayLabelEditor from '../components/DayLabelEditor';
 import PlanLinks from '../components/PlanLinks';
+import { useDialogFocus } from '../components/motion/useDialogFocus';
 import WeeklyGoals from './WeeklyGoals';
 import { bumpDrafts } from '../lib/planGraph';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -24,6 +26,7 @@ export default function PlanningPage({ data, update, initialTab = 'weekly' }: { 
   const currentWeekRef = useRef(weekStartKey());
   const [month, setMonth] = useState(toDateKey().slice(0, 7));
   const [taskDate, setTaskDate] = useState<string | null>(null);
+  const taskDialogRef = useRef<HTMLDivElement>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [task, setTask] = useState<WeeklyTaskDraft>(blankTask(weekStartKey()));
   const [openMonthly, setOpenMonthly] = useState(false);
@@ -31,7 +34,8 @@ export default function PlanningPage({ data, update, initialTab = 'weekly' }: { 
   const [editingMonthlyId, setEditingMonthlyId] = useState<string | null>(null);
   const [dragging, setDragging] = useState<{ kind: 'weekly'; date: string; id: string } | { kind: 'monthly'; id: string } | null>(null);
   const [dragHint, setDragHint] = useState('');
-  const dragTimer = useState<{ current: number | null }>({ current: null })[0];
+  const dragTimer = useRef<number | null>(null);
+  useEffect(() => () => { if (dragTimer.current) window.clearTimeout(dragTimer.current); }, []);
   useEffect(() => {
     const syncWeek = () => {
       const previousCurrentWeek = currentWeekRef.current;
@@ -54,6 +58,7 @@ export default function PlanningPage({ data, update, initialTab = 'weekly' }: { 
   const monthlyPlans = useMemo(() => data.monthlyPlans.filter((item) => item.month === month), [data.monthlyPlans, month]);
   const openTask = (date: string, existing?: CalendarPlan) => { setTaskDate(date); setEditingTaskId(existing?.id ?? null); setTask(existing ? { ...existing, date } : blankTask(date)); };
   const closeTask = () => { setTaskDate(null); setEditingTaskId(null); };
+  useDialogFocus(Boolean(taskDate), taskDialogRef, closeTask);
   const saveTask = () => {
     if (!taskDate || !task.title.trim()) return;
     update((value) => {
@@ -91,11 +96,11 @@ export default function PlanningPage({ data, update, initialTab = 'weekly' }: { 
     const plans = [...value.monthlyPlans]; const [item] = plans.splice(sourceIndex, 1); plans.splice(Math.max(0, Math.min(targetIndex, plans.length)), 0, item); return { ...value, monthlyPlans: plans };
   });
   const startDrag = (event: React.PointerEvent<HTMLElement>, value: NonNullable<typeof dragging>) => {
-    if (event.button !== 0 || (event.target as HTMLElement).closest('button, input, textarea, select')) return;
+    if (event.button !== 0 || !(event.target as HTMLElement).closest('.drag-handle')) return;
     event.currentTarget.setPointerCapture?.(event.pointerId);
     dragTimer.current = window.setTimeout(() => { setDragging(value); setDragHint('놓으면 이 위치로 이동합니다'); navigator.vibrate?.(12); }, 380);
   };
-  const cancelDrag = () => { if (dragTimer.current) window.clearTimeout(dragTimer.current); dragTimer.current = null; };
+  const cancelDrag = () => { if (dragTimer.current) window.clearTimeout(dragTimer.current); dragTimer.current = null; setDragging(null); setDragHint(''); };
   const finishDrag = (event: React.PointerEvent<HTMLElement>) => {
     cancelDrag(); if (!dragging) return;
     const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-week-drop], [data-month-drop]');
@@ -109,7 +114,7 @@ export default function PlanningPage({ data, update, initialTab = 'weekly' }: { 
   const moveWeek = (delta: number) => { const next = new Date(`${weekStart}T00:00:00`); next.setDate(next.getDate() + delta * 7); setWeekStart(toDateKey(next)); };
   const monthWeekCount = useMemo(() => { const map = new Map<string, number>(); Object.values(data.calendar).forEach((entry) => { if (entry.date.startsWith(month)) { const key = weekStartKey(new Date(`${entry.date}T00:00:00`)); map.set(key, (map.get(key) ?? 0) + (entry.plans?.length ?? 0)); } }); return [...map.entries()].sort(([a], [b]) => a.localeCompare(b)); }, [data.calendar, month]);
 
-  return <div>
+  return <div className="planning-page">
     <PageHeader eyebrow="LEARNING PLAN" title="Weekly · Monthly Plan" description="달력 칸 대신, 표에서 날짜별 실행 계획과 월간 방향을 한눈에 설계합니다." />
     <div className="plan-tabs"><button className={tab === 'weekly' ? 'active' : ''} onClick={() => setTab('weekly')}>WEEKLY PLAN</button><button className={tab === 'monthly' ? 'active' : ''} onClick={() => setTab('monthly')}>MONTHLY PLAN</button></div>
     {tab === 'weekly' ? <>
@@ -117,7 +122,7 @@ export default function PlanningPage({ data, update, initialTab = 'weekly' }: { 
       <div className="weekly-table card"><div className="weekly-table-head"><span>날짜</span><span>학습 계획 · 목표량</span></div>{dates.map((date) => {
         const plans = data.calendar[date]?.plans ?? [];
         return <div className="weekly-day-row" key={date}><div className="weekly-date"><strong>{dateLabel(date)}</strong><details><summary>{data.calendar[date]?.dayLabel || data.calendar[date]?.dayType?.toUpperCase() || '날짜 이름'}</summary><DayLabelEditor entry={data.calendar[date] ?? emptyCalendar(date)} onChange={entry=>update(v=>({...v,calendar:{...v.calendar,[date]:entry}}))}/></details>{data.calendar[date]?.dayType==='bump' && <button onClick={()=>{const drafts=bumpDrafts(data,date); if(drafts.length && window.confirm(drafts.map(p=>p.title).join('\n')+'\n위 항목을 Daily Plan에 추가할까요?')) update(v=>({...v,calendar:{...v.calendar,[date]:{...(v.calendar[date] ?? emptyCalendar(date)),plans:[...(v.calendar[date]?.plans ?? []),...drafts]}}}));}}>BUMP Plan 검토</button>}<button className="add-day-plan" onClick={() => openTask(date)}><Plus size={15} /> 추가</button></div><div className="weekly-task-list" data-week-drop={date}>{plans.length ? plans.map((item, index) => <div className={`weekly-task-row ${item.done ? 'done' : ''} ${dragging?.kind === 'weekly' && dragging.id === item.id ? 'is-dragging' : ''}`} data-week-task-index={index} key={item.id} onPointerDown={(event) => startDrag(event, { kind: 'weekly', date, id: item.id })} onPointerUp={finishDrag} onPointerCancel={cancelDrag}>
-          <span className="drag-handle" aria-hidden="true"><GripVertical size={16} /></span><div className="plan-outcome" aria-label={`${item.title} 결과`}><button className={outcomeOf(item)==='achieved'?'active achieved':''} title="달성" onClick={() => setOutcome(date,item.id,'achieved')}><Check size={13}/></button><button className={outcomeOf(item)==='partial'?'active partial':''} title="세모" onClick={() => setOutcome(date,item.id,'partial')}><CircleDashed size={13}/></button><button className={outcomeOf(item)==='failed'?'active failed':''} title="실패" onClick={() => setOutcome(date,item.id,'failed')}><TriangleAlert size={13}/></button></div><span className={`subject-badge ${item.subject}`}>{item.subject}{item.inquiryTrack?` · ${item.inquiryTrack}`:''}</span><div className="weekly-task-main"><b>{item.title}</b>{item.detail && <small>{item.detail}</small>}</div><span className="weekly-task-quantity">{outcomeLabel[outcomeOf(item)]} · {item.quantity || '—'}</span><div className="weekly-task-actions"><button aria-label="수정" onClick={() => openTask(date, item)}><Pencil size={14} /></button><button aria-label="위로 이동" disabled={index === 0} onClick={() => moveTask(date, index, -1)}><ArrowUp size={14} /></button><button aria-label="아래로 이동" disabled={index === plans.length - 1} onClick={() => moveTask(date, index, 1)}><ArrowDown size={14} /></button><button className="row-delete" aria-label="삭제" onClick={() => removeTask(date, item.id)}><Trash2 size={14} /></button></div>
+          <span className="drag-handle" aria-hidden="true"><GripVertical size={16} /></span><div className="plan-outcome" aria-label={`${item.title} 결과`}><button className={outcomeOf(item)==='achieved'?'active achieved':''} title="달성" aria-label="달성" onClick={() => setOutcome(date,item.id,'achieved')}><Check size={13}/></button><button className={outcomeOf(item)==='partial'?'active partial':''} title="세모" aria-label="세모" onClick={() => setOutcome(date,item.id,'partial')}><CircleDashed size={13}/></button><button className={outcomeOf(item)==='failed'?'active failed':''} title="실패" aria-label="실패" onClick={() => setOutcome(date,item.id,'failed')}><TriangleAlert size={13}/></button></div><span className={`subject-badge ${item.subject}`}>{item.subject}{item.inquiryTrack?` · ${item.inquiryTrack}`:''}</span><div className="weekly-task-main"><b>{item.title}</b>{item.detail && <small>{item.detail}</small>}</div><span className="weekly-task-quantity">{outcomeLabel[outcomeOf(item)]} · {item.quantity || '—'}</span><div className="weekly-task-actions"><button aria-label="수정" onClick={() => openTask(date, item)}><Pencil size={14} /></button><button aria-label="위로 이동" disabled={index === 0} onClick={() => moveTask(date, index, -1)}><ArrowUp size={14} /></button><button aria-label="아래로 이동" disabled={index === plans.length - 1} onClick={() => moveTask(date, index, 1)}><ArrowDown size={14} /></button><button className="row-delete" aria-label="삭제" onClick={() => removeTask(date, item.id)}><Trash2 size={14} /></button></div>
         </div>) : <p className="weekly-empty">계획 없음 — 추가 버튼으로 오늘의 훈련을 넣어보세요.</p>}</div></div>;
       })}</div>
     </> : <>
@@ -126,7 +131,7 @@ export default function PlanningPage({ data, update, initialTab = 'weekly' }: { 
       <div className="monthly-goal-grid">{monthlyPlans.length ? monthlyPlans.map((item, index) => <Card className={`monthly-goal-card ${item.done ? 'done' : ''} ${dragging?.kind === 'monthly' && dragging.id === item.id ? 'is-dragging' : ''}`} key={item.id}><article data-month-drop={index} onPointerDown={(event) => startDrag(event, { kind: 'monthly', id: item.id })} onPointerUp={finishDrag} onPointerCancel={cancelDrag}><div><span className="drag-handle" aria-hidden="true"><GripVertical size={16} /></span><span className={`subject-badge ${item.subject}`}>{item.subject}</span><span><button className="monthly-edit" aria-label={`${item.title} 수정`} title="월간 목표 수정" onClick={() => openMonthlyEditor(item)}><Pencil size={14} /></button><button className="goal-check" aria-label={`${item.title} 완료 상태 변경`} onClick={() => toggleMonthly(item.id)}>{item.done ? <Check size={14} /> : '○'}</button><button className="goal-delete" aria-label={`${item.title} 삭제`} onClick={() => removeMonthly(item.id)}><Trash2 size={14} /></button></span></div><h3>{item.title}</h3><section><b>목적</b><p>{item.objective}</p></section><section><b>검증 기준</b><p>{item.successCriterion || '미설정'}</p></section><section><b>운영 전략</b><p>{item.strategy || '미설정'}</p></section></article></Card>) : <Empty>이달에 확보할 능력 또는 완주할 학습 범위를 설정하세요.</Empty>}</div>
       <Card className="monthly-week-summary"><div><span className="card-label">WEEKLY LOAD</span><h3>주차별 배치 현황</h3></div>{monthWeekCount.length ? <div>{monthWeekCount.map(([week, count]) => <span key={week}><b>{week.slice(5).replace('-', '.')} 주</b> {count}개 일정</span>)}</div> : <p>Weekly Plan에서 일정을 추가하면 이달의 주차별 계획량이 표시됩니다.</p>}</Card>
     </>}
-    {taskDate && <div className="modal-backdrop" onClick={closeTask}><div className="modal plan-task-modal" onClick={(event) => event.stopPropagation()}><div className="modal-head"><div><p className="eyebrow">{editingTaskId ? 'EDIT DAILY PLAN' : 'ADD DAILY PLAN'}</p><h2>{dateLabel(taskDate)} 일정</h2></div><button onClick={closeTask}><X /></button></div><div className="form-grid two"><Field label="과목"><select value={task.subject} onChange={(event) => setTask({ ...task, subject: event.target.value as Subject, inquiryTrack:event.target.value==='탐구'?task.inquiryTrack:undefined })}>{SUBJECTS.map((item) => <option key={item}>{item}</option>)}</select></Field>{task.subject==='탐구'&&<Field label="탐구 세부"><select value={task.inquiryTrack??'통사'} onChange={event=>setTask({...task,inquiryTrack:event.target.value as '통사'|'통과'})}><option>통사</option><option>통과</option></select></Field>}<Field label="훈련명"><input value={task.title} onChange={(event) => setTask({ ...task, title: event.target.value })} placeholder="예: 수1 뉴런 1단원" /></Field><Field label="세부 내용"><input value={task.detail} onChange={(event) => setTask({ ...task, detail: event.target.value })} placeholder="예: 정적분으로 정의된 함수" /></Field><Field label="목표량"><input value={task.quantity} onChange={(event) => setTask({ ...task, quantity: event.target.value })} placeholder="예: 31문제 · 90분" /></Field></div><PlanLinks data={data} date={taskDate} plan={task} onChange={patch=>setTask({...task,...patch})}/><div className="modal-actions"><SaveButton onClick={saveTask} label={editingTaskId ? '주간 계획 수정' : '주간 계획 추가'} /></div></div></div>}
+    {taskDate && createPortal(<div className="modal-backdrop" onClick={closeTask}><div ref={taskDialogRef} className="modal plan-task-modal" role="dialog" aria-modal="true" aria-labelledby="plan-task-title" onClick={(event) => event.stopPropagation()}><div className="modal-head"><div><p className="eyebrow">{editingTaskId ? 'EDIT DAILY PLAN' : 'ADD DAILY PLAN'}</p><h2 id="plan-task-title">{dateLabel(taskDate)} 일정</h2></div><button onClick={closeTask} aria-label="닫기"><X /></button></div><div className="form-grid two"><Field label="과목"><select value={task.subject} onChange={(event) => setTask({ ...task, subject: event.target.value as Subject, inquiryTrack:event.target.value==='탐구'?task.inquiryTrack:undefined })}>{SUBJECTS.map((item) => <option key={item}>{item}</option>)}</select></Field>{task.subject==='탐구'&&<Field label="탐구 세부"><select value={task.inquiryTrack??'통사'} onChange={event=>setTask({...task,inquiryTrack:event.target.value as '통사'|'통과'})}><option>통사</option><option>통과</option></select></Field>}<Field label="훈련명"><input value={task.title} onChange={(event) => setTask({ ...task, title: event.target.value })} placeholder="예: 수1 뉴런 1단원" /></Field><Field label="세부 내용"><input value={task.detail} onChange={(event) => setTask({ ...task, detail: event.target.value })} placeholder="예: 정적분으로 정의된 함수" /></Field><Field label="목표량"><input value={task.quantity} onChange={(event) => setTask({ ...task, quantity: event.target.value })} placeholder="예: 31문제 · 90분" /></Field></div><PlanLinks data={data} date={taskDate} plan={task} onChange={patch=>setTask({...task,...patch})}/><div className="modal-actions"><SaveButton onClick={saveTask} label={editingTaskId ? '주간 계획 수정' : '주간 계획 추가'} /></div></div></div>, document.body)}
     {dragHint && <div className="drag-toast">{dragHint}</div>}
   </div>;
 }

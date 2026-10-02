@@ -19,9 +19,12 @@ import './trinity-redesign-v2.css';
 import './trinity-ui-v3.css';
 import './subject-system.css';
 import './weekly-plan-polish.css';
+import './apple-ui.css';
+import './planning-responsive.css';
+import './study-responsive.css';
+import './portal-responsive.css';
+import './utility-responsive.css';
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
 
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
-
-

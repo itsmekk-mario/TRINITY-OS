@@ -81,9 +81,11 @@ export default function HandwritingNotes({ data, update }: { data: AppData; upda
   }, [note.strokes]);
 
   useEffect(() => {
-    const onResize = () => renderCanvas();
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const observer = new ResizeObserver(() => renderCanvas());
+    observer.observe(canvas);
+    return () => observer.disconnect();
   }, [note.strokes]);
 
   const pointFromEvent = (event: React.PointerEvent<HTMLCanvasElement>): HandwritingPoint => {
@@ -207,8 +209,8 @@ export default function HandwritingNotes({ data, update }: { data: AppData; upda
         </div>
         <div className="handwriting-toolbar" role="toolbar" aria-label="손글씨 도구">
           <div className="handwriting-tool-group">
-            <button className={tool === 'pen' ? 'active' : ''} onClick={() => setTool('pen')}><PenLine size={16}/>펜</button>
-            <button className={tool === 'eraser' ? 'active' : ''} onClick={() => setTool('eraser')}><Eraser size={16}/>지우개</button>
+            <button className={tool === 'pen' ? 'active' : ''} aria-pressed={tool === 'pen'} onClick={() => setTool('pen')}><PenLine size={16}/>펜</button>
+            <button className={tool === 'eraser' ? 'active' : ''} aria-pressed={tool === 'eraser'} onClick={() => setTool('eraser')}><Eraser size={16}/>지우개</button>
           </div>
           <div className="handwriting-colors" aria-label="펜 색상">{['#172235','#1565c0','#b42318','#18794e'].map((value) => <button key={value} type="button" aria-label={`색상 ${value}`} className={color === value ? 'active' : ''} style={{ '--ink': value } as CSSProperties} onClick={() => { setColor(value); setTool('pen'); }}/>)}</div>
           <label className="handwriting-width">굵기<select value={width} onChange={(event) => setWidth(Number(event.target.value))}><option value={2}>2</option><option value={4}>4</option><option value={7}>7</option><option value={11}>11</option></select></label>
@@ -218,7 +220,7 @@ export default function HandwritingNotes({ data, update }: { data: AppData; upda
           </div>
         </div>
         <div className="handwriting-paper-wrap">
-          <canvas ref={canvasRef} className="handwriting-canvas" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={finishStroke} onPointerCancel={finishStroke} onPointerLeave={(event) => { if (event.buttons === 0) finishStroke(event); }}/>
+          <canvas ref={canvasRef} className="handwriting-canvas" aria-label="손글씨 노트 입력 영역" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={finishStroke} onPointerCancel={finishStroke} onPointerLeave={(event) => { if (event.buttons === 0) finishStroke(event); }}/>
         </div>
         <div className="handwriting-actions">
           {notice && <span role="status">{notice}</span>}
