@@ -126,6 +126,58 @@ export async function fetchCloudflareData(config: CloudflareConfig): Promise<Rem
   return response.json() as Promise<RemotePayload>;
 }
 
+
+export type SyncHistoryItem = {
+  id: number;
+  savedAt: string;
+  resourceCount: number;
+  wrongAnswerCount: number;
+  sessionCount: number;
+  scoreCount: number;
+  invalid?: boolean;
+};
+
+export async function fetchCloudflareHistory(config: CloudflareConfig): Promise<SyncHistoryItem[]> {
+  const { base, headers } = requestParts(config);
+  const response = await fetch(`${base}/api/sync/history`, { headers, cache: 'no-store' });
+  if (!response.ok) {
+    let payload: { error?: string } = {};
+    try { payload = await response.json() as typeof payload; } catch { /* no body */ }
+    throw new Error(payload.error || `이전 저장본 조회 실패 (${response.status})`);
+  }
+  const payload = await response.json() as { history?: SyncHistoryItem[] };
+  return Array.isArray(payload.history) ? payload.history : [];
+}
+
+export async function recoverCloudflareHistoryMissing(
+  historyId: number,
+  config: CloudflareConfig,
+): Promise<{ data: AppData; updatedAt: string; addedResources: number; addedWrongAnswers: number }> {
+  const { base, headers } = requestParts(config);
+  const response = await fetch(`${base}/api/sync/history/${historyId}/recover-missing`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({}),
+  });
+  let payload: {
+    error?: string;
+    data?: AppData;
+    updatedAt?: string;
+    addedResources?: number;
+    addedWrongAnswers?: number;
+  } = {};
+  try { payload = await response.json() as typeof payload; } catch { /* no body */ }
+  if (!response.ok || !payload.data || !payload.updatedAt) {
+    throw new Error(payload.error || `이전 저장본 복구 실패 (${response.status})`);
+  }
+  return {
+    data: migratePlans(payload.data),
+    updatedAt: payload.updatedAt,
+    addedResources: payload.addedResources ?? 0,
+    addedWrongAnswers: payload.addedWrongAnswers ?? 0,
+  };
+}
+
 export async function uploadCloudflareData(
   data: AppData,
   config: CloudflareConfig,
@@ -168,10 +220,8 @@ export async function autoSyncCloudflareData(data: AppData, userId: number | str
     return { action: 'unchanged', updatedAt: remote.updatedAt };
   }
 
-  const conflict = (reason: string, updatedAt = remote.updatedAt ?? null): AutoSyncResult => {
-    saveRecoveryCopy(userId, data);
-    return { action: 'conflict', updatedAt, reason };
-  };
+  const conflict = (reason: string, updatedAt = remote.updatedAt ?? null): AutoSyncResult =>
+    ({ action: 'conflict', updatedAt, reason });
 
   if (!remote.data) {
     if (metadata?.remoteUpdatedAt) {

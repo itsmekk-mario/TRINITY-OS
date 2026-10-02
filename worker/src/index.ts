@@ -276,6 +276,73 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     const requestText = `선별된 학습 데이터:\n${JSON.stringify(context)}\n\n최근 대화:\n${conversation}\n\n위 질문에만 짧게 답하세요.`;
     try { const selected = await localAIContext(env, user.id); const result = await aiService.complete({ db: env.DB, userId: user.id, user: user.username, operation: 'chat', cacheKey: await sha256(`${requestText}:${stableJson(selected ?? {})}:ultra-final-v2`), maxTokens: 2048, context: selected, config: providerConfig(env), messages: prompt(coachSystem, requestText) }); return json({ message: result.content, cached: result.cached }, 200, origin); } catch (cause) { return aiError(cause, origin); }
   }
+  if (url.pathname === '/api/sync/history' && request.method === 'GET') {
+    if (!auth || !user) return json({ error: 'Unauthorized' }, 401, origin);
+    if (auth.authType === 'api_token' && !auth.scopes.includes('sync:read')) return json({ error: 'Token scope does not allow this operation.' }, 403, origin);
+    const rows = await env.DB.prepare('SELECT id,payload,saved_at FROM learning_state_history WHERE user_id=? ORDER BY id DESC LIMIT 100').bind(user.id).all<{ id: number; payload: string; saved_at: string }>();
+    const history = rows.results.map((row) => {
+      try {
+        const payload = JSON.parse(row.payload) as Record<string, unknown>;
+        return {
+          id: row.id,
+          savedAt: row.saved_at,
+          resourceCount: Array.isArray(payload.resources) ? payload.resources.length : 0,
+          wrongAnswerCount: Array.isArray(payload.wrongAnswerDrills) ? payload.wrongAnswerDrills.length : 0,
+          sessionCount: Array.isArray(payload.sessions) ? payload.sessions.length : 0,
+          scoreCount: Array.isArray(payload.scores) ? payload.scores.length : 0,
+        };
+      } catch {
+        return { id: row.id, savedAt: row.saved_at, resourceCount: 0, wrongAnswerCount: 0, sessionCount: 0, scoreCount: 0, invalid: true };
+      }
+    });
+    return json({ history }, 200, origin);
+  }
+  const historyRecoveryMatch = url.pathname.match(/^\/api\/sync\/history\/(\d+)\/recover-missing$/);
+  if (historyRecoveryMatch && request.method === 'POST') {
+    if (!auth || !user) return json({ error: 'Unauthorized' }, 401, origin);
+    if (auth.authType === 'api_token' && !auth.scopes.includes('sync:write')) return json({ error: 'Token scope does not allow this operation.' }, 403, origin);
+    const historyId = Number(historyRecoveryMatch[1]);
+    if (!Number.isSafeInteger(historyId) || historyId <= 0) return json({ error: '올바르지 않은 저장본 ID입니다.' }, 400, origin);
+    const snapshotRow = await env.DB.prepare('SELECT payload,saved_at FROM learning_state_history WHERE user_id=? AND id=?').bind(user.id, historyId).first<{ payload: string; saved_at: string }>();
+    if (!snapshotRow) return json({ error: '해당 저장본을 찾을 수 없습니다.' }, 404, origin);
+    const currentRow = await env.DB.prepare('SELECT payload,updated_at FROM learning_state WHERE user_id=?').bind(user.id).first<{ payload: string; updated_at: string }>();
+    if (!currentRow) return json({ error: '현재 학습 데이터가 없습니다.' }, 409, origin);
+
+    let snapshot: unknown;
+    let currentData: unknown;
+    try { snapshot = JSON.parse(snapshotRow.payload); currentData = JSON.parse(currentRow.payload); }
+    catch { return json({ error: '저장본 데이터가 손상되어 복구할 수 없습니다.' }, 409, origin); }
+    if (!validateAppData(snapshot) || !validateAppData(currentData)) return json({ error: '저장본 데이터 형식을 확인할 수 없습니다.' }, 409, origin);
+
+    const mergeMissingById = (currentList: unknown[], snapshotList: unknown[]) => {
+      const ids = new Set(currentList.map((item) => item && typeof item === 'object' && !Array.isArray(item) ? (item as Record<string, unknown>).id : null).filter((id): id is string => typeof id === 'string'));
+      const added = snapshotList.filter((item) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+        const id = (item as Record<string, unknown>).id;
+        if (typeof id !== 'string' || ids.has(id)) return false;
+        ids.add(id);
+        return true;
+      });
+      return { items: [...currentList, ...added], added: added.length };
+    };
+
+    const resources = mergeMissingById(currentData.resources as unknown[], snapshot.resources as unknown[]);
+    const wrongAnswers = mergeMissingById(currentData.wrongAnswerDrills as unknown[], snapshot.wrongAnswerDrills as unknown[]);
+    const next = { ...currentData, resources: resources.items, wrongAnswerDrills: wrongAnswers.items };
+    if (!validateAppData(next)) return json({ error: '복구 결과 데이터 형식이 올바르지 않습니다.' }, 409, origin);
+    if (resources.added === 0 && wrongAnswers.added === 0) return json({ ok: true, data: currentData, updatedAt: currentRow.updated_at, addedResources: 0, addedWrongAnswers: 0 }, 200, origin);
+
+    const now = new Date().toISOString();
+    const write = await env.DB.prepare('UPDATE learning_state SET payload=?,updated_at=? WHERE user_id=? AND updated_at=?').bind(JSON.stringify(next), now, user.id, currentRow.updated_at).run();
+    if ((write.meta?.changes ?? 0) !== 1) {
+      const latest = await env.DB.prepare('SELECT updated_at FROM learning_state WHERE user_id=?').bind(user.id).first<{ updated_at: string }>();
+      return json({ error: '복구 중 다른 기기에서 데이터가 변경되었습니다. 다시 시도해 주세요.', conflict: true, updatedAt: latest?.updated_at ?? null }, 409, origin);
+    }
+    await env.DB.prepare('INSERT INTO learning_state_history(user_id,payload,saved_at) VALUES(?,?,?)').bind(user.id, currentRow.payload, now).run();
+    await syncLearningProjection(env.DB, user.id, next, now);
+    await env.DB.prepare('DELETE FROM learning_state_history WHERE user_id=? AND id NOT IN (SELECT id FROM learning_state_history WHERE user_id=? ORDER BY id DESC LIMIT 100)').bind(user.id, user.id).run();
+    return json({ ok: true, data: next, updatedAt: now, addedResources: resources.added, addedWrongAnswers: wrongAnswers.added }, 200, origin);
+  }
   if (url.pathname !== '/api/sync' || !['GET', 'PUT'].includes(request.method)) return json({ error: 'Not found' }, 404, origin);
   if (!auth||!user) return json({ error: 'Unauthorized' }, 401, origin);
   if(auth.authType==='api_token'&&!auth.scopes.includes(request.method==='GET'?'sync:read':'sync:write'))return json({error:'Token scope does not allow this operation.'},403,origin);
@@ -302,7 +369,7 @@ export default { async fetch(request: Request, env: Env): Promise<Response> {
     await env.DB.prepare('INSERT INTO learning_state(user_id,payload,updated_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at').bind(user.id,JSON.stringify(body.data),now).run();
   }
   await syncLearningProjection(env.DB,user.id,body.data,now);
-  await env.DB.prepare('DELETE FROM learning_state_history WHERE user_id=? AND id NOT IN (SELECT id FROM learning_state_history WHERE user_id=? ORDER BY id DESC LIMIT 20)').bind(user.id, user.id).run();
+  await env.DB.prepare('DELETE FROM learning_state_history WHERE user_id=? AND id NOT IN (SELECT id FROM learning_state_history WHERE user_id=? ORDER BY id DESC LIMIT 100)').bind(user.id, user.id).run();
   return json({ ok: true, updatedAt: now }, 200, origin);
  } catch(cause) {
   const requestId=randomHex(8),cors=requestOrigin(request,env.ALLOWED_ORIGIN,env.ENVIRONMENT);

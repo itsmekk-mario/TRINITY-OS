@@ -178,6 +178,11 @@ function StudentApp() {
   );
   const [identity, setIdentity] = useState<SessionIdentity | null>(null);
   const syncing = useRef(false);
+  const syncPending = useRef(false);
+  const latestDataRef = useRef<AppData>(data);
+  const latestIdentityRef = useRef<SessionIdentity | null>(identity);
+  latestDataRef.current = data;
+  latestIdentityRef.current = identity;
   const scrollPositions = useRef(new Map<string, number>());
   const [themePreference, setThemePreference] =
     useState<ThemePreference>(getThemePreference);
@@ -239,29 +244,53 @@ function StudentApp() {
       setIdentity(profile);
     });
   }, [authenticated]);
-  useEffect(() => {
-    if (!identity) return;
-    const timer = window.setTimeout(async () => {
-      if (syncing.current) return;
-      syncing.current = true;
-      try {
-        const result = await autoSyncCloudflareData(data, identity.userId);
+  const runAutoSync = async () => {
+    if (syncing.current) {
+      syncPending.current = true;
+      return;
+    }
+    syncing.current = true;
+    try {
+      do {
+        syncPending.current = false;
+        const activeIdentity = latestIdentityRef.current;
+        if (!activeIdentity) return;
+
+        const snapshot = latestDataRef.current;
+        const result = await autoSyncCloudflareData(snapshot, activeIdentity.userId);
+
+        if (latestIdentityRef.current?.userId !== activeIdentity.userId) return;
+
+        // The request started from `snapshot`. If the user edited anything while it was
+        // in flight, its response is stale and must never replace the newer local state.
+        // Reconcile the newest state immediately instead of dropping this sync request.
+        if (latestDataRef.current !== snapshot) {
+          syncPending.current = true;
+          continue;
+        }
+
         if (result.action === "downloaded" && result.data) {
-          // Never replace the visible/local state without keeping a one-click recovery copy.
-          saveRecoveryCopy(identity.userId, data);
-          saveData(identity.userId, result.data);
+          saveRecoveryCopy(activeIdentity.userId, snapshot);
+          saveData(activeIdentity.userId, result.data);
+          latestDataRef.current = result.data;
           setData(result.data);
         } else if (result.action === "conflict") {
-          // The server and this tab diverged. Keep both intact and require an explicit direction.
-          saveRecoveryCopy(identity.userId, data);
+          saveRecoveryCopy(activeIdentity.userId, snapshot);
           setToast(result.reason || "동기화 충돌을 감지해 자동 덮어쓰기를 중단했습니다.");
           window.setTimeout(() => setToast(""), 5000);
         }
-      } catch {
-        /* Local data remains authoritative until the next retry. */
-      } finally {
-        syncing.current = false;
-      }
+      } while (syncPending.current);
+    } catch {
+      /* Local data remains authoritative until the next retry. */
+    } finally {
+      syncing.current = false;
+    }
+  };
+  useEffect(() => {
+    if (!identity) return;
+    const timer = window.setTimeout(() => {
+      syncPending.current = true;
+      void runAutoSync();
     }, 1500);
     return () => window.clearTimeout(timer);
   }, [data, identity]);
